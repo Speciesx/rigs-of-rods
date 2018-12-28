@@ -54,6 +54,7 @@ bool Terrn2Parser::LoadTerrn2(Terrn2Def& def, Ogre::DataStreamPtr &ds)
     }
 
     def.ambient_color        = file.GetColourValue("AmbientColor",     "General", ColourValue::White);
+    def.ambient_light        = file.GetColourValue("AmbientLight",     "General", ColourValue(0.3f, 0.3f, 0.3f));
     def.category_id          = file.GetInt        ("CategoryID",       "General", 129);
     def.guid                 = file.GetStringEx   ("GUID",             "General");
     def.version              = file.GetInt        ("Version",          "General", 1);

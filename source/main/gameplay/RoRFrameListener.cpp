@@ -2091,7 +2091,7 @@ bool SimController::SetupGameplayLoop()
 
     m_scene_mouse.InitializeVisuals(); // TODO: Move to GfxScene ~ only_a_ptr, 06/2018
 
-    gEnv->sceneManager->setAmbientLight(Ogre::ColourValue(0.3f, 0.3f, 0.3f));
+    gEnv->sceneManager->setAmbientLight(m_def.ambient_light);
 
     return true;
 }

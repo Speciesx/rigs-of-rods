@@ -167,7 +167,7 @@ bool SkyXManager::InitLight()
 	mAmbientGradient.addCFrame(SkyX::ColorGradient::ColorFrame(Ogre::Vector3(1,1,1)*0.1, 0.35f));
 	mAmbientGradient.addCFrame(SkyX::ColorGradient::ColorFrame(Ogre::Vector3(1,1,1)*0.05, 0.0f));
 
-	gEnv->sceneManager->setAmbientLight(ColourValue(0.35,0.35,0.35)); //Not needed because terrn2 has ambientlight settings
+//	gEnv->sceneManager->setAmbientLight(ColourValue(0.35,0.35,0.35)); //Not needed because terrn2 has ambientlight settings
 
 	// Light
 	mLight0 = gEnv->sceneManager->createLight("Light0");
