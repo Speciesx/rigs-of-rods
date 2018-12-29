@@ -31,7 +31,6 @@
 #include "ForceFeedback.h"
 #include "OutProtocol.h"
 #include "SceneMouse.h"
-#include "Terrn2Fileformat.h"
 
 /// The simulation controller object
 /// It's lifetime is tied to single gameplay session. When user returns to main menu, it's destroyed.
@@ -138,7 +137,6 @@ private:
     RoR::SceneMouse          m_scene_mouse;
     RoR::CameraManager       m_camera_manager;
     Ogre::Real               m_time_until_next_toggle; //!< just to stop toggles flipping too fast
-    RoR::Terrn2Def           m_def;
     float                    m_last_simulation_speed;  //!< previously used time ratio between real time (evt.timeSinceLastFrame) and physics time ('dt' used in calcPhysics)
     bool                     m_is_pace_reset_pressed;
     float                    m_physics_simulation_time; //!< Amount of time the physics simulation is going to be advanced
