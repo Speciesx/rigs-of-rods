@@ -326,6 +326,9 @@ void TerrainManager::initLight()
         m_main_light->setShadowFarDistance(1000.0f);
         m_main_light->setShadowNearClipDistance(-1);
     }
+
+    gEnv->sceneManager->setAmbientLight(m_def.ambient_light);
+
 }
 
 void TerrainManager::initFog()
