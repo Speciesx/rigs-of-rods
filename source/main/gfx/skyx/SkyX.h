@@ -34,6 +34,7 @@ http://www.gnu.org/copyleft/lesser.txt.
 #include "ColorGradient.h"
 #include "Controller.h"
 #include "BasicController.h"
+#include "Precipitation/SkyXPrecipitationController.h"
 #include "VCloudsManager.h"
 #include "VClouds/VClouds.h"
 #include "VClouds/GeometryManager.h"
@@ -128,6 +129,19 @@ namespace SkyX
          */
         void update(const Ogre::Real &timeSinceLastFrame);
 
+		/** RIGSOFRODS: Pause the sky (time of day, clouds, wind, lightning), e.g. while the game is paused.
+		    The per-frame update then runs with a time step of 0, so everything still renders and reacts to settings.
+		 */
+		inline void setPaused(const bool& paused)
+		{
+			mPaused = paused;
+		}
+
+		inline const bool& isPaused() const
+		{
+			return mPaused;
+		}
+
 		/** Notify camera render (to be invoked per camera and per frame)
 		    @param c Camera
 			@remarks Invoke this method manually before the camera render operation
@@ -220,6 +234,16 @@ namespace SkyX
 		/** Get volumetric clouds manager
 		    @return Volumetric clouds manager
 		 */
+		/// Precipitation (ported from Caelum), see 'Precipitation/'
+		inline PrecipitationController* getPrecipitationController()
+		{
+			return mPrecipitationController;
+		}
+
+		/// Precipitation compositors are created for each attached viewport
+		void attachViewport(Ogre::Viewport* viewport);
+		void detachViewport(Ogre::Viewport* viewport);
+
 		inline VCloudsManager* getVCloudsManager()
 		{
 			return mVCloudsManager;
@@ -370,6 +394,8 @@ namespace SkyX
 		CloudsManager* mCloudsManager;
 		/// Volumetric clouds manager
 		VCloudsManager* mVCloudsManager;
+		/// Precipitation controller (ported from Caelum)
+		PrecipitationController* mPrecipitationController;
 
 		/// Controller
 		Controller* mController;
@@ -391,6 +417,8 @@ namespace SkyX
 
 		/// Is SkyX visible?
 		bool mVisible;
+		/// RIGSOFRODS: see setPaused()
+		bool mPaused = false;
 
 		/// Lighting mode
 		LightingMode mLightingMode;

@@ -58,6 +58,17 @@ namespace SkyX
 		mController->setTime(_getVector3Value(CfgFile, "Time"));
 		mController->setMoonPhase(_getFloatValue(CfgFile, "MoonPhase"));
 
+		// Astronomical sun and moon (ported from Caelum). Only enabled if the config gives a latitude.
+		if (CfgFile.getSetting("<int>DayOfYear") != "")
+		{
+			mController->setDayOfYear(_getIntValue(CfgFile, "DayOfYear"));
+		}
+		if (CfgFile.getSetting("<float>Latitude") != "")
+		{
+			mController->setLatitude(_getFloatValue(CfgFile, "Latitude"));
+			mController->setAstronomical(true);
+		}
+
 		mSkyX->getAtmosphereManager()->setOptions(
 			AtmosphereManager::Options(
 			_getFloatValue(CfgFile, "_InnerRadius"),
@@ -71,6 +82,8 @@ namespace SkyX
 			_getFloatValue(CfgFile, "_Exposure"),
 			_getFloatValue(CfgFile, "_NumerOfSamples")
 			));
+
+		this->loadPrecipitationParams(CfgFile);
 
 		// Layered clouds
 		if (_getBoolValue(CfgFile, "layeredclouds") && !_getBoolValue(CfgFile, "volClouds"))
@@ -292,50 +305,119 @@ namespace SkyX
 	Ogre::Vector2 CfgFileManager::_getVector2Value(Ogre::ConfigFile& CfgFile, const Ogre::String Name)
 	{
 		Ogre::String Value = CfgFile.getSetting("<vector2>" + Name);
+		const Ogre::StringVector tokens = Ogre::StringUtil::split(Value, "x");
 
-		if (Value == "")
+		if (Value == "" || tokens.size() < 2)
 		{
 			return Ogre::Vector2(0,0);
 		}
 		else
 		{
-			return Ogre::Vector2(Ogre::StringConverter::parseReal(Ogre::StringUtil::split(Value, "x")[0]),
-				                 Ogre::StringConverter::parseReal(Ogre::StringUtil::split(Value, "x")[1]));
+			return Ogre::Vector2(Ogre::StringConverter::parseReal(tokens[0]),
+				                 Ogre::StringConverter::parseReal(tokens[1]));
 		}
 	}
 
 	Ogre::Vector3 CfgFileManager::_getVector3Value(Ogre::ConfigFile& CfgFile, const Ogre::String Name)
 	{
 		Ogre::String Value = CfgFile.getSetting("<vector3>" + Name);
+		const Ogre::StringVector tokens = Ogre::StringUtil::split(Value, "x");
 
-		if (Value == "")
+		if (Value == "" || tokens.size() < 3)
 		{
 			return Ogre::Vector3(0,0,0);
 		}
 		else
 		{
-			return Ogre::Vector3(Ogre::StringConverter::parseReal(Ogre::StringUtil::split(Value, "x")[0]),
-				                 Ogre::StringConverter::parseReal(Ogre::StringUtil::split(Value, "x")[1]),
-								 Ogre::StringConverter::parseReal(Ogre::StringUtil::split(Value, "x")[2]));
+			return Ogre::Vector3(Ogre::StringConverter::parseReal(tokens[0]),
+				                 Ogre::StringConverter::parseReal(tokens[1]),
+								 Ogre::StringConverter::parseReal(tokens[2]));
 		}
 	}
 
 	Ogre::Vector4 CfgFileManager::_getVector4Value(Ogre::ConfigFile& CfgFile, const Ogre::String Name)
 	{
 		Ogre::String Value = CfgFile.getSetting("<vector4>" + Name);
+		const Ogre::StringVector tokens = Ogre::StringUtil::split(Value, "x");
 
-		if (Value == "")
+		if (Value == "" || tokens.size() < 4)
 		{
 			return Ogre::Vector4(0, 0, 0, 0);
 		}
 		else
 		{
 			return Ogre::Vector4(
-				Ogre::StringConverter::parseReal(Ogre::StringUtil::split(Value, "x")[0]),
-				Ogre::StringConverter::parseReal(Ogre::StringUtil::split(Value, "x")[1]),
-				Ogre::StringConverter::parseReal(Ogre::StringUtil::split(Value, "x")[2]),
-				Ogre::StringConverter::parseReal(Ogre::StringUtil::split(Value, "x")[3])
+				Ogre::StringConverter::parseReal(tokens[0]),
+				Ogre::StringConverter::parseReal(tokens[1]),
+				Ogre::StringConverter::parseReal(tokens[2]),
+				Ogre::StringConverter::parseReal(tokens[3])
 				);
+		}
+	}
+
+	Ogre::ColourValue CfgFileManager::_getColourValue(Ogre::ConfigFile& CfgFile, const Ogre::String Name)
+	{
+		Ogre::String Value = CfgFile.getSetting("<color>" + Name);
+		const Ogre::StringVector tokens = Ogre::StringUtil::split(Value, "x");
+
+		if (Value == "" || tokens.size() < 3)
+		{
+			return Ogre::ColourValue(0, 0, 0, 0);
+		}
+
+		Ogre::ColourValue retval(
+			Ogre::StringConverter::parseReal(tokens[0]),
+			Ogre::StringConverter::parseReal(tokens[1]),
+			Ogre::StringConverter::parseReal(tokens[2]));
+		if (tokens.size() > 3)
+		{
+			retval.a = Ogre::StringConverter::parseReal(tokens[3]);
+		}
+		return retval;
+	}
+
+	// Precipitation system ported from Caelum
+	// ----------------------------------------
+	// Names in Caelum script   | names in SkyX script                       | Descriptions
+	// "texture"                | "PrecipitationTextureName"                 | 'precipitation_X.png', X is: drizzle/rain/snow/snowgrains/icecrystals/icepellets/hail/smallhail
+	// "precipitation_colour"   | "<color>PrecipitationColor"                |
+	// "falling_speed"          | "<float>PrecipitationFallingSpeed"         |
+	// "camera_speed_scale"     | "<vector3>PrecipitationCameraSpeedScale"   | How much moving the player affects the direction of rain drops
+	// "intensity"              | "<float>PrecipitationIntensity"            |
+	// "auto_disable_intensity" | "<float>PrecipitationAutoDisableThreshold" | Negative value = compositor is always enabled
+	// Only values present in the file are applied, so configs without precipitation keep the 'rain' preset.
+	void CfgFileManager::loadPrecipitationParams(Ogre::ConfigFile& CfgFile) const
+	{
+		PrecipitationController* prec = mSkyX->getPrecipitationController();
+		if (prec == nullptr)
+		{
+			return;
+		}
+
+		const Ogre::String texture = CfgFile.getSetting("PrecipitationTextureName");
+		if (texture != "")
+		{
+			prec->setTextureName(texture);
+		}
+		if (CfgFile.getSetting("<color>PrecipitationColor") != "")
+		{
+			prec->setColour(_getColourValue(CfgFile, "PrecipitationColor"));
+		}
+		if (CfgFile.getSetting("<float>PrecipitationFallingSpeed") != "")
+		{
+			prec->setSpeed(_getFloatValue(CfgFile, "PrecipitationFallingSpeed"));
+		}
+		if (CfgFile.getSetting("<vector3>PrecipitationCameraSpeedScale") != "")
+		{
+			prec->setCameraSpeedScale(_getVector3Value(CfgFile, "PrecipitationCameraSpeedScale"));
+		}
+		if (CfgFile.getSetting("<float>PrecipitationIntensity") != "")
+		{
+			prec->setIntensity(_getFloatValue(CfgFile, "PrecipitationIntensity"));
+		}
+		if (CfgFile.getSetting("<float>PrecipitationAutoDisableThreshold") != "")
+		{
+			prec->setAutoDisableThreshold(_getFloatValue(CfgFile, "PrecipitationAutoDisableThreshold"));
 		}
 	}
 

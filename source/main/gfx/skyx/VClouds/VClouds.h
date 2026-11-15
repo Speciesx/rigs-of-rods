@@ -286,6 +286,13 @@ namespace SkyX { namespace VClouds{
 			return Ogre::Vector2(Ogre::Math::Cos(mWindDirection), Ogre::Math::Sin(mWindDirection));
 		}
 
+		/** Get wind direction as a Vector3 (Y = up), used by precipitation
+		 */
+		inline const Ogre::Vector3 getPrecipitationWindDirectionV3() const
+		{
+			return Ogre::Vector3(Ogre::Math::Cos(mWindDirection), 0.0f, Ogre::Math::Sin(mWindDirection));
+		}
+
 		/** Set wind speed
 		    @param WindSpeed Wind speed
 		 */

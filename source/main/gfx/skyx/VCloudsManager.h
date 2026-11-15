@@ -116,6 +116,21 @@ namespace SkyX
 			return mHeight;
 		}
 
+		/** Set a color tint that is multiplied with the time-of-day sun and ambient colors of the clouds
+			@param Tint Color tint, (1,1,1) = unchanged (default)
+		 */
+		inline void setColorTint(const Ogre::Vector3& Tint)
+		{
+			mColorTint = Tint;
+		}
+
+		/** Get the cloud color tint
+		 */
+		inline const Ogre::Vector3& getColorTint() const
+		{
+			return mColorTint;
+		}
+
 		/** Autoupdate volumetric clouds wind depending of the SkyX time multiplier
 			@remarks You can use VClouds->setWindSpeed(..) for different winds speeds
 		 */
@@ -184,6 +199,8 @@ namespace SkyX
 
 		/// Height parameters, x = Cloud field y-coord start, y: Field height (both in world coordinates)
 		Ogre::Vector2 mHeight;
+		/// Color tint multiplied with the sun and ambient cloud colors
+		Ogre::Vector3 mColorTint = Ogre::Vector3(1.0f, 1.0f, 1.0f);
 
 		/// Autoupdate wind speed depending of skyx time multiplier?
 		bool mAutoupdate;

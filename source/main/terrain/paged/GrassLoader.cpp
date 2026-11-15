@@ -34,6 +34,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 #include <OgreSceneNode.h>
 
 #include "GrassLoader.h"
+#include "Application.h"
 #include "PagedGeometry.h"
 #include "PropertyMaps.h"
 #include "RandomTable.h"
@@ -179,6 +180,7 @@ void GrassLoader::loadPage(PageInfo &page)
 			Entity *entity = geom->getCamera()->getSceneManager()->createEntity(getUniqueID(), mesh->getName());
 			entity->setRenderQueueGroup(renderQueue);
 			entity->setCastShadows(false);
+			entity->setVisibilityFlags(RoR::DEPTHMAP_VEGETATION); // alpha cards must not end up as solid quads in the Hydrax depth map
 			addEntity(entity, page.centerPoint, Quaternion::IDENTITY, Vector3::UNIT_SCALE);
 
 			//Store the mesh pointer

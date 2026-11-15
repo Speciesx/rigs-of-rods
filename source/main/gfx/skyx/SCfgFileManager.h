@@ -97,6 +97,8 @@ namespace SkyX
 
 		static Ogre::Vector4 _getVector4Value(Ogre::ConfigFile& CfgFile, const Ogre::String Name);
 
+		static Ogre::ColourValue _getColourValue(Ogre::ConfigFile& CfgFile, const Ogre::String Name);
+
 		static Ogre::Degree _getDegreeValue(Ogre::ConfigFile& CfgFile, const Ogre::String Name);
 
 		static bool _isStringInList(const Ogre::StringVector &List, const Ogre::String &Find);
@@ -123,6 +125,9 @@ namespace SkyX
 		    @return true if it's the same version, false if not.
 		 */
 		const bool _checkVersion(Ogre::ConfigFile& CfgFile) const;
+
+		/// Precipitation system ported from Caelum; only values present in the file are applied
+		void loadPrecipitationParams(Ogre::ConfigFile& CfgFile) const;
 
 		/// Hydrax parent pointer
 		SkyX* mSkyX;

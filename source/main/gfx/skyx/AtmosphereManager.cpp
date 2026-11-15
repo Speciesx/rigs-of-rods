@@ -96,6 +96,10 @@ namespace SkyX
 			mGPUManager->setGpuProgramParameter(GPUManager::GPUP_VERTEX, "uKmESun", KmESun, false);
 		}
 
+		// Both multiplier blocks above compare against SunIntensity, so it may only be stored after them
+		// (otherwise getOptions() keeps returning the old value and the GUI slider jumps back)
+		mOptions.SunIntensity = NewOptions.SunIntensity;
+
 		if (NewOptions.NumberOfSamples != mOptions.NumberOfSamples ||
 			ForceToUpdateAll)
 		{

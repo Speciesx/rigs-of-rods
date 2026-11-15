@@ -462,6 +462,7 @@ enum VisibilityMasks
     DEPTHMAP_ENABLED  = BITMASK(1),
     DEPTHMAP_DISABLED = BITMASK(2),
     HIDE_MIRROR       = BITMASK(3),
+    DEPTHMAP_VEGETATION = BITMASK(4), //!< Paged vegetation, kept out of the Hydrax depth map unless the mask contains this bit
 };
 
 enum LoaderType //!< Search mode for `ModCache::Query()` & Operation mode for `GUI::MainSelector`

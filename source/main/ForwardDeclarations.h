@@ -264,6 +264,8 @@ namespace RoR
         class  ConsoleView;
         class  Dialog;
         class  FrictionSettings;
+        class  SkyControlsPanel;
+        class  WaterControlsPanel;
         class  GameControls;
         class  GameMainMenu;
         class  LoadingWindow;
@@ -293,6 +295,11 @@ namespace RigDef
 {
     struct Document;
     typedef std::shared_ptr<Document> DocumentPtr;
+}
+
+namespace SkyX
+{
+    class SkyX;
 }
 
 #ifdef USE_SOCKETW

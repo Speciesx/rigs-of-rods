@@ -639,7 +639,27 @@ namespace Hydrax
 		}
 
 		// If the camera is under the current water x/z position
-		if (getHeigth(mCamera->getDerivedPosition()) > mCamera->getDerivedPosition().y-mUnderwaterCameraSwitchDelta)
+		bool CameraUnderwater = getHeigth(mCamera->getDerivedPosition()) > mCamera->getDerivedPosition().y-mUnderwaterCameraSwitchDelta;
+
+		// Switching between the water and the underwater setup rebuilds RTTs, materials and the compositor.
+		// Don't flip back and forth every frame when the camera is at the wave surface.
+		if (mUnderwaterSwitchCooldown > 0)
+		{
+			mUnderwaterSwitchCooldown -= timeSinceLastFrame;
+		}
+		if (CameraUnderwater != mCurrentFrameUnderwater)
+		{
+			if (mUnderwaterSwitchCooldown > 0)
+			{
+				CameraUnderwater = mCurrentFrameUnderwater;
+			}
+			else
+			{
+				mUnderwaterSwitchCooldown = 1.0f;
+			}
+		}
+
+		if (CameraUnderwater)
 		{
 			mCurrentFrameUnderwater = true;
 
@@ -759,6 +779,14 @@ namespace Hydrax
     void Hydrax::setPlanesError(const Ogre::Real &PlanesError)
     {
         mPlanesError = PlanesError;
+
+        // The depth shaders got the value when they were created, keep them in sync with the reflection/refraction planes
+        if (mCreated && isComponent(HYDRAX_COMPONENT_DEPTH))
+        {
+            mMaterialManager->setGpuProgramParameter(
+                MaterialManager::GPUP_VERTEX, MaterialManager::MAT_DEPTH,
+                "uPlanesError", static_cast<float>(PlanesError));
+        }
     }
 
     void Hydrax::_setStrength(const Ogre::Real &Strength)

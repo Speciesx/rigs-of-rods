@@ -23,6 +23,8 @@ http://www.gnu.org/copyleft/lesser.txt.
 
 #include "LightningManager.h"
 
+#include <algorithm>
+
 #include "VClouds.h"
 #include "skyx/Prerequisites.h"
 
@@ -127,13 +129,9 @@ namespace SkyX { namespace VClouds
 					// Cloud-to-ground
 					if (prob < 0.5)
 					{
-						addLightning(
-							// Ray position
-							Ogre::Vector3(c->getDerivedPosition().x + Ogre::Math::RangeRandom(-c->getFarClipDistance()*0.5,c->getFarClipDistance()*0.5)/Ogre::Math::RangeRandom(1,5), mVClouds->getGeometrySettings().Height.x + 0.2*mVClouds->getGeometrySettings().Height.y, c->getDerivedPosition().z + Ogre::Math::RangeRandom(-c->getFarClipDistance()*0.5,c->getFarClipDistance()*0.5)/Ogre::Math::RangeRandom(1,5)), 
-							// Ray direction
-							Ogre::Vector3(0,-1,0), 
-							// Ray length
-							mVClouds->getGeometrySettings().Height.x + 0.1*mVClouds->getGeometrySettings().Height.y);
+						// RIGSOFRODS: the bolt reaches the ground (terrain or water) under it
+						const Ogre::Vector3 groundPos = Ogre::Vector3(c->getDerivedPosition().x + Ogre::Math::RangeRandom(-c->getFarClipDistance()*0.5,c->getFarClipDistance()*0.5)/Ogre::Math::RangeRandom(1,5), mVClouds->getGeometrySettings().Height.x + 0.2*mVClouds->getGeometrySettings().Height.y, c->getDerivedPosition().z + Ogre::Math::RangeRandom(-c->getFarClipDistance()*0.5,c->getFarClipDistance()*0.5)/Ogre::Math::RangeRandom(1,5));
+						addLightning(groundPos, Ogre::Vector3(0,-1,0), _getLengthToGround(groundPos));
 					}
 					// Cloud-to-cloud
 					else if (prob < 0.7)
@@ -149,13 +147,9 @@ namespace SkyX { namespace VClouds
 					// Cloud-to-ground + cloud-to-cloud
 					else
 					{
-						addLightning(
-							// Ray position
-							Ogre::Vector3(c->getDerivedPosition().x + Ogre::Math::RangeRandom(-c->getFarClipDistance()*0.5,c->getFarClipDistance()*0.5)/Ogre::Math::RangeRandom(1,5), mVClouds->getGeometrySettings().Height.x + 0.2*mVClouds->getGeometrySettings().Height.y, c->getDerivedPosition().z + Ogre::Math::RangeRandom(-c->getFarClipDistance()*0.5,c->getFarClipDistance()*0.5)/Ogre::Math::RangeRandom(1,5)), 
-							// Ray direction
-							Ogre::Vector3(0,-1,0), 
-							// Ray length
-							mVClouds->getGeometrySettings().Height.x + 0.1*mVClouds->getGeometrySettings().Height.y);
+						// RIGSOFRODS: the bolt reaches the ground (terrain or water) under it
+						const Ogre::Vector3 groundPos = Ogre::Vector3(c->getDerivedPosition().x + Ogre::Math::RangeRandom(-c->getFarClipDistance()*0.5,c->getFarClipDistance()*0.5)/Ogre::Math::RangeRandom(1,5), mVClouds->getGeometrySettings().Height.x + 0.2*mVClouds->getGeometrySettings().Height.y, c->getDerivedPosition().z + Ogre::Math::RangeRandom(-c->getFarClipDistance()*0.5,c->getFarClipDistance()*0.5)/Ogre::Math::RangeRandom(1,5));
+						addLightning(groundPos, Ogre::Vector3(0,-1,0), _getLengthToGround(groundPos));
 
 						addLightning(
 							// Ray position
@@ -197,6 +191,13 @@ namespace SkyX { namespace VClouds
 				it++;
 			}
 		}
+	}
+
+	Ogre::Real LightningManager::_getLengthToGround(const Ogre::Vector3& p) const
+	{
+		const Ogre::Real ground = mGroundHeightFunction ? mGroundHeightFunction(p.x, p.z) : 0;
+		// The bolt zigzags, so it needs to be a bit longer than the vertical distance
+		return std::max<Ogre::Real>(p.y - ground, 1) * 1.05f;
 	}
 
 	Lightning* LightningManager::addLightning(const Ogre::Vector3& p, const Ogre::Vector3& d, const Ogre::Real l, const Ogre::uint32& div)

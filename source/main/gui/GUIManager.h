@@ -34,6 +34,8 @@
 #include "GUI_ConsoleWindow.h"
 #include "GUI_FlexbodyDebug.h"
 #include "GUI_FrictionSettings.h"
+#include "GUI_SkySettings.h"
+#include "GUI_WaterSettings.h"
 #include "GUI_RepositorySelector.h"
 #include "GUI_GameMainMenu.h"
 #include "GUI_GameAbout.h"
@@ -126,6 +128,8 @@ public:
     GUI::GameChatBox            ChatBox;
     GUI::MpClientList           MpClientList;
     GUI::FrictionSettings       FrictionSettings;
+    GUI::SkyControlsPanel       SkyControls;
+    GUI::WaterControlsPanel     WaterControls;
     GUI::TextureToolWindow      TextureToolWindow;
     GUI::GameControls           GameControls;
     GUI::RepositorySelector     RepositorySelector;

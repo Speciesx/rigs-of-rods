@@ -139,8 +139,8 @@ namespace SkyX
 
 		float point = (mSkyX->getController()->getSunDirection().y + 1.0f) / 2.0f;
 
-		mVClouds->setAmbientColor(mAmbientGradient.getColor(point));
-		mVClouds->setSunColor(mSunGradient.getColor(point));
+		mVClouds->setAmbientColor(mAmbientGradient.getColor(point) * mColorTint);
+		mVClouds->setSunColor(mSunGradient.getColor(point) * mColorTint);
 	}
 
 	void VCloudsManager::_updateWindSpeedConfig()

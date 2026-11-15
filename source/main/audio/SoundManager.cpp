@@ -1015,6 +1015,10 @@ bool SoundManager::IsHardwareSourceObstructed(const int hardware_index) const
          || App::app_state->getEnum<AppState>()  != AppState::SIMULATION) // this is necessary to prevent a crash with enabled main menu music
         { return false; }
 
+    // Listener-relative ambient sounds (rain, wind, thunder) can not be obstructed
+    if (audio_sources[hardware_sources_map[hardware_index]]->isRelative())
+        { return false; }
+
     /*
      * There is no simple way to know whether a truck has a closed cabin or not; hence
      * provide an option to always force obstruction if the player is inside a vehicle.
@@ -1423,6 +1427,7 @@ void SoundManager::assign(int source_index, int hardware_index)
     alSourcei(hw_source, AL_BUFFER, audio_source->buffer);
     alSourcef(hw_source, AL_GAIN, audio_source->gain * App::audio_master_volume->getFloat());
     alSourcei(hw_source, AL_LOOPING, (audio_source->loop) ? AL_TRUE : AL_FALSE);
+    alSourcei(hw_source, AL_SOURCE_RELATIVE, (audio_source->relative) ? AL_TRUE : AL_FALSE);
     alSourcef(hw_source, AL_PITCH, audio_source->pitch);
     alSource3f(hw_source, AL_POSITION, audio_source->position.x, audio_source->position.y, audio_source->position.z);
     alSource3f(hw_source, AL_VELOCITY, audio_source->velocity.x, audio_source->velocity.y, audio_source->velocity.z);

@@ -158,6 +158,7 @@ bool GameContext::LoadTerrain(std::string const& filename_part)
     // * Landusemap
     // * SurveyMapTextureCreator
     // * Collisions (debug visualization)
+    m_sky_time_frozen = false; // new map -> time runs again
     m_terrain = new RoR::Terrain(terrn_entry, terrn2);
     if (!m_terrain->initialize())
     {
@@ -1293,6 +1294,11 @@ void GameContext::UpdateSkyInputEvents(float dt)
             time_factor = App::gfx_sky_time_speed->getInt();
         }
 
+        if (m_sky_time_frozen)
+        {
+            time_factor = 0.0f;
+        }
+
         if (m_terrain->getSkyManager()->GetSkyTimeFactor() != time_factor)
         {
             m_terrain->getSkyManager()->SetSkyTimeFactor(time_factor);
@@ -1321,9 +1327,19 @@ void GameContext::UpdateSkyInputEvents(float dt)
         {
             m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(-2.0f);
         }
+        else if (App::gfx_sky_time_cycle->getBool())
+        {
+            // Sky time speed in 'x real-time' (same setting as Caelum), SkyX counts hours per second
+            m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(App::gfx_sky_time_speed->getInt() / 3600.f);
+        }
         else
         {
             m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(0.01f);
+        }
+
+        if (m_sky_time_frozen)
+        {
+            m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(0.0f);
         }
     }
 }

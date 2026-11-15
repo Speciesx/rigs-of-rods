@@ -69,6 +69,12 @@ void Sound::computeAudibility(Vector3 pos)
         return;
     }
 
+    if (relative)
+    {
+        audibility = gain;
+        return;
+    }
+
     float distance = (pos - position).length();
 
     if (distance > sound_manager->MAX_DISTANCE)
@@ -138,6 +144,18 @@ void Sound::setLoop(bool loop_)
 
     this->loop = loop_;
     sound_manager->recomputeSource(source_index, REASON_LOOP, (loop) ? 1.0f : 0.0f, NULL);
+}
+
+void Sound::setRelative(bool relative_)
+{
+    if (relative_ == this->relative)
+        return;
+
+    this->relative = relative_;
+    if (hardware_index != -1)
+    {
+        alSourcei((ALuint)sound_manager->getHardwareSource(hardware_index), AL_SOURCE_RELATIVE, relative ? AL_TRUE : AL_FALSE);
+    }
 }
 
 void Sound::setPitch(float pitch_)

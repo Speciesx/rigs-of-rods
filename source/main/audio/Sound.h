@@ -49,6 +49,10 @@ public:
     void setPosition(Ogre::Vector3 pos);
     void setVelocity(Ogre::Vector3 vel);
     void setLoop(bool loop);
+    /// Relative sources are positioned relative to the listener (position 0,0,0 = at the listener): no distance attenuation,
+    /// no Doppler shift and no obstruction filtering. Meant for ambient sounds like rain, wind or thunder.
+    void setRelative(bool relative);
+    bool isRelative() const { return relative; }
     void setEnabled(bool e);
     void play();
     void stop();
@@ -85,6 +89,7 @@ private:
     bool loop;
     bool enabled;
     bool should_play;
+    bool relative = false;
 
     // this value is changed dynamically, depending on whether the input is played or not.
     int hardware_index;

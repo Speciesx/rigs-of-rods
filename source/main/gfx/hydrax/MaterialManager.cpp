@@ -27,6 +27,8 @@ Contributors:
 --------------------------------------------------------------------------------
 */
 
+#include <cmath>
+#include <algorithm>
 #include <OgreString.h>
 
 #include <MaterialManager.h>
@@ -97,6 +99,12 @@ namespace Hydrax
 
 		if (Ogre::MaterialManager::getSingleton().resourceExists(_def_Depth_Material_Name))
 		{
+			// Forget the animated caustics texture units of the depth material that is about to be destroyed,
+			// otherwise updateAnimatedTextures() would use dangling pointers after the components were changed
+			mCausticsAnimTexVec.erase(std::remove_if(mCausticsAnimTexVec.begin(), mCausticsAnimTexVec.end(),
+				[](Ogre::TextureUnitState* tus) { return tus->getParent()->getParent()->getParent()->getName() == _def_Depth_Material_Name; }),
+				mCausticsAnimTexVec.end());
+
 			Ogre::MaterialManager::getSingleton().remove(_def_Depth_Material_Name);
 
 			Ogre::HighLevelGpuProgramManager::getSingleton().unload(_def_Depth_Shader_VP_Name);
@@ -148,7 +156,18 @@ namespace Hydrax
 	{
 		if (Ogre::MaterialManager::getSingleton().resourceExists(_def_Underwater_Compositor_Material_Name))
 		{
-			setCompositorEnable(COMP_UNDERWATER, false);
+			// The compositor must also leave the viewport's compositor chain. Removing only the resource left a dead
+			// instance in the chain, and the next enable/disable call crashed (e.g. after changing the components).
+			Ogre::CompositorManager& cm = Ogre::CompositorManager::getSingleton();
+			Ogre::Viewport* vp = mHydrax->getViewport();
+			if (vp != nullptr && cm.hasCompositorChain(vp) && cm.getCompositorChain(vp)->getCompositor(_def_Underwater_Compositor_Name) != nullptr)
+			{
+				cm.setCompositorEnabled(vp, _def_Underwater_Compositor_Name, false);
+				cm.removeCompositor(vp, _def_Underwater_Compositor_Name);
+			}
+			mCompositorsEnable[COMP_UNDERWATER] = false;
+			mCompositors[COMP_UNDERWATER].reset();
+
 			Ogre::CompositorManager::getSingleton().remove(_def_Underwater_Compositor_Name);
 
 			Ogre::MaterialManager::getSingleton().remove(_def_Underwater_Compositor_Material_Name);
@@ -1101,7 +1120,9 @@ namespace Hydrax
 		fillGpuProgramsToPass(WM_Technique0_Pass0, GpuProgramNames, Options.SM, EntryPoints, GpuProgramsData);
 
 		Ogre::GpuProgramParametersSharedPtr VP_Parameters = WM_Technique0_Pass0->getVertexProgramParameters();
+		VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 		Ogre::GpuProgramParametersSharedPtr FP_Parameters = WM_Technique0_Pass0->getFragmentProgramParameters();
+		FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
         if(Options.SM != SM_GLSL)
         {
@@ -1117,7 +1138,11 @@ namespace Hydrax
 		FP_Parameters->setNamedConstant("uGlobalTransparency",     mHydrax->getGlobalTransparency());
 		FP_Parameters->setNamedConstant("uNormalDistortion",       mHydrax->getNormalDistortion());
 
-        FP_Parameters->setNamedConstant("uWaterColor", mHydrax->getWaterColor());
+        // Only declared in the shader when the Depth component is enabled
+        if (FP_Parameters->_findNamedConstantDefinition("uWaterColor", false))
+        {
+            FP_Parameters->setNamedConstant("uWaterColor", mHydrax->getWaterColor());
+        }
 		if (cSmooth)
 		{
 			FP_Parameters->setNamedConstant("uSmoothPower", mHydrax->getSmoothPower());
@@ -1504,7 +1529,9 @@ namespace Hydrax
 		fillGpuProgramsToPass(DM_Technique0_Pass0, GpuProgramNames, Options.SM, EntryPoints, GpuProgramsData);
 
 		Ogre::GpuProgramParametersSharedPtr VP_Parameters = DM_Technique0_Pass0->getVertexProgramParameters();
+		VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 		Ogre::GpuProgramParametersSharedPtr FP_Parameters = DM_Technique0_Pass0->getFragmentProgramParameters();
+		FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
         if(Options.SM != SM_GLSL)
         {
@@ -1546,6 +1573,12 @@ namespace Hydrax
 
     void MaterialManager::updateAnimatedTextures(float dt)
     {
+        mDistortTime = std::fmod(mDistortTime + dt * 0.1f, 1000.f);
+        if (mDistortTimeParams)
+        {
+            mDistortTimeParams->setNamedConstant("uTime", mDistortTime);
+        }
+
         mCausticsAnimCurrentFrameElapsedTime += dt;
         while (mCausticsAnimCurrentFrameElapsedTime > CAUSTICS_FRAME_DURATION)
         {
@@ -2658,7 +2691,9 @@ namespace Hydrax
 		fillGpuProgramsToPass(UM_Technique0_Pass0, GpuProgramNames, Options.SM, EntryPoints, GpuProgramsData);
 
 		Ogre::GpuProgramParametersSharedPtr VP_Parameters = UM_Technique0_Pass0->getVertexProgramParameters();
+		VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 		Ogre::GpuProgramParametersSharedPtr FP_Parameters = UM_Technique0_Pass0->getFragmentProgramParameters();
+		FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
         if(Options.SM != SM_GLSL)
         {
@@ -2676,7 +2711,10 @@ namespace Hydrax
         if (cSun)
         {
         }
-        FP_Parameters->setNamedConstant("uWaterColor",             mHydrax->getWaterColor());
+        if (FP_Parameters->_findNamedConstantDefinition("uWaterColor", false))
+        {
+            FP_Parameters->setNamedConstant("uWaterColor", mHydrax->getWaterColor());
+        }
 
 		if (cSun)
 		{
@@ -3046,15 +3084,23 @@ namespace Hydrax
 		fillGpuProgramsToPass(DM_Technique0_Pass0, GpuProgramNames, Options.SM, EntryPoints, GpuProgramsData);
 
 		Ogre::GpuProgramParametersSharedPtr VP_Parameters = DM_Technique0_Pass0->getVertexProgramParameters();
+		VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 		Ogre::GpuProgramParametersSharedPtr FP_Parameters = DM_Technique0_Pass0->getFragmentProgramParameters();
+		FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
         if(Options.SM != SM_GLSL)
         {
             VP_Parameters->setNamedAutoConstant("uWorldViewProj", Ogre::GpuProgramParameters::ACT_WORLDVIEWPROJ_MATRIX);
         }
 
-		FP_Parameters->setNamedConstantFromTime("uTime", 0.1f);
-        FP_Parameters->setNamedConstant("uWaterColor", mHydrax->getWaterColor());
+		// Not setNamedConstantFromTime(): the wall-clock time kept the distortion moving while paused. See updateAnimatedTextures().
+		FP_Parameters->setNamedConstant("uTime", mDistortTime);
+		mDistortTimeParams = FP_Parameters;
+        // Only declared in the shader when the Depth component is enabled
+        if (FP_Parameters->_findNamedConstantDefinition("uWaterColor", false))
+        {
+            FP_Parameters->setNamedConstant("uWaterColor", mHydrax->getWaterColor());
+        }
 
 		if (cCaustics)
 		{
@@ -3218,7 +3264,9 @@ namespace Hydrax
 				}
 
 				Ogre::GpuProgramParametersSharedPtr VP_Parameters = M_Technique0_Pass0->getVertexProgramParameters();
+				VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 				Ogre::GpuProgramParametersSharedPtr FP_Parameters = M_Technique0_Pass0->getFragmentProgramParameters();
+				FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
                 if(mOptions.SM != SM_GLSL)
                 {
@@ -3234,7 +3282,11 @@ namespace Hydrax
 				FP_Parameters->setNamedConstant("uGlobalTransparency",     mHydrax->getGlobalTransparency());
 				FP_Parameters->setNamedConstant("uNormalDistortion",       mHydrax->getNormalDistortion());
 
-                FP_Parameters->setNamedConstant("uWaterColor", mHydrax->getWaterColor());
+                // Only declared in the shader when the Depth component is enabled
+        if (FP_Parameters->_findNamedConstantDefinition("uWaterColor", false))
+        {
+            FP_Parameters->setNamedConstant("uWaterColor", mHydrax->getWaterColor());
+        }
 				if (cSmooth)
 				{
 					FP_Parameters->setNamedConstant("uSmoothPower", mHydrax->getSmoothPower());
@@ -3266,7 +3318,9 @@ namespace Hydrax
 				Ogre::Pass *M_Technique0_Pass0 = Mat->getTechnique(0)->getPass(0);
 
 				Ogre::GpuProgramParametersSharedPtr VP_Parameters = M_Technique0_Pass0->getVertexProgramParameters();
+				VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 				Ogre::GpuProgramParametersSharedPtr FP_Parameters = M_Technique0_Pass0->getFragmentProgramParameters();
+				FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
                 if(mOptions.SM != SM_GLSL)
                 {
@@ -3332,7 +3386,9 @@ namespace Hydrax
 				}
 
 				Ogre::GpuProgramParametersSharedPtr VP_Parameters = M_Technique0_Pass0->getVertexProgramParameters();
+				VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 				Ogre::GpuProgramParametersSharedPtr FP_Parameters = M_Technique0_Pass0->getFragmentProgramParameters();
+				FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
                 if(mOptions.SM != SM_GLSL)
                 {
@@ -3350,7 +3406,11 @@ namespace Hydrax
 
 				if ((cDepth && cUReflections) || (!cUReflections))
 		        {
-		            FP_Parameters->setNamedConstant("uWaterColor", mHydrax->getWaterColor());
+		            // Only declared in the shader when the Depth component is enabled
+        if (FP_Parameters->_findNamedConstantDefinition("uWaterColor", false))
+        {
+            FP_Parameters->setNamedConstant("uWaterColor", mHydrax->getWaterColor());
+        }
 		        }
 
 				if (cSun)
@@ -3402,6 +3462,11 @@ namespace Hydrax
 			_createDepthMaterial(mComponents, mOptions);
 		}
 
+		// The passes (and their animated caustics texture units) are destroyed below
+		mCausticsAnimTexVec.erase(std::remove_if(mCausticsAnimTexVec.begin(), mCausticsAnimTexVec.end(),
+			[Technique](Ogre::TextureUnitState* tus) { return tus->getParent()->getParent() == Technique; }),
+			mCausticsAnimTexVec.end());
+
 		Technique->removeAllPasses();
 		Technique->createPass();
 		Technique->setName("_Hydrax_Depth_Technique");
@@ -3413,7 +3478,9 @@ namespace Hydrax
 		DM_Technique_Pass0->setFragmentProgram(_def_Depth_Shader_FP_Name);
 
 		Ogre::GpuProgramParametersSharedPtr VP_Parameters = DM_Technique_Pass0->getVertexProgramParameters();
+		VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 		Ogre::GpuProgramParametersSharedPtr FP_Parameters = DM_Technique_Pass0->getFragmentProgramParameters();
+		FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
         if(mOptions.SM != SM_GLSL)
         {
@@ -3457,6 +3524,11 @@ namespace Hydrax
 			_createDepthTextureGPUPrograms(mComponents, mOptions, AlphaChannel);
 		}
 
+		// The passes (and their animated caustics texture units) are destroyed below
+		mCausticsAnimTexVec.erase(std::remove_if(mCausticsAnimTexVec.begin(), mCausticsAnimTexVec.end(),
+			[Technique](Ogre::TextureUnitState* tus) { return tus->getParent()->getParent() == Technique; }),
+			mCausticsAnimTexVec.end());
+
 		Technique->removeAllPasses();
 		Technique->createPass();
 		Technique->setName("_Hydrax_DepthTexture_Technique");
@@ -3475,7 +3547,9 @@ namespace Hydrax
 		DM_Technique_Pass0->setDepthWriteEnabled(false);
 
 		Ogre::GpuProgramParametersSharedPtr VP_Parameters = DM_Technique_Pass0->getVertexProgramParameters();
+		VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 		Ogre::GpuProgramParametersSharedPtr FP_Parameters = DM_Technique_Pass0->getFragmentProgramParameters();
+		FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
         if(mOptions.SM != SM_GLSL)
         {
@@ -3579,6 +3653,8 @@ namespace Hydrax
 			break;
 		}
 
+		// A uniform can be missing when the shader compiler optimized it out (e.g. GLSL), don't throw then
+		Parameters->setIgnoreMissingParams(true);
 		Parameters->setNamedConstant(Name, Value);
 
 		if (MType == MAT_DEPTH)
@@ -3608,6 +3684,8 @@ namespace Hydrax
 				    break;
 			    }
 
+				// A uniform can be missing when the shader compiler optimized it out (e.g. GLSL), don't throw then
+				Parameters->setIgnoreMissingParams(true);
 				Parameters->setNamedConstant(Name, Value);
 			}
 		}
@@ -3666,6 +3744,8 @@ namespace Hydrax
 				    break;
 			    }
 
+				// A uniform can be missing when the shader compiler optimized it out (e.g. GLSL), don't throw then
+				Parameters->setIgnoreMissingParams(true);
 				Parameters->setNamedConstant(Name, Value_, 1, 2);
 			}
 		}
@@ -3695,6 +3775,8 @@ namespace Hydrax
 			break;
 		}
 
+		// A uniform can be missing when the shader compiler optimized it out (e.g. GLSL), don't throw then
+		Parameters->setIgnoreMissingParams(true);
 		Parameters->setNamedConstant(Name, Value);
 
 		if (MType == MAT_DEPTH)
@@ -3724,6 +3806,8 @@ namespace Hydrax
 				    break;
 			    }
 
+				// A uniform can be missing when the shader compiler optimized it out (e.g. GLSL), don't throw then
+				Parameters->setIgnoreMissingParams(true);
 				Parameters->setNamedConstant(Name, Value);
 			}
 		}
@@ -3745,6 +3829,7 @@ namespace Hydrax
 		UnderwaterCompositor->getTechnique(0)->getTargetPass(0)->getPass(0)->setClearColour(Ogre::ColourValue(WC.x, WC.y, WC.z));
 
 		Ogre::GpuProgramParametersSharedPtr FP_Parameters = mat->getTechnique(0)->getPass(0)->getFragmentProgramParameters();
+		FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
 		if (mMaterialManager->mHydrax->isComponent(HYDRAX_COMPONENT_DEPTH))
 		{
@@ -3772,6 +3857,7 @@ namespace Hydrax
 		    FP_Parameters->setNamedConstant("uHGg", mMaterialManager->mHydrax->getGodRaysExposure());
 
 			Ogre::GpuProgramParametersSharedPtr VP_Parameters = mat->getTechnique(0)->getPass(0)->getVertexProgramParameters();
+			VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
 		    // FAR_LEFT_TOP
 		    VP_Parameters->

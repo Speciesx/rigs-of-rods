@@ -30,10 +30,49 @@ http://www.cnblogs.com/ArenAK/archive/2007/11/07/951713.html
 
 #include <ProjectedGrid.h>
 
+#if defined(__SSE2__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 2)
+#	include <emmintrin.h>
+#	define HYDRAX_PG_SSE2 1
+#endif
+#include <functional>
+#include <memory>
+#include <vector>
+
+#include "Application.h"
+#include "ThreadPool.h"
+
 #define _def_MaxFarClipDistance 99999
 
 namespace Hydrax{namespace Module
 {
+	bool ProjectedGrid::sMultithreaded = true;
+
+	// RIGSOFRODS: splits [0, count) into up to 4 chunks and runs f(begin, end) on the thread pool; the calling thread does the first chunk.
+	// f must only write to its own range. Falls back to a plain call if there is no pool or the work is small.
+	template<class F> static void PGParallelFor(int count, int min_per_chunk, F& f)
+	{
+		RoR::ThreadPool* pool = RoR::App::GetThreadPool();
+		int chunks = 1;
+		if (pool != nullptr && ProjectedGrid::isMultithreaded())
+		{
+			chunks = std::min(std::max(RoR::App::app_num_workers->getInt(), 1), 4);
+		}
+		chunks = std::min(chunks, std::max(count / std::max(min_per_chunk, 1), 1));
+		if (chunks <= 1)
+		{
+			f(0, count);
+			return;
+		}
+		std::vector<std::function<void()>> tasks;
+		for (int c = 0; c < chunks; ++c)
+		{
+			const int begin = static_cast<int>(static_cast<long long>(count) * c / chunks);
+			const int end = static_cast<int>(static_cast<long long>(count) * (c + 1) / chunks);
+			tasks.push_back([&f, begin, end]() { f(begin, end); });
+		}
+		pool->Parallelize(tasks);
+	}
+
 	Mesh::VertexType _PG_getVertexTypeFromNormalMode(const MaterialManager::NormalMode& NormalMode)
 	{
 		if (NormalMode == MaterialManager::NM_VERTEX)
@@ -274,6 +313,7 @@ namespace Hydrax{namespace Module
 			    mRenderingCamera->setFarClipDistance(_def_MaxFarClipDistance);
 		    }
 
+			mFlatDone = false;
 			mLastMinMax = _getMinMax(&mRange);
 
 		    if (mLastMinMax)
@@ -285,36 +325,40 @@ namespace Hydrax{namespace Module
 
 			mRenderingCamera->setFarClipDistance(RenderingFarClipDistance);
 		}
-		else if (mLastMinMax)
+		else if (mLastMinMax && !(mOptions.Strength == 0.f && mFlatDone))
 		{
-			if (getNormalMode() == MaterialManager::NM_VERTEX)
 			{
-				Mesh::POS_NORM_VERTEX* Vertices = static_cast<Mesh::POS_NORM_VERTEX*>(mVertices);
-
-				if (mOptions.ChoppyWaves)
+				const int total = mOptions.Complexity*mOptions.Complexity;
+				const Ogre::Real baseY = -mBasePlane.d;
+				if (getNormalMode() == MaterialManager::NM_VERTEX)
 				{
-					for(int i = 0; i < mOptions.Complexity*mOptions.Complexity; i++)
-		            {
-			            Vertices[i] = mVerticesChoppyBuffer[i];
-						Vertices[i].y = -mBasePlane.d + mNoise->getValue(RenderingCameraPos.x + Vertices[i].x, RenderingCameraPos.z + Vertices[i].z)*mOptions.Strength;
-		            }
+					Mesh::POS_NORM_VERTEX* Vertices = static_cast<Mesh::POS_NORM_VERTEX*>(mVertices);
+					const bool choppy = mOptions.ChoppyWaves;
+					auto heights = [&](int begin, int end)
+					{
+						for (int i = begin; i < end; i++)
+						{
+							if (choppy)
+							{
+								Vertices[i] = mVerticesChoppyBuffer[i];
+							}
+							Vertices[i].y = baseY + _getWaveHeight(RenderingCameraPos.x + Vertices[i].x, RenderingCameraPos.z + Vertices[i].z);
+						}
+					};
+					PGParallelFor(total, 4096, heights);
 				}
-				else
+				else if (getNormalMode() == MaterialManager::NM_RTT)
 				{
-					for(int i = 0; i < mOptions.Complexity*mOptions.Complexity; i++)
-		            {
-						Vertices[i].y = -mBasePlane.d + mNoise->getValue(RenderingCameraPos.x + Vertices[i].x, RenderingCameraPos.z + Vertices[i].z)*mOptions.Strength;
-		            }
+					Mesh::POS_VERTEX* Vertices = static_cast<Mesh::POS_VERTEX*>(mVertices);
+					auto heights = [&](int begin, int end)
+					{
+						for (int i = begin; i < end; i++)
+						{
+							Vertices[i].y = baseY + _getWaveHeight(RenderingCameraPos.x + Vertices[i].x, RenderingCameraPos.z + Vertices[i].z);
+						}
+					};
+					PGParallelFor(total, 4096, heights);
 				}
-			}
-			else if (getNormalMode() == MaterialManager::NM_RTT)
-			{
-				Mesh::POS_VERTEX* Vertices = static_cast<Mesh::POS_VERTEX*>(mVertices);
-
-				for(int i = 0; i < mOptions.Complexity*mOptions.Complexity; i++)
-		        {
-				    Vertices[i].y = -mBasePlane.d + mNoise->getValue(RenderingCameraPos.x + Vertices[i].x, RenderingCameraPos.z + Vertices[i].z)*mOptions.Strength;
-		        }
 			}
 
 			// Smooth the heightdata
@@ -363,10 +407,30 @@ namespace Hydrax{namespace Module
 			_performChoppyWaves();
 
 			mHydrax->getMesh()->updateGeometry(mOptions.Complexity*mOptions.Complexity, mVertices);
+
+			mFlatDone = (mOptions.Strength == 0.f);
 		}
 
 		mLastPosition = RenderingCameraPos;
 		mLastOrientation = mRenderingCamera->getDerivedOrientation();
+	}
+
+	Ogre::Real ProjectedGrid::_getWaveHeight(const Ogre::Real& x, const Ogre::Real& z)
+	{
+		Ogre::Real h = mNoise->getValue(x, z) * mOptions.Strength;
+
+		const auto& TerrainHeight = mHydrax->getTerrainHeightFunction();
+		if (TerrainHeight)
+		{
+			// Water depth at this point. The waves fade out over half of the wave height (at least 0.5 m) so that they
+			// vanish where the water gets shallow and never rise above the beach.
+			const Ogre::Real depth = (mHydrax->getPosition().y - mBasePlane.d) - TerrainHeight(x, z);
+			const Ogre::Real fade = Ogre::Math::Abs(mOptions.Strength) * 0.5f > 0.5f ? Ogre::Math::Abs(mOptions.Strength) * 0.5f : 0.5f;
+			const Ogre::Real k = depth <= 0 ? 0 : (depth >= fade ? 1 : depth / fade);
+			h *= k * k * (3 - 2 * k);
+		}
+
+		return h;
 	}
 
 	bool ProjectedGrid::_renderGeometry(const Ogre::Matrix4& m,const Ogre::Matrix4& _viewMat, const Ogre::Vector3& WorldPos)
@@ -387,72 +451,62 @@ namespace Hydrax{namespace Module
 
 		int i = 0, iv, iu;
 
-		if (getNormalMode() == MaterialManager::NM_VERTEX)
 		{
-			Mesh::POS_NORM_VERTEX* Vertices = static_cast<Mesh::POS_NORM_VERTEX*>(mVertices);
-
-			for(iv=0; iv<mOptions.Complexity; iv++)
+			const int C = mOptions.Complexity;
+			const Ogre::Real baseY = -mBasePlane.d;
+			// Position and height of one vertex of the projected grid
+			auto computeVertex = [&](int row, int col, float& outX, float& outY, float& outZ)
 			{
-				u = 0.0f;
-				_1_u = 1.0f;
-				for(iu=0; iu<mOptions.Complexity; iu++)
+				const float rv = row * dv;
+				const float r1v = 1.0f - rv;
+				const float cu = col * du;
+				const float c1u = 1.0f - cu;
+				float rx = r1v*(c1u*t_corners0.x + cu*t_corners1.x) + rv*(c1u*t_corners2.x + cu*t_corners3.x);
+				float rz = r1v*(c1u*t_corners0.z + cu*t_corners1.z) + rv*(c1u*t_corners2.z + cu*t_corners3.z);
+				const float rw = r1v*(c1u*t_corners0.w + cu*t_corners1.w) + rv*(c1u*t_corners2.w + cu*t_corners3.w);
+				const float inv = 1.0f/rw;
+				rx *= inv;
+				rz *= inv;
+				outX = rx;
+				outZ = rz;
+				outY = baseY + _getWaveHeight(WorldPos.x + rx, WorldPos.z + rz);
+			};
+
+			if (getNormalMode() == MaterialManager::NM_VERTEX)
+			{
+				Mesh::POS_NORM_VERTEX* Vertices = static_cast<Mesh::POS_NORM_VERTEX*>(mVertices);
+				auto rows = [&](int begin, int end)
 				{
-					result.x = _1_v*(_1_u*t_corners0.x + u*t_corners1.x) + v*(_1_u*t_corners2.x + u*t_corners3.x);
-					result.z = _1_v*(_1_u*t_corners0.z + u*t_corners1.z) + v*(_1_u*t_corners2.z + u*t_corners3.z);
-					result.w = _1_v*(_1_u*t_corners0.w + u*t_corners1.w) + v*(_1_u*t_corners2.w + u*t_corners3.w);
+					for (int row = begin; row < end; row++)
+						for (int col = 0; col < C; col++)
+						{
+							Mesh::POS_NORM_VERTEX& vtx = Vertices[row*C + col];
+							computeVertex(row, col, vtx.x, vtx.y, vtx.z);
+						}
+				};
+				PGParallelFor(C, 16, rows);
 
-					divide = 1.0f/result.w;
-					result.x *= divide;
-					result.z *= divide;
-
-					Vertices[i].x = result.x;
-					Vertices[i].z = result.z;
-					Vertices[i].y = -mBasePlane.d + mNoise->getValue(WorldPos.x + result.x, WorldPos.z + result.z)*mOptions.Strength;
-
-					i++;
-					u += du;
-					_1_u = 1.0f-u;
-				}
-				v += dv;
-				_1_v = 1.0f-v;
-			}
-
-			if (mOptions.ChoppyWaves)
-			{
-				for(int i = 0; i < mOptions.Complexity*mOptions.Complexity; i++)
-		        {
-			        mVerticesChoppyBuffer[i] = Vertices[i];
-		        }
-			}
-		}
-		else if(getNormalMode() == MaterialManager::NM_RTT)
-		{
-			Mesh::POS_VERTEX* Vertices = static_cast<Mesh::POS_VERTEX*>(mVertices);
-
-			for(iv=0; iv<mOptions.Complexity; iv++)
-			{
-				u = 0.0f;
-				_1_u = 1.0f;
-				for(iu=0; iu<mOptions.Complexity; iu++)
+				if (mOptions.ChoppyWaves)
 				{
-					result.x = _1_v*(_1_u*t_corners0.x + u*t_corners1.x) + v*(_1_u*t_corners2.x + u*t_corners3.x);
-					result.z = _1_v*(_1_u*t_corners0.z + u*t_corners1.z) + v*(_1_u*t_corners2.z + u*t_corners3.z);
-					result.w = _1_v*(_1_u*t_corners0.w + u*t_corners1.w) + v*(_1_u*t_corners2.w + u*t_corners3.w);
-
-					divide = 1.0f/result.w;
-					result.x *= divide;
-					result.z *= divide;
-
-					Vertices[i].x = result.x;
-					Vertices[i].z = result.z;
-					Vertices[i].y = -mBasePlane.d + mNoise->getValue(WorldPos.x + result.x, WorldPos.z + result.z)*mOptions.Strength;
-
-					i++;
-					u += du;
-					_1_u = 1.0f-u;
+					for(int k = 0; k < C*C; k++)
+					{
+						mVerticesChoppyBuffer[k] = Vertices[k];
+					}
 				}
-				v += dv;
-				_1_v = 1.0f-v;
+			}
+			else if (getNormalMode() == MaterialManager::NM_RTT)
+			{
+				Mesh::POS_VERTEX* Vertices = static_cast<Mesh::POS_VERTEX*>(mVertices);
+				auto rows = [&](int begin, int end)
+				{
+					for (int row = begin; row < end; row++)
+						for (int col = 0; col < C; col++)
+						{
+							Mesh::POS_VERTEX& vtx = Vertices[row*C + col];
+							computeVertex(row, col, vtx.x, vtx.y, vtx.z);
+						}
+				};
+				PGParallelFor(C, 16, rows);
 			}
 		}
 
@@ -511,32 +565,53 @@ namespace Hydrax{namespace Module
 			return;
 		}
 
-		int v, u;
-		Ogre::Vector3 vec1, vec2, normal;
+		const int n = mOptions.Complexity;
 
 		Mesh::POS_NORM_VERTEX* Vertices = static_cast<Mesh::POS_NORM_VERTEX*>(mVertices);
 
-		for(v=1; v<(mOptions.Complexity-1); v++)
+		// Each row only writes its own normals and reads positions, so rows can be processed independently
+		auto rows = [&](int begin, int end)
 		{
-			for(u=1; u<(mOptions.Complexity-1); u++)
+			for(int v=begin; v<end; v++)
 			{
-				vec1 = Ogre::Vector3(
-					Vertices[v*mOptions.Complexity + u + 1].x-Vertices[v*mOptions.Complexity + u - 1].x,
-					Vertices[v*mOptions.Complexity + u + 1].y-Vertices[v*mOptions.Complexity + u - 1].y,
-					Vertices[v*mOptions.Complexity + u + 1].z-Vertices[v*mOptions.Complexity + u - 1].z);
+				const Mesh::POS_NORM_VERTEX* prev = Vertices + (v-1)*n;
+				Mesh::POS_NORM_VERTEX*       row  = Vertices + v*n;
+				const Mesh::POS_NORM_VERTEX* next = Vertices + (v+1)*n;
 
-				vec2 = Ogre::Vector3(
-					Vertices[(v+1)*mOptions.Complexity + u].x - Vertices[(v-1)*mOptions.Complexity + u].x,
-					Vertices[(v+1)*mOptions.Complexity + u].y - Vertices[(v-1)*mOptions.Complexity + u].y,
-					Vertices[(v+1)*mOptions.Complexity + u].z - Vertices[(v-1)*mOptions.Complexity + u].z);
+				for(int u=1; u<(n-1); u++)
+				{
+#ifdef HYDRAX_PG_SSE2
+					// Loads x,y,z (+ the next float, unused) of a vertex; stays inside the 24 byte vertex
+					const __m128 v1 = _mm_sub_ps(_mm_loadu_ps(&row[u+1].x), _mm_loadu_ps(&row[u-1].x)); // right - left
+					const __m128 v2 = _mm_sub_ps(_mm_loadu_ps(&next[u].x), _mm_loadu_ps(&prev[u].x));   // next row - previous row
+					// normal = v2 x v1, same operations as Ogre::Vector3::crossProduct
+					const __m128 a = _mm_mul_ps(_mm_shuffle_ps(v2, v2, _MM_SHUFFLE(3,0,2,1)), _mm_shuffle_ps(v1, v1, _MM_SHUFFLE(3,1,0,2)));
+					const __m128 b = _mm_mul_ps(_mm_shuffle_ps(v2, v2, _MM_SHUFFLE(3,1,0,2)), _mm_shuffle_ps(v1, v1, _MM_SHUFFLE(3,0,2,1)));
+					const __m128 nrm = _mm_sub_ps(a, b);
+					_mm_storel_pi(reinterpret_cast<__m64*>(&row[u].nx), nrm);            // nx, ny
+					_mm_store_ss(&row[u].nz, _mm_movehl_ps(nrm, nrm));                   // nz
+#else
+					// vec1 = right - left, vec2 = next row - previous row
+					const float v1x = row[u+1].x - row[u-1].x;
+					const float v1y = row[u+1].y - row[u-1].y;
+					const float v1z = row[u+1].z - row[u-1].z;
 
-				normal = vec2.crossProduct(vec1);
+					const float v2x = next[u].x - prev[u].x;
+					const float v2y = next[u].y - prev[u].y;
+					const float v2z = next[u].z - prev[u].z;
 
-				Vertices[v*mOptions.Complexity + u].nx = normal.x;
-				Vertices[v*mOptions.Complexity + u].ny = normal.y;
-				Vertices[v*mOptions.Complexity + u].nz = normal.z;
+					// normal = vec2 x vec1 (same operations as Ogre::Vector3::crossProduct)
+					row[u].nx = v2y*v1z - v2z*v1y;
+					row[u].ny = v2z*v1x - v2x*v1z;
+					row[u].nz = v2x*v1y - v2y*v1x;
+#endif
+				}
 			}
-		}
+		};
+
+		// Rows 1 .. n-2: split into the range [0, n-2) shifted by one
+		auto shifted = [&](int begin, int end) { rows(begin + 1, end + 1); };
+		PGParallelFor(n - 2, 16, shifted);
 	}
 
 	void ProjectedGrid::_performChoppyWaves()
@@ -837,6 +912,6 @@ namespace Hydrax{namespace Module
 
 	float ProjectedGrid::getHeigth(const Ogre::Vector2 &Position)
 	{
-		return mHydrax->getPosition().y + mNoise->getValue(Position.x, Position.y)*mOptions.Strength;
+		return mHydrax->getPosition().y + _getWaveHeight(Position.x, Position.y);
 	}
 }}

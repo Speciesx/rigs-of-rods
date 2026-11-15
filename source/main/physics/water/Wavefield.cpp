@@ -24,7 +24,9 @@
 #include "Actor.h"
 #include "AppContext.h"
 #include "CameraManager.h"
+#include "GameContext.h"
 #include "GfxScene.h"
+#include "IGfxWater.h"
 #include "PlatformUtils.h" // PathCombine
 #include "Terrain.h"
 
@@ -72,6 +74,16 @@ Wavefield::Wavefield(Vec3 terrn_size) :
     }
 }
 
+bool Wavefield::GetHydraxWaveHeight(Vec3 pos, float& out_height)
+{
+    const TerrainPtr& terrain = App::GetGameContext()->GetTerrain();
+    if (!terrain || terrain->getWater() != this || terrain->getGfxWater() == nullptr)
+    {
+        return false;
+    }
+    return terrain->getGfxWater()->GetWaveHeightAt(pos.x, pos.z, out_height);
+}
+
 float Wavefield::GetStaticWaterHeight()
 {
     return m_water_height;
@@ -89,6 +101,16 @@ void Wavefield::SetWavesHeight(float value)
 
 float Wavefield::CalcWavesHeight(Vec3 pos, float timeshift_sec)
 {
+    // Hydrax: follow the rendered waves (single player only, multiplayer keeps the sea flat so that everyone sees the same)
+    if (RoR::App::mp_state->getEnum<MpState>() != RoR::MpState::CONNECTED)
+    {
+        float hydrax_height = 0.f;
+        if (this->GetHydraxWaveHeight(pos, hydrax_height))
+        {
+            return hydrax_height;
+        }
+    }
+
     // no waves?
     if (!RoR::App::gfx_water_waves->getBool() || RoR::App::mp_state->getEnum<MpState>() == RoR::MpState::CONNECTED)
     {
@@ -121,6 +143,15 @@ float Wavefield::CalcWavesHeight(Vec3 pos, float timeshift_sec)
 
 bool Wavefield::IsUnderWater(Vec3 pos)
 {
+    if (RoR::App::mp_state->getEnum<MpState>() != RoR::MpState::CONNECTED)
+    {
+        float hydrax_height = 0.f;
+        if (this->GetHydraxWaveHeight(pos, hydrax_height))
+        {
+            return pos.y < hydrax_height;
+        }
+    }
+
     float waterheight = m_water_height;
 
     if (RoR::App::gfx_water_waves->getBool() && RoR::App::mp_state->getEnum<MpState>() == RoR::MpState::DISABLED)

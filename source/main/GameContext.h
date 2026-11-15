@@ -115,6 +115,8 @@ public:
     bool                LoadTerrain(std::string const& filename_part);
     void                UnloadTerrain();
     const TerrainPtr&   GetTerrain() { return m_terrain; }
+    bool                GetSkyTimeFrozen() const { return m_sky_time_frozen; }
+    void                SetSkyTimeFrozen(bool frozen) { m_sky_time_frozen = frozen; }
 
     /// @}
     /// @name Actors
@@ -188,6 +190,7 @@ private:
 
     // Terrain
     TerrainPtr          m_terrain;
+    bool                m_sky_time_frozen = false; //!< 'Freeze time' in the sky settings, overrides the sky time speed
 
     // Actors (physics and netcode)
     ActorManager        m_actor_manager;

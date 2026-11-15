@@ -8,6 +8,12 @@ SkyXVersion=0.4.0
 <vector3>Time=12.00x7.5x20.5 ; current-time 'x' sunrise time 'x' sunset time
 <float>MoonPhase=0
 
+# Astronomical sun and moon (ported from Caelum). If 'Latitude' is present, the sun and moon trajectories and the moon phase
+# are calculated from latitude (degrees, -90..90), day of year (1..365) and the time of day (in solar time);
+# the sunrise and sunset hours of 'Time' and the 'MoonPhase' above are then ignored.
+<float>Latitude=45
+<int>DayOfYear=150
+
 #Atmoshperic options
 <float>_InnerRadius=9.77501
 <float>_OuterRadius=10.2963
@@ -48,3 +54,16 @@ SkyXVersion=0.4.0
 <float>AverageLightningApparitionTime=1.5
 <vector3>LightningColor=1x0.925x0.85
 <float>LightningTimeMultiplier=2.0
+
+# Precipitation system ported from Caelum (see SkyX/Precipitation.*)
+# Wind of the precipitation is tied to the volumetric clouds wind. Intensity is controlled in the 'Sky settings' window.
+# All lines are optional - without them the 'rain' preset is used.
+# Texture is 'precipitation_X.png', X is: drizzle/rain/snow/snowgrains/icecrystals/icepellets/hail/smallhail
+# CameraSpeedScale: how much moving the player changes the direction of the drops
+# AutoDisableThreshold: compositor is disabled below this intensity (switching is expensive); negative = always on
+PrecipitationTextureName=precipitation_rain.png
+<color>PrecipitationColor=0.7x0.7x0.7
+<float>PrecipitationFallingSpeed=0.85
+<vector3>PrecipitationCameraSpeedScale=1x1x1
+<float>PrecipitationIntensity=0
+<float>PrecipitationAutoDisableThreshold=0.001

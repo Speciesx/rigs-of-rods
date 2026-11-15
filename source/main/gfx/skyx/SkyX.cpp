@@ -48,14 +48,19 @@ namespace SkyX
 		, mStarfield(true)
 		, mTimeMultiplier(0.1f)
 		, mTimeOffset(0.0f)
+		, mCfgFileManager(0)
 	{
 		// Need to be instanced here, when SkyX::mSceneManager is valid
 		mVCloudsManager = new VCloudsManager(this);
+		mPrecipitationController = new PrecipitationController(this);
 	}
 
 	SkyX::~SkyX()
 	{
 		remove();
+
+		delete mPrecipitationController; // removes the compositors from viewports
+		mPrecipitationController = nullptr;
 
 		delete mMeshManager;
 		delete mAtmosphereManager;
@@ -105,6 +110,16 @@ namespace SkyX
 		mCreated = true;
 	}
 
+	void SkyX::attachViewport(Ogre::Viewport* viewport)
+	{
+		mPrecipitationController->createViewportInstance(viewport);
+	}
+
+	void SkyX::detachViewport(Ogre::Viewport* viewport)
+	{
+		mPrecipitationController->destroyViewportInstance(viewport);
+	}
+
 	void SkyX::remove()
 	{
 		if (!mCreated)
@@ -129,9 +144,12 @@ namespace SkyX
 			return;
 		}
 
+		// RIGSOFRODS: while paused, time of day, clouds, wind and lightning stand still
+		const Ogre::Real dt = mPaused ? Ogre::Real(0) : timeSinceLastFrame;
+
 		if (mTimeMultiplier != 0)
 		{
-			float timemultiplied = timeSinceLastFrame * mTimeMultiplier;
+			float timemultiplied = dt * mTimeMultiplier;
 
 			mTimeOffset += timemultiplied;
 
@@ -148,7 +166,7 @@ namespace SkyX
 
 		mMoonManager->updateMoonPhase(mController->getMoonPhase());
 		mCloudsManager->update();
-		mVCloudsManager->update(timeSinceLastFrame);
+		mVCloudsManager->update(dt);
 	}
 
 	void SkyX::notifyCameraRender(Ogre::Camera* c)
@@ -201,8 +219,11 @@ namespace SkyX
 	{
 		mRenderQueueGroups = rqg;
 
-		mVCloudsManager->getVClouds()->setRenderQueueGroups(
-			VClouds::VClouds::RenderQueueGroups(mRenderQueueGroups.vclouds, mRenderQueueGroups.vcloudsLightningsUnder, mRenderQueueGroups.vcloudsLightningsOver));
+		if (mVCloudsManager->getVClouds())
+		{
+			mVCloudsManager->getVClouds()->setRenderQueueGroups(
+				VClouds::VClouds::RenderQueueGroups(mRenderQueueGroups.vclouds, mRenderQueueGroups.vcloudsLightningsUnder, mRenderQueueGroups.vcloudsLightningsOver));
+		}
 
 		if (!mCreated)
 		{

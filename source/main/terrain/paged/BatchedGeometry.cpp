@@ -34,6 +34,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 #include <string>
 
 #include "BatchedGeometry.h"
+#include "Application.h"
 #include "PagedGeometry.h"
 
 using namespace Ogre;
@@ -84,6 +85,7 @@ m_vecCenter          (Ogre::Vector3::ZERO),
 m_BoundsUndefined    (true)
 {
    assert(rootSceneNode);
+   setVisibilityFlags(RoR::DEPTHMAP_VEGETATION); // keep out of the Hydrax depth map
 }
 
 //-----------------------------------------------------------------------------

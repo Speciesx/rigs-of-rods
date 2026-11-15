@@ -61,6 +61,9 @@ public:
 
     void update();
 
+    /// Moves the 'DeflectorPlane' affectors of a particle system (water particle scripts have them at world y=0) to the given height
+    static void SetDeflectorHeight(Ogre::ParticleSystem* ps, float height);
+
 protected:
 
     static const int MAX_DUSTS = 100;

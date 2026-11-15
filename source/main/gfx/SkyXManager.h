@@ -21,10 +21,17 @@ along with Rigs of Rods.  If not, see <http://www.gnu.org/licenses/>.
 #pragma once
 
 #include "Application.h"
+#include "CameraManager.h"
 
 #include "gfx/skyx/SkyX.h"
 
+#include <algorithm>
+#include <memory>
+
 namespace RoR {
+
+class SkyXWeatherAudio;
+class SkyXRainParticles;
 
 /// @addtogroup Gfx
 /// @{
@@ -39,7 +46,11 @@ public:
 
 	Ogre::Light* getMainLight();
 
-	bool update( float dt );
+	/// @param audio_dt Time step of the simulation for sky, rain and weather sounds: 0 = paused (everything freezes, sounds are silent); negative = unknown, same as dt.
+	bool update( float dt, float audio_dt = -1.f );
+
+	SkyXWeatherAudio* GetWeatherAudio() { return mWeatherAudio.get(); }
+	SkyXRainParticles* GetRainParticles() { return mRainParticles.get(); }
 
 	bool InitLight();
 
@@ -50,6 +61,19 @@ public:
 	bool UpdateSkyLight();
 
 	SkyX::SkyX* GetSkyX() { return mSkyX; }
+
+	/// The water color is recomputed from a time-of-day gradient every frame; while an override is set, it is used instead.
+	void SetWaterColorOverride(const Ogre::Vector3& color) { mWaterColorOverride = color; mHasWaterColorOverride = true; }
+	void ClearWaterColorOverride() { mHasWaterColorOverride = false; }
+	bool HasWaterColorOverride() const { return mHasWaterColorOverride; }
+
+	/// Brightness of the night: 1 = default, 0 = pitch black, >1 = brighter (moonlit) night.
+	/// Scales the main light and the scene ambient light while the sun is below the horizon (smooth transition at dusk and dawn).
+	void SetNightBrightness(float value) { mNightBrightness = std::max(0.f, value); }
+	float GetNightBrightness() const { return mNightBrightness; }
+
+	/// Restores the sky settings that the map (terrn2/SkyX config) created the sky with.
+	void ResetToMapDefaults();
 
 protected:
 	Ogre::Light *mLight0 = nullptr;
@@ -64,7 +88,71 @@ protected:
 
 	SkyX::CfgFileManager* mCfgFileManager = nullptr;
 
+	/// Rain/wind/thunder sounds
+	std::unique_ptr<SkyXWeatherAudio> mWeatherAudio;
+
+	/// 3D rain streaks around the camera
+	std::unique_ptr<SkyXRainParticles> mRainParticles;
+
     int mLastHour = 0;
+
+	void SaveMapDefaults();
+
+	/// Precipitation drops react to movement of the player (not to camera orbiting/zooming)
+	void DetectPlayerMovement(float dt);
+
+	ActorPtr mLastPlayerActor;
+	CameraManager::CameraBehaviors mLastCameraBehavior = CameraManager::CAMERA_BEHAVIOR_INVALID;
+	Ogre::Vector3 mLastPlayerPosition = Ogre::Vector3::ZERO;
+
+	/// Sky state right after the map was loaded
+	struct MapDefaults
+	{
+		bool valid = false;
+		SkyX::AtmosphereManager::Options atmosphere;
+		bool starfield = true;
+		Ogre::Real moonPhase = 0.f;
+		Ogre::Real sunrise = 7.5f;
+		Ogre::Real sunset = 20.5f;
+		bool vclouds = false;
+		Ogre::Vector2 vcloudsWeather = Ogre::Vector2::ZERO;
+		Ogre::Vector2 vcloudsHeight = Ogre::Vector2::ZERO;
+		Ogre::Real vcloudsWindSpeed = 0.f;
+		Ogre::Radian vcloudsWindDir;
+		Ogre::Real vcloudsOpacity = 1.f;
+		Ogre::Real vcloudsFieldScale = 1.f;
+		Ogre::Real vcloudsNoiseScale = 4.2f;
+		Ogre::Vector3 vcloudsTint = Ogre::Vector3(1.f, 1.f, 1.f);
+		Ogre::Vector4 vcloudsLightResponse = Ogre::Vector4::ZERO;
+		Ogre::Vector4 vcloudsAmbientFactors = Ogre::Vector4::ZERO;
+		bool lightning = false;
+		Ogre::Real lightningAvgTime = 1.5f;
+		Ogre::Real lightningSpeed = 2.f;
+		Ogre::Vector3 lightningColor = Ogre::Vector3(1.f, 0.925f, 0.85f);
+		bool astronomical = false;
+		float latitude = 45.f;
+		int dayOfYear = 150;
+		float precipIntensity = 0.f;
+		std::string precipTexture;
+		Ogre::ColourValue precipColour = Ogre::ColourValue::White;
+		float precipSpeed = 0.85f;
+	} mMapDefaults;
+
+	float mNightBrightness = 1.f;
+	Ogre::ColourValue mBaseAmbient = Ogre::ColourValue::Black; //!< Scene ambient light as the map set it
+	bool mBaseAmbientValid = false;
+	bool mAmbientTouched = false;
+
+	bool mHasWaterColorOverride = false;
+	Ogre::Vector3 mWaterColorOverride = Ogre::Vector3::ZERO;
+
+	/// Underwater the viewport background and fog take the water colour (map edge shows blue water instead of black).
+	void UpdateUnderwaterView(bool camUnderwater);
+	bool mUwActive = false;
+	Ogre::ColourValue mUwSavedBackground;
+	Ogre::FogMode mUwSavedFogMode = Ogre::FOG_NONE;
+	Ogre::ColourValue mUwSavedFogColour;
+	Ogre::Real mUwSavedFogDensity = 0.f, mUwSavedFogStart = 0.f, mUwSavedFogEnd = 0.f;
 };
 
 /// @} // addtogroup Gfx

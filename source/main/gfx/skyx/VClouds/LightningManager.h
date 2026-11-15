@@ -24,6 +24,7 @@ http://www.gnu.org/copyleft/lesser.txt.
 #ifndef _SkyX_VClouds_LightningManager_H_
 #define _SkyX_VClouds_LightningManager_H_
 
+#include <functional>
 #include "Prerequisites.h"
 
 #include "Lightning.h"
@@ -179,6 +180,16 @@ namespace SkyX { namespace VClouds{
 		/** Has been create() already called?
 		    @return true if created() have been already called, false if not
 		 */
+		/// Height of the ground (terrain or water) at x,z, used so that cloud-to-ground bolts reach it; without it the ground is at y=0
+		typedef std::function<Ogre::Real(Ogre::Real, Ogre::Real)> GroundHeightFunction;
+		inline void setGroundHeightFunction(const GroundHeightFunction& f)
+		{
+			mGroundHeightFunction = f;
+		}
+
+		/// Length of a vertical bolt that starts at p and reaches the ground
+		Ogre::Real _getLengthToGround(const Ogre::Vector3& p) const;
+
 		inline const bool& isCreated() const
 		{
 			return mCreated;
@@ -222,6 +233,8 @@ namespace SkyX { namespace VClouds{
 
 		/// Listeners
 		std::vector<Listener*> mListeners;
+
+		GroundHeightFunction mGroundHeightFunction;
 
 		/// Has been create() already called?
 		bool mCreated;

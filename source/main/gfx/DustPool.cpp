@@ -18,6 +18,7 @@
     along with Rigs of Rods. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <algorithm>
 #include "DustPool.h"
 
 #include <Ogre.h>
@@ -200,8 +201,24 @@ void DustPool::AdjustDustPoolSpeedFactor(GfxActor* gfx_actor /* = nullptr */)
     }
 }
 
+/// The 'DeflectorPlane' affector of the water particle scripts sits at world y=0. On maps with another water level (or with waves)
+/// the particles used to fall through the water surface; this moves the plane to the current water surface.
+void DustPool::SetDeflectorHeight(Ogre::ParticleSystem* ps, float height)
+{
+    for (unsigned short a = 0; a < ps->getNumAffectors(); a++)
+    {
+        Ogre::ParticleAffector* affector = ps->getAffector(a);
+        if (affector->getType() == "DeflectorPlane")
+        {
+            affector->setParameter("plane_point", "0 " + Ogre::StringConverter::toString(height) + " 0");
+        }
+    }
+}
+
 void DustPool::update()
 {
+    Wavefield* water = (RoR::App::GetGameContext()->GetTerrain() != nullptr) ? RoR::App::GetGameContext()->GetTerrain()->getWater() : nullptr;
+
     for (int i = 0; i < allocated; i++)
     {
         ParticleEmitter* emit = pss[i]->getEmitter(0);
@@ -271,22 +288,36 @@ void DustPool::update()
         }
         else if (types[i] == DUST_SPLASH)
         {
-            if (ndir.y < 0)
-                ndir.y = -ndir.y / 2.0;
+            // Particles born below the water surface are not caught by the deflector plane and sink: spawn them
+            // on the surface and throw them upwards in the direction of movement.
+            const float surface = (water != nullptr) ? water->CalcWavesHeight(positions[i]) : 0.f;
+            if (positions[i].y < surface + 0.05f)
+            {
+                positions[i].y = surface + 0.05f;
+                sns[i]->setPosition(positions[i]);
+            }
+            // Spray: thrown up (and a bit along the movement), not shot ahead with the full boat speed
+            ndir.y = 0.0;
+            ndir = ndir * 0.5;
+            ndir.y = 1.0;
+            ndir.normalise();
 
             emit->setDirection(ndir);
+            emit->setParticleVelocity(std::min<Real>(std::max<Real>(vel * 0.3, 1.0), 6.0));
+            SetDeflectorHeight(pss[i], surface);
 
             col.a = sqrt(vel) * 0.04;
             col.b = 0.9;
             col.g = 0.9;
             col.r = 0.9;
 
-            emit->setTimeToLive(vel * 0.025 / 0.1);
+            emit->setTimeToLive(std::min<Real>(vel * 0.025 / 0.1, 1.5));
         }
         else if (types[i] == DUST_RIPPLE)
         {
-            positions[i].y = RoR::App::GetGameContext()->GetTerrain()->getWater()->GetStaticWaterHeight() - 0.02;
+            positions[i].y = ((water != nullptr) ? water->CalcWavesHeight(positions[i]) : 0.f) - 0.02;
             sns[i]->setPosition(positions[i]);
+            SetDeflectorHeight(pss[i], positions[i].y);
 
             col.a = vel * 0.04;
             col.b = 0.9;

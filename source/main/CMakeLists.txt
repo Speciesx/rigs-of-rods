@@ -43,6 +43,8 @@ set(SOURCE_FILES
         gfx/Skidmark.{h,cpp}
         gfx/SkyManager.{h,cpp}
         gfx/SkyXManager.{h,cpp}
+        gfx/SkyXRainParticles.{h,cpp}
+        gfx/SkyXWeatherAudio.{h,cpp}
         gfx/SurveyMapTextureCreator.{h,cpp}
         gfx/GfxWater.{h,cpp}
         gfx/camera/CameraManager.{h,cpp}
@@ -78,12 +80,15 @@ set(SOURCE_FILES
         gfx/particle/OgreShaderParticleRenderer.{h,cpp}
         gfx/skyx/AtmosphereManager.{h,cpp}
         gfx/skyx/BasicController.{h,cpp}
+        gfx/skyx/CaelumPort/Astronomy.{h,cpp}
         gfx/skyx/CloudsManager.{h,cpp}
         gfx/skyx/ColorGradient.{h,cpp}
         gfx/skyx/Controller.h
         gfx/skyx/GPUManager.{h,cpp}
         gfx/skyx/MeshManager.{h,cpp}
         gfx/skyx/MoonManager.{h,cpp}
+        gfx/skyx/Precipitation/SkyXFastGpuParamRef.{h,cpp}
+        gfx/skyx/Precipitation/SkyXPrecipitationController.{h,cpp}
         gfx/skyx/Prerequisites.{h,cpp}
         gfx/skyx/SCfgFileManager.{h,cpp}
         gfx/skyx/SkyX.{h,cpp}
@@ -120,6 +125,8 @@ set(SOURCE_FILES
         gui/panels/GUI_LoadingWindow.{h,cpp}
         gui/panels/GUI_FlexbodyDebug.{h,cpp}
         gui/panels/GUI_FrictionSettings.{h,cpp}
+        gui/panels/GUI_SkySettings.{h,cpp}
+        gui/panels/GUI_WaterSettings.{h,cpp}
         gui/panels/GUI_TopMenubar.{h,cpp}
         gui/panels/GUI_TextureToolWindow.{h,cpp}
         gui/panels/GUI_RepositorySelector.{h,cpp}

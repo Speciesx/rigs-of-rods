@@ -27,6 +27,7 @@ http://www.gnu.org/copyleft/lesser.txt.
 #include "Prerequisites.h"
 
 #include "Controller.h"
+#include "CaelumPort/Astronomy.h"
 
 namespace SkyX
 {
@@ -52,6 +53,7 @@ namespace SkyX
 		inline void setTime(const Ogre::Vector3& t)
 		{
 			mTime = t;
+			mSunTimesDayOfYear = -1; // sunrise/sunset were overwritten, astronomy must recalculate them
 			update(0);
 		}
 
@@ -112,7 +114,35 @@ namespace SkyX
 			return mMoonPhase;
 		}
 
+		/** Astronomical sun and moon (ported from Caelum; see CaelumPort/Astronomy)
+		    When enabled, the sun and moon trajectories and the moon phase are calculated from the observer latitude, the day of the year
+		    and the hour of day (mTime.x, in solar time at longitude 0). Sunrise/sunset (mTime.y/z) are then results of the calculation, not inputs.
+		 */
+		inline bool isAstronomical() const { return mAstronomical; }
+		void setAstronomical(bool enabled);
+
+		/// Observer latitude in degrees, [-90, 90]
+		inline Ogre::Real getLatitude() const { return mLatitude; }
+		void setLatitude(Ogre::Real degrees);
+
+		/// Day of the year, [1, 365]
+		inline int getDayOfYear() const { return mDayOfYear; }
+		void setDayOfYear(int day);
+
 	private:
+		/// Calculates sun and moon (and sunrise/sunset) from astronomy
+		void updateAstronomy();
+
+		/// Converts horizontal coordinates (azimuth clockwise from North, altitude above horizon) to a world space direction
+		Ogre::Vector3 horizontalToWorld(const Ogre::Degree& azimuth, const Ogre::Degree& altitude) const;
+
+		bool mAstronomical;
+		Ogre::Real mLatitude;
+		int mDayOfYear;
+		/// Parameters that sunrise/sunset were calculated for (the scan is done only when they change)
+		Ogre::Real mSunTimesLatitude;
+		int mSunTimesDayOfYear;
+
 		/// Time information: x = time in [0, 24]h range, y = sunrise hour in [0, 24]h range, z = sunset hour in [0, 24] range
 		Ogre::Vector3 mTime;
 		/// East direction (in X,Z world coords)

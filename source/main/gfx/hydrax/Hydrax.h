@@ -25,6 +25,7 @@ http://www.gnu.org/copyleft/lesser.txt.
 #ifndef _Hydrax_Hydrax_H_
 #define _Hydrax_Hydrax_H_
 
+#include <functional>
 #include "Prerequisites.h"
 #include "Application.h"
 
@@ -415,12 +416,43 @@ namespace Hydrax
             return mPosition;
         }
 
+        /// Terrain height lookup (world x, world z) -> height
+        typedef std::function<Ogre::Real(Ogre::Real, Ogre::Real)> TerrainHeightFunction;
+
+        /** Optional: lets the wave generator flatten the waves where the water is shallow, so that wave crests
+            don't rise over the beach and hide characters/objects standing at the shore. */
+        inline void setTerrainHeightFunction(const TerrainHeightFunction& Function)
+        {
+            mTerrainHeightFunction = Function;
+        }
+
+        inline const TerrainHeightFunction& getTerrainHeightFunction() const
+        {
+            return mTerrainHeightFunction;
+        }
+
 		/** Get current clip planes error
 		    @return Current clip planes error
 		 */
 		inline const Ogre::Real& getPlanesError() const
 		{
 			return mPlanesError;
+		}
+
+		/** Set the visibility mask of the depth map viewports (Ogre::Viewport::setVisibilityMask),
+			objects whose visibility flags do not match are not rendered into the depth maps
+			@param Mask Visibility mask (default: all objects)
+		 */
+		inline void setDepthVisibilityMask(const Ogre::uint32& Mask)
+		{
+			mDepthVisibilityMask = Mask;
+		}
+
+		/** Get the visibility mask of the depth map viewports
+		 */
+		inline const Ogre::uint32& getDepthVisibilityMask() const
+		{
+			return mDepthVisibilityMask;
 		}
 
 		/** Get the current heigth at a especified world-space point
@@ -664,6 +696,9 @@ namespace Hydrax
 		/// Current shader mode
 		MaterialManager::ShaderMode mShaderMode;
 
+		/// Terrain height lookup used to flatten the waves at the shore
+		TerrainHeightFunction mTerrainHeightFunction;
+
 		/// Device listener
 		DeviceListener mDeviceListener;
 
@@ -673,6 +708,8 @@ namespace Hydrax
         Ogre::Vector3 mPosition;
         /// Planes error, y axis clipplanes displacement
         Ogre::Real mPlanesError;
+        /// Visibility mask of the depth map viewports
+        Ogre::uint32 mDepthVisibilityMask = 0xFFFFFFFF;
 
         /// Full reflection distance param
         Ogre::Real mFullReflectionDistance;
@@ -726,6 +763,8 @@ namespace Hydrax
 
 		/// Is current frame underwater?
 		bool mCurrentFrameUnderwater;
+		/// Seconds until the camera may switch between the water and the underwater setup again
+		Ogre::Real mUnderwaterSwitchCooldown = 0;
 
         /// Our Hydrax::Mesh pointer
         Mesh *mMesh;

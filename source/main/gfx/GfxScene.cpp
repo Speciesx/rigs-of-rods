@@ -163,7 +163,10 @@ void GfxScene::UpdateScene(float dt)
         {
             gfx_water->SetReflectionPlaneHeight(water->GetStaticWaterHeight());
         }
-        gfx_water->FrameStepWater(dt);
+        // Freeze the wave animation while the simulation is paused (pause menu, END key)
+        const bool sim_paused = App::sim_state->getEnum<SimState>() != SimState::RUNNING
+            || App::GetGameContext()->GetActorManager()->IsSimulationPaused();
+        gfx_water->FrameStepWater(sim_paused ? 0.f : dt);
     }
 
     // Terrain - sky
@@ -178,7 +181,9 @@ void GfxScene::UpdateScene(float dt)
     SkyXManager* skyx_man = App::GetGameContext()->GetTerrain()->getSkyXManager();
     if (skyx_man != nullptr)
     {
-       skyx_man->update(dt); // Light update
+       const bool audio_paused = App::sim_state->getEnum<SimState>() != SimState::RUNNING
+           || App::GetGameContext()->GetActorManager()->IsSimulationPaused();
+       skyx_man->update(dt, audio_paused ? 0.f : dt); // Light update
     }
 
     // GUI - race

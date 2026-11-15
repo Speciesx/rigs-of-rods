@@ -223,6 +223,9 @@ namespace Hydrax{ namespace Module
 		 */
 		bool _renderGeometry(const Ogre::Matrix4& m,const Ogre::Matrix4& _viewMat, const Ogre::Vector3& WorldPos);
 
+		/// Wave height at a world position (noise * strength), flattened towards the shore if a terrain height function is set
+		Ogre::Real _getWaveHeight(const Ogre::Real& x, const Ogre::Real& z);
+
 		/** Calcule world position
 		    @param uv uv
 			@param m Range
@@ -271,6 +274,16 @@ namespace Hydrax{ namespace Module
 		Ogre::Vector3 mLastPosition;
 		Ogre::Quaternion mLastOrientation;
 		bool mLastMinMax;
+
+		/// RIGSOFRODS: with a wave strength of 0 the surface is flat; once it has been uploaded it does not need recalculating while the camera stands still
+		bool mFlatDone = false;
+
+	public:
+		/// RIGSOFRODS: the wave height loops run on the thread pool (default); switch off to compute them on the calling thread only
+		static void setMultithreaded(bool enabled) { sMultithreaded = enabled; }
+		static bool isMultithreaded() { return sMultithreaded; }
+	private:
+		static bool sMultithreaded;
 
 		/// Our projected grid options
 		Options mOptions;

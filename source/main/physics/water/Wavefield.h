@@ -37,10 +37,12 @@ public:
     float GetStaticWaterHeight(); //!< Returns static water level configured in 'terrn2'
     void  SetStaticWaterHeight(float value);
     void  SetWavesHeight(float);
+    float GetWavesHeight() const { return m_waves_height; }
     float CalcWavesHeight(Vec3 pos, float timeshift_sec = 0.f);
     Vec3  CalcWavesVelocity(Vec3 pos, float timeshift_sec = 0.f);
     void  FrameStepWaveField(float dt);
     bool  IsUnderWater(Vec3 pos);
+    bool  GetHydraxWaveHeight(Vec3 pos, float& out_height); //!< Height of the rendered Hydrax wave surface, false if Hydrax isn't the active water
     float GetWaveHeight(Vec3 pos);
 
 private:

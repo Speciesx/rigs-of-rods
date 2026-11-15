@@ -73,6 +73,7 @@ public:
      * @return listener position vector
      */
     Ogre::Vector3 GetListenerPosition() const { return m_listener_position; }
+    Ogre::Vector3 GetListenerVelocity() const { return m_listener_velocity; }
 
     /**
      * @return True if the listener position is below water level. False otherwise.

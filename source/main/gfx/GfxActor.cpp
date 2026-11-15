@@ -588,12 +588,6 @@ void RoR::GfxActor::UpdateVideoCameras(float dt)
 
 void RoR::GfxActor::UpdateParticles(float dt)
 {
-    float water_height = 0.f; // Unused if terrain has no water
-    if (App::GetGameContext()->GetTerrain()->getWater() != nullptr)
-    {
-        water_height = App::GetGameContext()->GetTerrain()->getWater()->GetStaticWaterHeight();
-    }
-
     for (NodeGfx& nfx: m_gfx_nodes)
     {
         const node_t& n = m_actor->ar_nodes[nfx.nx_node_idx];
@@ -630,9 +624,11 @@ void RoR::GfxActor::UpdateParticles(float dt)
         }
 
         // Water splash and ripple
-        if (n.nd_under_water && !nfx.nx_no_particles)
+        if (n.nd_under_water && !nfx.nx_no_particles && App::GetGameContext()->GetTerrain()->getWater() != nullptr)
         {
-            if ((water_height - n.AbsPosition.y < 0.2f) && (n.Velocity.squaredLength() > 4.f))
+            // Follow the rendered wave (CalcWavesHeight() is the static level if the sea is flat)
+            const float surface_height = App::GetGameContext()->GetTerrain()->getWater()->CalcWavesHeight(n.AbsPosition);
+            if ((surface_height - n.AbsPosition.y < 0.2f) && (n.Velocity.squaredLength() > 4.f))
             {
                 if (m_particles_splash)
                 {
@@ -2035,10 +2031,28 @@ void RoR::GfxActor::UpdateAirbrakes()
 
 void RoR::GfxActor::UpdateCParticles()
 {
+    Wavefield* water = (App::GetGameContext()->GetTerrain() != nullptr) ? App::GetGameContext()->GetTerrain()->getWater() : nullptr;
+
     for (CParticle& cparticle: m_cparticles)
     {
         App::GetGfxScene()->AdjustParticleSystemTimeFactor(cparticle.psys, this);
-        const Ogre::Vector3 pos = m_simbuf.simbuf_nodes[cparticle.emitterNode].AbsPosition;
+        Ogre::Vector3 pos = m_simbuf.simbuf_nodes[cparticle.emitterNode].AbsPosition;
+
+        // The water particle scripts (e.g. boat jets) have their deflector plane at world y=0: on maps with another water level
+        // the spray fell through the sea. Put the plane on the water surface if the emitter is at the water.
+        if (water != nullptr)
+        {
+            const float surface = water->CalcWavesHeight(pos);
+            if (pos.y < surface + 5.f)
+            {
+                DustPool::SetDeflectorHeight(cparticle.psys, surface);
+                // Particles born below the plane are not deflected and sink: emit from the surface instead.
+                if (pos.y < surface + 0.05f)
+                {
+                    pos.y = surface + 0.05f;
+                }
+            }
+        }
         const Ogre::Vector3 dir = fast_normalise(pos - m_simbuf.simbuf_nodes[cparticle.directionNode].AbsPosition);
         cparticle.snode->setPosition(pos);
 
