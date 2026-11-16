@@ -89,6 +89,16 @@ SkyXManager::SkyXManager(Ogre::String configFile)
 			ent->setVisible(false);
 			Ogre::LogManager::getSingleton().logMessage("[SkyX] TEST: skydome entity hidden");
 		}
+		if (t.find("nosky") != Ogre::String::npos)
+		{
+			mSkyX->setVisible(false); // dome + moon + volumetric clouds
+			Ogre::LogManager::getSingleton().logMessage("[SkyX] TEST: whole SkyX hidden");
+		}
+		if (t.find("bgred") != Ogre::String::npos)
+		{
+			App::GetCameraManager()->GetCamera()->getViewport()->setBackgroundColour(Ogre::ColourValue(1, 0, 0));
+			Ogre::LogManager::getSingleton().logMessage("[SkyX] TEST: viewport background set to red");
+		}
 		if (ent && t.find("reddome") != Ogre::String::npos)
 		{
 			Ogre::MaterialPtr m = Ogre::MaterialManager::getSingleton().create("RoR_SkyTestRed", "General");
@@ -230,7 +240,7 @@ void SkyXManager::DetectPlayerMovement(float dt)
 
 bool SkyXManager::UpdateSkyLight()
 {
-	{ static int s_dump_counter = 0; if ((s_dump_counter++ % 600) == 1) { Ogre::LogManager::getSingleton().logMessage(Ogre::String("[SkyX] time=") + GetPrettyTime() + " sunDir=" + Ogre::StringConverter::toString(mSkyX->getController()->getSunDirection())); mSkyX->getGPUManager()->dumpSkydomeState(); mSkyX->getMeshManager()->dumpEntityState(App::GetCameraManager()->GetCamera()); } }
+	{ static int s_dump_counter = 0; if ((s_dump_counter++ % 600) == 1) { Ogre::LogManager::getSingleton().logMessage(Ogre::String("[SkyX] time=") + GetPrettyTime() + " sunDir=" + Ogre::StringConverter::toString(mSkyX->getController()->getSunDirection())); mSkyX->getGPUManager()->dumpSkydomeState(); mSkyX->getMeshManager()->dumpEntityState(App::GetCameraManager()->GetCamera()); { Ogre::Viewport* dvp = App::GetCameraManager()->GetCamera()->getViewport(); Ogre::SceneManager* dsm = App::GetGfxScene()->GetSceneManager(); Ogre::LogManager::getSingleton().logMessage("[SkyX] dump: viewport bg=" + Ogre::StringConverter::toString(dvp->getBackgroundColour()) + " fogMode=" + Ogre::StringConverter::toString((int)dsm->getFogMode()) + " fogColour=" + Ogre::StringConverter::toString(dsm->getFogColour()) + " ambient=" + Ogre::StringConverter::toString(dsm->getAmbientLight()) + " skyBoxEnabled=" + Ogre::StringConverter::toString(dsm->isSkyBoxEnabled())); } } }
 	Ogre::Vector3 lightDir = -getMainLightDirection();
 	const Ogre::Vector3 camPos = App::GetCameraManager()->GetCameraNode()->_getDerivedPosition();
 	Ogre::Vector3 sunPos = camPos - lightDir*mSkyX->getMeshManager()->getSkydomeRadius(App::GetCameraManager()->GetCamera());
