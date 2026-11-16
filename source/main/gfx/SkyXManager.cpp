@@ -99,6 +99,21 @@ SkyXManager::SkyXManager(Ogre::String configFile)
 			App::GetCameraManager()->GetCamera()->getViewport()->setBackgroundColour(Ogre::ColourValue(1, 0, 0));
 			Ogre::LogManager::getSingleton().logMessage("[SkyX] TEST: viewport background set to red");
 		}
+		if (t.find("bgblack") != Ogre::String::npos)
+		{
+			App::GetCameraManager()->GetCamera()->getViewport()->setBackgroundColour(Ogre::ColourValue::Black);
+			Ogre::LogManager::getSingleton().logMessage("[SkyX] TEST: viewport background set to black");
+		}
+		if (ent && t.find("opaque") != Ogre::String::npos)
+		{
+			// Dome shader keeps running, but alpha blending is off: shows its raw colour regardless of iOpacity
+			Ogre::MaterialPtr dm = Ogre::MaterialManager::getSingleton().getByName(ent->getSubEntity(0)->getMaterialName());
+			if (dm)
+			{
+				dm->getTechnique(0)->getPass(0)->setSceneBlending(Ogre::SBT_REPLACE);
+				Ogre::LogManager::getSingleton().logMessage("[SkyX] TEST: skydome scene_blend replace (no alpha)");
+			}
+		}
 		if (ent && t.find("reddome") != Ogre::String::npos)
 		{
 			Ogre::MaterialPtr m = Ogre::MaterialManager::getSingleton().create("RoR_SkyTestRed", "General");
