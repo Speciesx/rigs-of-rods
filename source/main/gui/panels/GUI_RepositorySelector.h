@@ -64,17 +64,6 @@ namespace RoR {
         int rfir_filesize_bytes = 0; // For display only
     };
 
-    // This will be removed during OGRE14 migration
-    struct RepoImageRequestHandler: public Ogre::WorkQueue::RequestHandler
-    {
-        Ogre::WorkQueue::Response* handleRequest(const Ogre::WorkQueue::Request* req, const Ogre::WorkQueue* srcQ) override;
-    };
-
-    // `Ogre::Any` holder requires the `<<` operator to be implemented, otherwise it won't compile. ~ This will also be removed during OGRE14 migration
-    inline std::ostream& operator<<(std::ostream& os, RepoImageDownloadRequest& val)
-    {
-        return os;
-    }
 
 namespace GUI {
 
@@ -202,10 +191,6 @@ private:
     RepoFileInstallRequestID_t          m_next_install_request_id = 0;
     std::vector<RepoFileInstallRequest> m_queued_install_requests;
     RepoFileInstallRequestID_t          m_active_install_request_id = REPOFILEINSTALLREQUESTID_INVALID;
-
-    // This will be removed during OGRE14 migration
-    Ogre::uint16                        m_ogre_workqueue_channel = 0;
-    RepoImageRequestHandler             m_repo_image_request_handler;
 
     // status or error messages
     std::string                         m_repofiles_msg;

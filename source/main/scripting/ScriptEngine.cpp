@@ -777,7 +777,7 @@ ScriptRetCode_t ScriptEngine::getVariable(const Ogre::String& varName, void *ref
 
 asIScriptFunction* ScriptEngine::getFunctionByDeclAndLogCandidates(ScriptUnitID_t nid, GetFuncFlags_t flags, const std::string& funcName, const std::string& fmtFuncDecl)
 {
-    std::string decl = fmt::format(fmtFuncDecl, funcName);
+    std::string decl = fmt::format(fmt::runtime(fmtFuncDecl), funcName);
     asIScriptFunction* retval = m_script_units[nid].scriptModule->GetFunctionByDecl(decl.c_str());
     if (!retval)
     {

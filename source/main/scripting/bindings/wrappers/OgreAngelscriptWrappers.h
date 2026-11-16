@@ -27,6 +27,7 @@
 
 #pragma once
 
+#include <cmath>
 #include "Application.h"
 #include "ScriptEngine.h"
 #include "ScriptUtils.h"
@@ -47,6 +48,11 @@ using namespace AngelScript;
 using namespace RoR;
 
 /***VECTOR3***/
+// OGRE_FAST_MATH removes Vector/Quaternion::isNaN() -> own helpers
+static bool Vector3IsNaN(const Vector3* self) { return std::isnan(self->x) || std::isnan(self->y) || std::isnan(self->z); }
+static bool Vector2IsNaN(const Vector2* self) { return std::isnan(self->x) || std::isnan(self->y); }
+static bool QuaternionIsNaN(const Quaternion* self) { return std::isnan(self->x) || std::isnan(self->y) || std::isnan(self->z) || std::isnan(self->w); }
+
 static void Vector3DefaultConstructor(Vector3* self)
 {
     new(self) Vector3();
@@ -1035,6 +1041,13 @@ static AngelScript::CScriptArray* get2DElementsHelper(Ogre::Overlay* self)
 /***OVERLAYMANAGER***/
 static AngelScript::CScriptArray* getElementTemplatesHelper(Ogre::OverlayManager* self)
 {
+#if OGRE_VERSION_MAJOR >= 13
+    // OGRE 13+ no longer keeps templates in a separate list (they are regular overlay elements) and doesn't expose an iterator.
+    try {
+        AngelScript::asITypeInfo* typeinfo = App::GetScriptEngine()->getEngine()->GetTypeInfoByDecl("array<Ogre::OverlayElement@>");
+        return AngelScript::CScriptArray::Create(typeinfo); }
+    catch (...) { App::GetScriptEngine()->forwardExceptionAsScriptEvent("Ogre::OverlayManager::getTemplates()"); return (CScriptArray*)nullptr; }
+#else
     try {
         auto iterable = self->getTemplateIterator();
         // we must cast on the go (unlike get2DElements() this actually returns list of Ogre::OverlayElement*), see ATTENTION! below.
@@ -1046,6 +1059,7 @@ static AngelScript::CScriptArray* getElementTemplatesHelper(Ogre::OverlayManager
         }
         return arr; }
     catch (...) { App::GetScriptEngine()->forwardExceptionAsScriptEvent("Ogre::OverlayManager::getTemplates()"); return (CScriptArray*)nullptr; }
+#endif
 }
 
 static Ogre::Overlay* OverlayManagerCreate(Ogre::OverlayManager* self, const std::string& name)
@@ -1130,8 +1144,30 @@ static Ogre::OverlayElement* OverlayManagerCloneOverlayElementFromTemplate(Ogre:
 
 static bool OverlayManagerIsTemplate(Ogre::OverlayManager* self, const std::string& name)
 {
+#if OGRE_VERSION_MAJOR >= 13
+    try {return self->hasOverlayElement(name);} // OGRE 13+: templates are regular overlay elements
+#else
     try {return self->isTemplate(name);}
+#endif
     catch(...) {App::GetScriptEngine()->forwardExceptionAsScriptEvent("Ogre::OverlayManager::isTemplate()"); return false;}
+}
+
+/***SCENENODE / SCENEMANAGER (OGRE 13+ API changes)***/
+static void SceneNodeHideBoundingBox(Ogre::SceneNode* self, bool hide)
+{
+    self->showBoundingBox(!hide); // `hideBoundingBox()` was removed in OGRE 13
+}
+
+static void SceneManagerDestroyEntity(Ogre::SceneManager* self, Ogre::Entity* ent)
+{
+    try {self->destroyEntity(ent);}
+    catch(...) {App::GetScriptEngine()->forwardExceptionAsScriptEvent("Ogre::SceneManager::destroyEntity()");}
+}
+
+static void SceneManagerDestroyManualObject(Ogre::SceneManager* self, Ogre::ManualObject* obj)
+{
+    try {self->destroyManualObject(obj);}
+    catch(...) {App::GetScriptEngine()->forwardExceptionAsScriptEvent("Ogre::SceneManager::destroyManualObject()");}
 }
 
 } // namespace OgreAngelscriptWrappers

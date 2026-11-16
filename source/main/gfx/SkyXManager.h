@@ -61,6 +61,23 @@ public:
 	bool UpdateSkyLight();
 
 	SkyX::SkyX* GetSkyX() { return mSkyX; }
+	SkyX::BasicController* GetBasicController() { return mBasicController; }
+
+	/// Time speed (sim hours per real second) used when no time key is pressed. Initially from the .skx file.
+	float GetBaseTimeMultiplier() const { return mBaseTimeMultiplier; }
+	void SetBaseTimeMultiplier(float m) { mBaseTimeMultiplier = m; }
+
+	/// Time of day in hours [0-24]
+	float GetTimeOfDay();
+	void SetTimeOfDay(float hour);
+	std::string GetPrettyTime(); //!< "HH:MM"
+
+	/// Lets the scene fog colour follow the sky (fog itself must be enabled by the terrain).
+	void SetFogFollowsSky(bool v) { mFogFollowsSky = v; }
+
+	/// Stores the current sky state as the map defaults ("Reset to map defaults" in the sky settings).
+	/// Call after the sky was configured from outside the .skx file (e.g. a converted Caelum script).
+	void CommitMapDefaults() { this->SaveMapDefaults(); }
 
 	/// The water color is recomputed from a time-of-day gradient every frame; while an override is set, it is used instead.
 	void SetWaterColorOverride(const Ogre::Vector3& color) { mWaterColorOverride = color; mHasWaterColorOverride = true; }
@@ -153,6 +170,8 @@ protected:
 	Ogre::FogMode mUwSavedFogMode = Ogre::FOG_NONE;
 	Ogre::ColourValue mUwSavedFogColour;
 	Ogre::Real mUwSavedFogDensity = 0.f, mUwSavedFogStart = 0.f, mUwSavedFogEnd = 0.f;
+    float mBaseTimeMultiplier = 0.01f;
+    bool mFogFollowsSky = false;
 };
 
 /// @} // addtogroup Gfx

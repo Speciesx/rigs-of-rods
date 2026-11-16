@@ -449,7 +449,7 @@ public:
             else
             {
                 reply_type = Console::CONSOLE_SYSTEM_REPLY;
-                reply << fmt::format(_L("Script '{}' running with ID '{}'"), args[1], id);
+                reply << fmt::format(fmt::runtime(_L("Script '{}' running with ID '{}'")), args[1], id);
             }
         }
 #else
@@ -519,7 +519,7 @@ public:
                 App::GetGameContext()->PushMessage(Message(MSG_GUI_MP_CLIENTS_REFRESH));
 
                 reply_type = Console::CONSOLE_SYSTEM_REPLY;
-                reply << fmt::format(_L("Server script '{}' started"), args[1]);
+                reply << fmt::format(fmt::runtime(_L("Server script '{}' started")), args[1]);
             }
         }
 #else
@@ -760,7 +760,7 @@ public:
                 else
                 {
                     App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_ERROR,
-                        fmt::format(_L("No such message type: {}"), args[1]));
+                        fmt::format(fmt::runtime(_L("No such message type: {}")), args[1]));
                 }
             }
 

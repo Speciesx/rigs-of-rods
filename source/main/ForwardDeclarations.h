@@ -172,12 +172,12 @@ namespace RoR
     class  ScriptEngine;
     class  ServerScriptEngine;
     class  ServerScriptSequencer;
-    class  ShadowManager;
+
+    class  RTSSManager;
     class  Skidmark;
     class  SkidmarkConfig;
     struct SkinDocument;
     class  SkinManager;
-    class  SkyManager;
     class  SkyXManager;
     class  SlideNode;
     class  Sound;

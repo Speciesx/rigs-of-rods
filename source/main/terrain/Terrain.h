@@ -30,7 +30,7 @@
 #include "TerrainEditor.h"
 #include "Wavefield.h"
 
-#include <OgreVector3.h>
+#include <Ogre.h>
 #include <string>
 
 namespace RoR {
@@ -79,9 +79,8 @@ public:
     TerrainGeometryManager* getGeometryManager()          { return m_geometry_manager; }
     TerrainObjectManager*   getObjectManager()            { return m_object_manager; }
     HydraxWater*            getHydraxManager()            { return m_hydrax_water; }
-    SkyManager*             getSkyManager();
     SkyXManager*            getSkyXManager()              { return SkyX_manager; }
-    ShadowManager*          getShadowManager()            { return m_shadow_manager; }
+    RTSSManager*            getRTSSManager()              { return m_rtss_manager; }
     TerrainEditor*          GetTerrainEditor()            { return &m_terrain_editor; }
     Collisions*             GetCollisions()               { return m_collisions; }
     Wavefield*              getWater()                    { return m_wavefield.get(); }
@@ -118,11 +117,12 @@ private:
     void initCamera();
     void initTerrainCollisions();
     void initFog();
+    void initFogImpl();
     void initLight();
     void initObjects();
     void initScripting();
     void initAiPresets();
-    void initShadows();
+    void initRTSS();
     void initSkySubSystem();
     void initVegetation();
     void initWater();
@@ -138,8 +138,8 @@ private:
     std::unique_ptr<Wavefield> m_wavefield;
     TerrainEditor           m_terrain_editor;
     Collisions*             m_collisions = nullptr;
-    ShadowManager*          m_shadow_manager = nullptr;
-    SkyManager*             m_sky_manager = nullptr;
+    RTSSManager*            m_rtss_manager = nullptr;
+    float                   m_caelum_fog_density = 0.f; //!< From a converted Caelum sky script (SkyX mode)
     SkyXManager*            SkyX_manager = nullptr;
     HydraxWater*            m_hydrax_water = nullptr;
 

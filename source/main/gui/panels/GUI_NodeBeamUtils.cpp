@@ -280,7 +280,7 @@ void NodeBeamUtils::DrawCreateProjectBanner(ActorPtr actor, bool& window_open)
         // - it cannot be loaded automatically because it's not in modcache yet so there's no way to locate it.
         RoR::GUI::MessageBoxConfig* box = new RoR::GUI::MessageBoxConfig();
         box->mbc_title = _LC("NodeBeamUtils", "Project created");
-        box->mbc_text = fmt::format(_LC("NodeBeamUtils", "Project created successfully as \n\"{}\"\n\nPlease load it and open the N/B utility again"), req->cpr_name);
+        box->mbc_text = fmt::format(fmt::runtime(_LC("NodeBeamUtils", "Project created successfully as \n\"{}\"\n\nPlease load it and open the N/B utility again")), req->cpr_name);
         box->mbc_allow_close = true;
         App::GetGameContext()->ChainMessage(Message(MSG_GUI_SHOW_MESSAGE_BOX_REQUESTED, box));
 

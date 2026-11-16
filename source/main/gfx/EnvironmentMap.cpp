@@ -26,7 +26,6 @@
 #include "GfxActor.h"
 #include "GfxScene.h"
 #include "GUIManager.h"
-#include "SkyManager.h"
 #include "Terrain.h"
 
 #include <OgreOverlaySystem.h>
@@ -50,7 +49,6 @@ void RoR::GfxEnvmap::SetupEnvMap()
         m_cameras[face] = App::GetGfxScene()->GetSceneManager()->createCamera("EnvironmentCamera-" + TOSTRING(face));
         m_cameras[face]->setAspectRatio(1.0);
         m_cameras[face]->setProjectionType(Ogre::PT_PERSPECTIVE);
-        m_cameras[face]->setFixedYawAxis(false);
         m_cameras[face]->setFOVy(Ogre::Degree(90));
         m_cameras[face]->setNearClipDistance(0.1f);
         m_cameras[face]->setFarClipDistance(App::GetCameraManager()->GetCamera()->getFarClipDistance());
@@ -62,12 +60,7 @@ void RoR::GfxEnvmap::SetupEnvMap()
         m_render_targets[face]->setAutoUpdated(false);
     }
 
-    m_cameras[0]->setDirection(+Ogre::Vector3::UNIT_X);
-    m_cameras[1]->setDirection(-Ogre::Vector3::UNIT_X);
-    m_cameras[2]->setDirection(+Ogre::Vector3::UNIT_Y);
-    m_cameras[3]->setDirection(-Ogre::Vector3::UNIT_Y);
-    m_cameras[4]->setDirection(-Ogre::Vector3::UNIT_Z);
-    m_cameras[5]->setDirection(+Ogre::Vector3::UNIT_Z);
+    this->CreateSceneNodes();
 
     if (App::diag_envmap->getBool())
     {
@@ -225,7 +218,7 @@ void RoR::GfxEnvmap::UpdateEnvMap(Ogre::Vector3 center, GfxActor* gfx_actor, boo
 
     for (int i = 0; i < NUM_FACES; i++)
     {
-        m_cameras[i]->setPosition(center);
+        m_cameras[i]->getParentSceneNode()->setPosition(center);
     }
 
     if (gfx_actor != nullptr)
@@ -236,26 +229,34 @@ void RoR::GfxEnvmap::UpdateEnvMap(Ogre::Vector3 center, GfxActor* gfx_actor, boo
 
     for (int i = 0; i < update_rate; i++)
     {
-#ifdef USE_CAELUM
-        // caelum needs to know that we changed the cameras
-        if (App::GetGameContext()->GetTerrain()->getSkyManager())
-        {
-            App::GetGameContext()->GetTerrain()->getSkyManager()->NotifySkyCameraChanged(m_cameras[m_update_round]);
-        }
-#endif // USE_CAELUM
         m_render_targets[m_update_round]->update();
         m_update_round = (m_update_round + 1) % NUM_FACES;
     }
-#ifdef USE_CAELUM
-    if (App::GetGameContext()->GetTerrain()->getSkyManager())
-    {
-        App::GetGameContext()->GetTerrain()->getSkyManager()->NotifySkyCameraChanged(App::GetCameraManager()->GetCamera());
-    }
-#endif // USE_CAELUM
 
     if (gfx_actor != nullptr)
     {
         gfx_actor->SetRodsVisible(true);
         gfx_actor->SetAllMeshesVisible(true);
     }
+}
+
+void RoR::GfxEnvmap::CreateSceneNodes()
+{
+    // We call `Ogre::SceneManager::clearScene()` after returning to menu, so all SceneNode pointers become dangling.
+    // See `RoR::GfxScene::ClearScene()`.
+    // ----------------------------------------------
+
+    for (int face = 0; face < NUM_FACES; face++)
+    {
+        m_cameras_snode[face] = App::GetGfxScene()->GetSceneManager()->getRootSceneNode()->createChildSceneNode();
+        m_cameras_snode[face]->attachObject(m_cameras[face]);
+        m_cameras_snode[face]->setFixedYawAxis(false);
+    }
+
+    m_cameras_snode[0]->setDirection(+Ogre::Vector3::UNIT_X);
+    m_cameras_snode[1]->setDirection(-Ogre::Vector3::UNIT_X);
+    m_cameras_snode[2]->setDirection(+Ogre::Vector3::UNIT_Y);
+    m_cameras_snode[3]->setDirection(-Ogre::Vector3::UNIT_Y);
+    m_cameras_snode[4]->setDirection(-Ogre::Vector3::UNIT_Z);
+    m_cameras_snode[5]->setDirection(+Ogre::Vector3::UNIT_Z);
 }

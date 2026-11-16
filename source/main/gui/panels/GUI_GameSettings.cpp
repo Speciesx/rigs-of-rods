@@ -401,15 +401,6 @@ void GameSettings::DrawGraphicsSettings()
     DrawGCombo(App::gfx_shadow_type, _LC("GameSettings", "Shadow type (requires restart)"),
         m_combo_items_shadow_type.c_str());
 
-    if (App::gfx_shadow_type->getEnum<GfxShadowType>() != GfxShadowType::NONE)
-    {
-        DrawGCheckbox(App::gfx_reduce_shadows, _LC("GameSettings", "Shadow optimizations"));
-        if (App::gfx_shadow_type->getEnum<GfxShadowType>() == GfxShadowType::PSSM)
-        {
-            DrawGIntSlider(App::gfx_shadow_quality, _LC("GameSettings", "Shadow quality"), 0, 3);
-        }
-    }
-
     DrawGCombo(App::gfx_sky_mode, _LC("GameSettings", "Sky gfx"),
         m_combo_items_sky_mode.c_str());
 
@@ -586,7 +577,6 @@ void GameSettings::SetVisible(bool v)
     if (m_combo_items_sky_mode == "")
     {
         ImAddItemToComboboxString(m_combo_items_sky_mode, ToLocalizedString(GfxSkyMode::SANDSTORM));
-        ImAddItemToComboboxString(m_combo_items_sky_mode, ToLocalizedString(GfxSkyMode::CAELUM));
         ImAddItemToComboboxString(m_combo_items_sky_mode, ToLocalizedString(GfxSkyMode::SKYX));
         ImTerminateComboboxString(m_combo_items_sky_mode);
     }

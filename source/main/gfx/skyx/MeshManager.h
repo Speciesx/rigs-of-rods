@@ -89,6 +89,9 @@ namespace SkyX
         /** Get entity
             @return Entity
          */
+        /// Diagnostics: logs visibility, queue group and bounds of the skydome entity
+        void dumpEntityState(Ogre::Camera* cam);
+
         inline Ogre::Entity* getEntity()
         {
             return mEntity;

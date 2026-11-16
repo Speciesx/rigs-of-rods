@@ -28,6 +28,7 @@
 #include "GameContext.h"
 #include "GfxScene.h"
 #include "Terrain.h"
+#include "RTSSManager.h"
 
 #include <Ogre.h>
 
@@ -61,6 +62,11 @@ ProceduralRoad::~ProceduralRoad()
         MeshManager::getSingleton().remove(msh->getName());
         msh.reset();
     }
+    if (mat)
+    {
+        MaterialManager::getSingleton().remove(mat);
+        mat.reset();
+    }
     for (int number : registeredCollTris)
     {
         App::GetGameContext()->GetTerrain()->GetCollisions()->removeCollisionTri(number);
@@ -76,11 +82,14 @@ void ProceduralRoad::finish(Ogre::SceneNode* groupingSceneNode, const std::strin
     addQuad(pts[3], pts[2], pts[1], pts[0], TextureFit::TEXFIT_NONE, lastpos, lastpos, lastwidth);
 
     createMesh(materialName);
+    createMaterial();
     String entity_name = String("RoadSystem_Instance-").append(StringConverter::toString(mid));
     String mesh_name = String("RoadSystem-").append(StringConverter::toString(mid));
     Entity* ec = App::GetGfxScene()->GetSceneManager()->createEntity(entity_name, mesh_name);
     snode = groupingSceneNode->createChildSceneNode();
     snode->attachObject(ec);
+    if (mat)
+        ec->setMaterial(mat);
 
     if (collision)
     {
@@ -709,3 +718,21 @@ void ProceduralRoad::createMesh(const std::string& materialName /*= "" */)
     free(vertices);
 };
 
+
+void ProceduralRoad::createMaterial()
+{
+    if (!msh || !mainsub)
+    {
+        return;
+    }
+
+    // Clone the (default or custom) material so each road gets an unique instance;
+    // RTSS techniques are generated per material and must not be shared between terrains.
+    MaterialPtr orig_mat = mainsub->getMaterial();
+    if (!orig_mat)
+    {
+        return;
+    }
+    mat = orig_mat->clone(fmt::format("RoadSystem-Material-{}", mid));
+    App::GetGameContext()->GetTerrain()->getRTSSManager()->EnableRTSS(mat);
+}

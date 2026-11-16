@@ -38,6 +38,7 @@
 
 #include <Ogre.h>
 #include <SocketW.h>
+#include <fmt/printf.h>
 
 #include <algorithm>
 #include <chrono>
@@ -463,7 +464,7 @@ bool Network::ConnectThread()
         memcpy(&info, buffer, sizeof(RoRnet::LegacyServerInfo));
         std::string format_str = _L("Establishing network session: wrong server version, you are using version '%s' and the server is using '%s'");
         const char* server_ver = (info.protocolversion[0] != 0) ? info.protocolversion : "~ RoRnet_2.38 or earlier (not detected) ~";
-        CouldNotConnect(fmt::format(format_str.c_str(), RORNET_VERSION, server_ver));
+        CouldNotConnect(fmt::sprintf(format_str, RORNET_VERSION, server_ver)); // Translated string uses printf-style placeholders
         return false;
     }
     if (header.command == MSG2_WRONG_VER)
@@ -483,7 +484,7 @@ bool Network::ConnectThread()
     if (strncmp(m_server_settings.protocolversion, RORNET_VERSION, strlen(RORNET_VERSION)))
     {
         std::string formatstr = _L("Establishing network session: wrong server version, you are using version '%s' and the server is using '%s'");
-        CouldNotConnect(fmt::format(formatstr, RORNET_VERSION, m_server_settings.protocolversion));
+        CouldNotConnect(fmt::sprintf(formatstr, RORNET_VERSION, m_server_settings.protocolversion)); // Translated string uses printf-style placeholders
         return false;
     }
 

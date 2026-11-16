@@ -417,7 +417,7 @@ void MultiplayerSelector::DisplayRefreshFailed(CurlFailInfo* failinfo)
     if (failinfo->curl_result != CURLE_OK)
         m_serverlist_curlmsg = curl_easy_strerror(failinfo->curl_result);
     if (failinfo->http_response != 0)
-        m_serverlist_httpmsg = fmt::format(_L("HTTP code: {}"), failinfo->http_response);
+        m_serverlist_httpmsg = fmt::format(fmt::runtime(_L("HTTP code: {}")), failinfo->http_response);
 }
 
 void MultiplayerSelector::UpdateServerlist(MpServerInfoVec* data)

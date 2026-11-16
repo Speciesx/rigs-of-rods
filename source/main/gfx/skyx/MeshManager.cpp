@@ -347,6 +347,26 @@ namespace SkyX
 		}
 	}
 
+	void MeshManager::dumpEntityState(Ogre::Camera* cam)
+	{
+		if (!mEntity || !mSceneNode)
+		{
+			Ogre::LogManager::getSingleton().logMessage("[SkyX] dump: no skydome entity");
+			return;
+		}
+		const Ogre::AxisAlignedBox& wb = mEntity->getWorldBoundingBox(true);
+		Ogre::LogManager::getSingleton().logMessage(
+			"[SkyX] dump: entity visible=" + Ogre::StringConverter::toString(mEntity->isVisible())
+			+ " inScene=" + Ogre::StringConverter::toString(mEntity->isInScene())
+			+ " queue=" + Ogre::StringConverter::toString((int)mEntity->getRenderQueueGroup())
+			+ " material='" + mEntity->getSubEntity(0)->getMaterialName() + "'"
+			+ " nodePos=" + Ogre::StringConverter::toString(mSceneNode->_getDerivedPosition())
+			+ " worldBounds=" + Ogre::StringConverter::toString(wb.getMinimum()) + ".." + Ogre::StringConverter::toString(wb.getMaximum())
+			+ " camPos=" + Ogre::StringConverter::toString(cam->getDerivedPosition())
+			+ " camFar=" + Ogre::StringConverter::toString(cam->getFarClipDistance())
+			+ " camVisible=" + Ogre::StringConverter::toString(cam->isVisible(wb)));
+	}
+
 	void MeshManager::setMaterialName(const Ogre::String& MaterialName)
 	{
 		mMaterialName = MaterialName;

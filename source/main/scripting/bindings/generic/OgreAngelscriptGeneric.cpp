@@ -339,7 +339,7 @@ static void registerOgreVector3Generic(AngelScript::asIScriptEngine* engine)
     r = engine->RegisterObjectMethod("vector3", "bool positionCloses(const vector3 &in, float) const", WRAP_MFN(Vector3,positionCloses), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
     r = engine->RegisterObjectMethod("vector3", "bool directionEquals(const vector3 &in, radian &in) const", WRAP_MFN(Vector3,directionEquals), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
 
-    r = engine->RegisterObjectMethod("vector3", "bool isNaN() const", WRAP_MFN(Vector3,isNaN), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
+    r = engine->RegisterObjectMethod("vector3", "bool isNaN() const", WRAP_OBJ_LAST(Vector3IsNaN), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
 }
 
 // register Ogre::Vector2
@@ -405,7 +405,7 @@ static void registerOgreVector2Generic(AngelScript::asIScriptEngine* engine)
 
     r = engine->RegisterObjectMethod("vector2", "bool positionEquals(const vector2 &in, float) const", WRAP_MFN(Vector2,positionEquals), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
 
-    r = engine->RegisterObjectMethod("vector2", "bool isNaN() const", WRAP_MFN(Vector2,isNaN), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
+    r = engine->RegisterObjectMethod("vector2", "bool isNaN() const", WRAP_OBJ_LAST(Vector2IsNaN), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
 }
 
 static void registerOgreRadianGeneric(AngelScript::asIScriptEngine* engine)
@@ -539,7 +539,7 @@ static void registerOgreQuaternionGeneric(AngelScript::asIScriptEngine* engine)
     r = engine->RegisterObjectMethod("quaternion", "radian getPitch(bool reprojectAxis = true) const", WRAP_MFN(Quaternion,getPitch), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
     r = engine->RegisterObjectMethod("quaternion", "radian getYaw(bool reprojectAxis = true) const", WRAP_MFN(Quaternion,getYaw), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
     r = engine->RegisterObjectMethod("quaternion", "bool equals(const quaternion &in, const radian &in) const", WRAP_MFN(Quaternion,equals), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
-    r = engine->RegisterObjectMethod("quaternion", "bool isNaN() const", WRAP_MFN(Quaternion,isNaN), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
+    r = engine->RegisterObjectMethod("quaternion", "bool isNaN() const", WRAP_OBJ_LAST(QuaternionIsNaN), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
 
     // Register some static methods
     r = engine->RegisterGlobalFunction("quaternion Slerp(float, const quaternion &in, const quaternion &in, bool &in)", WRAP_FN_PR(Quaternion::Slerp,(Real fT, const Quaternion&, const Quaternion&, bool), Quaternion), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
@@ -727,7 +727,7 @@ static void registerOgreSceneNodeGeneric(AngelScript::asIScriptEngine* engine)
     r = engine->SetDefaultNamespace("Ogre"); ROR_ASSERT(r >= 0);
 
     r = engine->RegisterObjectMethod("SceneNode", "void attachObject(MovableObject@ obj)", WRAP_MFN_PR(SceneNode, attachObject, (MovableObject*), void), asCALL_GENERIC); ROR_ASSERT(r >= 0);
-    r = engine->RegisterObjectMethod("SceneNode", "MovableObject@ getAttachedObject(const string& in)", WRAP_MFN_PR(SceneNode, getAttachedObject, (const String&), MovableObject*), asCALL_GENERIC); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneNode", "MovableObject@ getAttachedObject(const string& in)", WRAP_MFN_PR(SceneNode, getAttachedObject, (const String&) const, MovableObject*), asCALL_GENERIC); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "MovableObject@ detachObject(uint16)", WRAP_MFN_PR(SceneNode, detachObject, (uint16), MovableObject*), asCALL_GENERIC); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "void detachObject(MovableObject@ obj)", WRAP_MFN_PR(SceneNode, detachObject, (MovableObject*), void), asCALL_GENERIC); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "MovableObject@ detachObject(const string& in)", WRAP_MFN_PR(SceneNode, detachObject, (const String&), MovableObject*), asCALL_GENERIC); ROR_ASSERT(r >= 0);
@@ -739,7 +739,7 @@ static void registerOgreSceneNodeGeneric(AngelScript::asIScriptEngine* engine)
     r = engine->RegisterObjectMethod("SceneNode", "void removeAndDestroyChild(SceneNode@)", WRAP_MFN_PR(SceneNode, removeAndDestroyChild, (SceneNode*), void), asCALL_GENERIC); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "void removeAndDestroyAllChildren()", WRAP_MFN(SceneNode, removeAndDestroyAllChildren), asCALL_GENERIC); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "void showBoundingBox(bool bShow)", WRAP_MFN(SceneNode, showBoundingBox), asCALL_GENERIC); ROR_ASSERT(r >= 0);
-    r = engine->RegisterObjectMethod("SceneNode", "void hideBoundingBox(bool bHide)", WRAP_MFN(SceneNode, hideBoundingBox), asCALL_GENERIC); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneNode", "void hideBoundingBox(bool bHide)", WRAP_OBJ_FIRST(SceneNodeHideBoundingBox), asCALL_GENERIC); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "bool getShowBoundingBox() const", WRAP_MFN(SceneNode, getShowBoundingBox), asCALL_GENERIC); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "SceneNode@ createChildSceneNode(const string& in name, const vector3& in translate = vector3(0.f, 0.f, 0.f), const quaternion& in rotate = quaternion())", WRAP_MFN_PR(SceneNode, createChildSceneNode, (const String&, const Vector3&, const Quaternion&), SceneNode*), asCALL_GENERIC); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "void setFixedYawAxis(bool useFixed, const vector3& in fixedAxis = vector3(0.f, 1.f, 0.f))", WRAP_MFN(SceneNode, setFixedYawAxis), asCALL_GENERIC); ROR_ASSERT(r >= 0);
@@ -750,13 +750,13 @@ static void registerOgreSceneNodeGeneric(AngelScript::asIScriptEngine* engine)
     r = engine->RegisterObjectMethod("SceneNode", "MovableObjectArray@ getAttachedObjects()", WRAP_OBJ_LAST(SceneNodeGetAttachedObjects), asCALL_GENERIC); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "void lookAt(const vector3 &in, TransformSpace, const vector3 &in = vector3(0,0,-1))", WRAP_MFN_PR(SceneNode, lookAt, (const Vector3&, Node::TransformSpace, const Vector3&), void), asCALL_GENERIC);
     r = engine->RegisterObjectMethod("SceneNode", "void setAutoTracking(bool, SceneNode@, const vector3 &in = vector3(0,0,-1), const vector3 &in = vector3())", WRAP_MFN_PR(SceneNode, setAutoTracking, (bool, SceneNode* const, const Vector3&, const Vector3&), void), asCALL_GENERIC);
-    r = engine->RegisterObjectMethod("SceneNode", "SceneNode@ getAutoTrackTarget()", WRAP_MFN_PR(SceneNode, getAutoTrackTarget, (), SceneNode*), asCALL_GENERIC); ROR_ASSERT(r >= 0);
-    r = engine->RegisterObjectMethod("SceneNode", "const vector3& getAutoTrackOffset()", WRAP_MFN_PR(SceneNode, getAutoTrackOffset, (), const Vector3&), asCALL_GENERIC); ROR_ASSERT(r >= 0);
-    r = engine->RegisterObjectMethod("SceneNode", "const vector3& getAutoTrackLocalDirection()", WRAP_MFN_PR(SceneNode, getAutoTrackLocalDirection, (), const Vector3&), asCALL_GENERIC); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneNode", "SceneNode@ getAutoTrackTarget()", WRAP_MFN_PR(SceneNode, getAutoTrackTarget, () const, SceneNode*), asCALL_GENERIC); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneNode", "const vector3& getAutoTrackOffset()", WRAP_MFN_PR(SceneNode, getAutoTrackOffset, () const, const Vector3&), asCALL_GENERIC); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneNode", "const vector3& getAutoTrackLocalDirection()", WRAP_MFN_PR(SceneNode, getAutoTrackLocalDirection, () const, const Vector3&), asCALL_GENERIC); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "SceneNode@ getParentSceneNode()", WRAP_MFN_PR(SceneNode, getParentSceneNode, () const, SceneNode*), asCALL_GENERIC); ROR_ASSERT(r >= 0);
-    r = engine->RegisterObjectMethod("SceneNode", "void setVisible(bool, bool cascade = true)", WRAP_MFN_PR(SceneNode, setVisible, (bool, bool), void), asCALL_GENERIC); ROR_ASSERT(r >= 0);
-    r = engine->RegisterObjectMethod("SceneNode", "void flipVisibility(bool = true)", WRAP_MFN_PR(SceneNode, flipVisibility, (bool), void), asCALL_GENERIC); ROR_ASSERT(r >= 0);
-    r = engine->RegisterObjectMethod("SceneNode", "void setDebugDisplayEnabled(bool, bool cascade = true)", WRAP_MFN_PR(SceneNode, setDebugDisplayEnabled, (bool, bool), void), asCALL_GENERIC); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneNode", "void setVisible(bool, bool cascade = true)", WRAP_MFN_PR(SceneNode, setVisible, (bool, bool) const, void), asCALL_GENERIC); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneNode", "void flipVisibility(bool = true)", WRAP_MFN_PR(SceneNode, flipVisibility, (bool) const, void), asCALL_GENERIC); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneNode", "void setDebugDisplayEnabled(bool, bool cascade = true)", WRAP_MFN_PR(SceneNode, setDebugDisplayEnabled, (bool, bool) const, void), asCALL_GENERIC); ROR_ASSERT(r >= 0);
 
     registerOgreNodeBaseGeneric<SceneNode>(engine, "SceneNode");
 
@@ -774,7 +774,7 @@ static void registerOgreSceneManagerGeneric(AngelScript::asIScriptEngine* engine
 
     // Entities
     r = engine->RegisterObjectMethod("SceneManager", "Entity@ createEntity(const string&in ent_name, const string &in mesh_name, const string &in mesh_rg = \"OgreAutodetect\")", WRAP_OBJ_FIRST(SceneManagerCreateEntity), asCALL_GENERIC); ROR_ASSERT(r >= 0);
-    r = engine->RegisterObjectMethod("SceneManager", "void destroyEntity(Entity@)", WRAP_MFN_PR(SceneManager, destroyEntity, (Entity*), void), asCALL_GENERIC); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneManager", "void destroyEntity(Entity@)", WRAP_OBJ_FIRST(SceneManagerDestroyEntity), asCALL_GENERIC); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneManager", "void destroyEntity(const string &in)", WRAP_MFN_PR(SceneManager, destroyEntity, (const Ogre::String&), void), asCALL_GENERIC); ROR_ASSERT(r >= 0);
 
     // Scene nodes
@@ -790,7 +790,7 @@ static void registerOgreSceneManagerGeneric(AngelScript::asIScriptEngine* engine
     r = engine->RegisterObjectMethod("SceneManager", "ManualObject@ createManualObject(const string &in)", WRAP_MFN_PR(SceneManager, createManualObject, (const Ogre::String&), Ogre::ManualObject*), asCALL_GENERIC); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneManager", "ManualObject@ getManualObject(const string &in)", WRAP_MFN_PR(SceneManager, getManualObject, (const Ogre::String&) const, Ogre::ManualObject*), asCALL_GENERIC); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneManager", "void destroyManualObject(const string &in)", WRAP_MFN_PR(SceneManager, destroyManualObject, (const Ogre::String&), void), asCALL_GENERIC); ROR_ASSERT(r >= 0);
-    r = engine->RegisterObjectMethod("SceneManager", "void destroyManualObject(ManualObject@)", WRAP_MFN_PR(SceneManager, destroyManualObject, (Ogre::ManualObject*), void), asCALL_GENERIC); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneManager", "void destroyManualObject(ManualObject@)", WRAP_OBJ_FIRST(SceneManagerDestroyManualObject), asCALL_GENERIC); ROR_ASSERT(r >= 0);
 
     r = engine->SetDefaultNamespace(""); ROR_ASSERT(r >= 0);
 }

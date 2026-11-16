@@ -96,6 +96,45 @@ namespace SkyX
 		_setTextureHWGammaCorrection("SkyX_MoonHalo.png", gammaCorrection);
 	}
 
+
+	void GPUManager::dumpSkydomeState()
+	{
+		if (!mSkydomeMaterial)
+		{
+			SkyXLOG("dump: no skydome material");
+			return;
+		}
+		Ogre::String msg = "dump: material '" + mSkydomeMaterial->getName() + "' techniques=" + Ogre::StringConverter::toString(mSkydomeMaterial->getNumTechniques())
+			+ " supported=" + Ogre::StringConverter::toString(mSkydomeMaterial->getNumSupportedTechniques());
+		Ogre::Technique* tech = mSkydomeMaterial->getNumTechniques() > 0 ? mSkydomeMaterial->getTechnique(0) : nullptr;
+		Ogre::Technique* best = mSkydomeMaterial->getBestTechnique();
+		msg += Ogre::String(" tech0==best:") + ((tech == best) ? "yes" : "NO");
+		if (tech && tech->getNumPasses() > 0)
+		{
+			Ogre::Pass* pass = tech->getPass(0);
+			for (int stage = 0; stage < 2; ++stage)
+			{
+				const bool vs = (stage == 0);
+				const Ogre::GpuProgramPtr& prog = vs ? pass->getVertexProgram() : pass->getFragmentProgram();
+				msg += vs ? " | VS " : " | FS ";
+				if (!prog) { msg += "none"; continue; }
+				msg += "'" + prog->getName() + "' supported=" + Ogre::StringConverter::toString(prog->isSupported());
+				Ogre::GpuProgramParametersSharedPtr params = vs ? pass->getVertexProgramParameters() : pass->getFragmentProgramParameters();
+				if (params && params->_findNamedConstantDefinition("uLightDir", false))
+				{
+					const Ogre::GpuConstantDefinition* def = params->_findNamedConstantDefinition("uLightDir", false);
+					const float* f = params->getFloatPointer(def->physicalIndex);
+					msg += " uLightDir=(" + Ogre::StringConverter::toString(f[0]) + "," + Ogre::StringConverter::toString(f[1]) + "," + Ogre::StringConverter::toString(f[2]) + ")";
+				}
+				else
+				{
+					msg += " uLightDir=<not found>";
+				}
+			}
+		}
+		SkyXLOG(msg);
+	}
+
 	void GPUManager::setGpuProgramParameter(const GpuProgram &GpuP,  const Ogre::String &Name, const int &Value, const bool& UpdateGroundPasses)
 	{
 		if (!mSkyX->getMeshManager()->isCreated())

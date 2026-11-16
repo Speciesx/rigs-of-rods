@@ -39,7 +39,6 @@
 #include "Replay.h"
 #include "ScrewProp.h"
 #include "ScriptEngine.h"
-#include "SkyManager.h"
 #include "SkyXManager.h"
 #include "SoundScriptManager.h"
 #include "Terrain.h"
@@ -418,7 +417,7 @@ void GameContext::ModifyActor(ActorModifyRequest& rq)
         if (actor->getUsedActorEntry()->deleted)
         {
             App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_ACTOR, Console::CONSOLE_SYSTEM_ERROR,
-                fmt::format(_LC("GameContext", "Cannot reload '{}' ({}) - the associated modcache entry was deleted."),
+                fmt::format(fmt::runtime(_LC("GameContext", "Cannot reload '{}' ({}) - the associated modcache entry was deleted.")),
                     actor->getUsedActorEntry()->dname, actor->getUsedActorEntry()->fname));
             return;
         }
@@ -785,7 +784,7 @@ void GameContext::OnLoaderGuiApply(LoaderType type, CacheEntryPtr entry, std::st
                 if (!default_skin_entry)
                 {
                     App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_ACTOR, Console::CONSOLE_SYSTEM_WARNING,
-                        fmt::format(_L("Default skin '{}' for actor '{}' not found!"), entry->default_skin, entry->dname));
+                        fmt::format(fmt::runtime(_L("Default skin '{}' for actor '{}' not found!")), entry->default_skin, entry->dname));
                 }
                 if (default_skin_entry && num_skins == 1)
                 {
@@ -1267,79 +1266,48 @@ void GameContext::UpdateSimInputEvents(float dt)
 
 void GameContext::UpdateSkyInputEvents(float dt)
 {
-#ifdef USE_CAELUM
-    if (App::gfx_sky_mode->getEnum<GfxSkyMode>() == GfxSkyMode::CAELUM &&
-        m_terrain->getSkyManager())
-    {
-        float time_factor = 1.0f;
-
-        if (RoR::App::GetInputEngine()->getEventBoolValue(EV_SKY_INCREASE_TIME))
-        {
-            time_factor = 1000.0f;
-        }
-        else if (RoR::App::GetInputEngine()->getEventBoolValue(EV_SKY_INCREASE_TIME_FAST))
-        {
-            time_factor = 10000.0f;
-        }
-        else if (RoR::App::GetInputEngine()->getEventBoolValue(EV_SKY_DECREASE_TIME))
-        {
-            time_factor = -1000.0f;
-        }
-        else if (RoR::App::GetInputEngine()->getEventBoolValue(EV_SKY_DECREASE_TIME_FAST))
-        {
-            time_factor = -10000.0f;
-        }
-        else if (App::gfx_sky_time_cycle->getBool())
-        {
-            time_factor = App::gfx_sky_time_speed->getInt();
-        }
-
-        if (m_sky_time_frozen)
-        {
-            time_factor = 0.0f;
-        }
-
-        if (m_terrain->getSkyManager()->GetSkyTimeFactor() != time_factor)
-        {
-            m_terrain->getSkyManager()->SetSkyTimeFactor(time_factor);
-            Str<200> msg; msg << _L("Time set to ") << m_terrain->getSkyManager()->GetPrettyTime();
-            RoR::App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_NOTICE, msg.ToCStr());
-        }
-    }
-
-#endif // USE_CAELUM
     if (App::gfx_sky_mode->getEnum<GfxSkyMode>() == GfxSkyMode::SKYX &&
         m_terrain->getSkyXManager())
     {
+        SkyXManager* skyx_mgr = m_terrain->getSkyXManager();
+        float time_multiplier = skyx_mgr->GetBaseTimeMultiplier(); // From .skx file or converted Caelum script
+
         if (RoR::App::GetInputEngine()->getEventBoolValue(EV_SKY_INCREASE_TIME))
         {
-            m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(1.0f);
+            time_multiplier = 1.0f;
         }
         else if (RoR::App::GetInputEngine()->getEventBoolValue(EV_SKY_INCREASE_TIME_FAST))
         {
-            m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(2.0f);
+            time_multiplier = 2.0f;
         }
         else if (RoR::App::GetInputEngine()->getEventBoolValue(EV_SKY_DECREASE_TIME))
         {
-            m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(-1.0f);
+            time_multiplier = -1.0f;
         }
         else if (RoR::App::GetInputEngine()->getEventBoolValue(EV_SKY_DECREASE_TIME_FAST))
         {
-            m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(-2.0f);
+            time_multiplier = -2.0f;
         }
         else if (App::gfx_sky_time_cycle->getBool())
         {
-            // Sky time speed in 'x real-time' (same setting as Caelum), SkyX counts hours per second
-            m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(App::gfx_sky_time_speed->getInt() / 3600.f);
-        }
-        else
-        {
-            m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(0.01f);
+            // Sky time speed in 'x real-time', SkyX counts hours per second
+            time_multiplier = App::gfx_sky_time_speed->getInt() / 3600.f;
         }
 
         if (m_sky_time_frozen)
         {
-            m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(0.0f);
+            time_multiplier = 0.0f; // 'Freeze time' in the sky settings
+        }
+
+        if (skyx_mgr->GetSkyX()->getTimeMultiplier() != time_multiplier)
+        {
+            const bool key_released = std::abs(skyx_mgr->GetSkyX()->getTimeMultiplier()) >= 1.0f && std::abs(time_multiplier) < 1.0f;
+            skyx_mgr->GetSkyX()->setTimeMultiplier(time_multiplier);
+            if (key_released)
+            {
+                Str<200> msg; msg << _L("Time set to ") << skyx_mgr->GetPrettyTime();
+                RoR::App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_NOTICE, msg.ToCStr());
+            }
         }
     }
 }

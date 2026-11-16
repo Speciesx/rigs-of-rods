@@ -60,8 +60,6 @@ private:
 
         void _update();
 
-        bool mConvertToBGR;
-
         Matrix4 mXform;
         RenderOperation mRenderOp;
         TexturePtr mFontTex;

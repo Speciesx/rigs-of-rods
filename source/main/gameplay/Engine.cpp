@@ -1497,7 +1497,7 @@ void Engine::UpdateInputEvents(float dt)
                 this->setGearRange((curgearrange + 1) % this->getNumGearsRanges());
                 gear_changed = true;
                 App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_NOTICE,
-                    fmt::format(_L("Range cycled (current: {}/available: {})"),
+                    fmt::format(fmt::runtime(_L("Range cycled (current: {}/available: {})")),
                         this->getGearRange(), this->getNumGearsRanges()), "cog.png");
             }
 

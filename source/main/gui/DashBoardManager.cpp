@@ -955,10 +955,9 @@ static void ScaleDashWidgetAxis(int pos, int size, int parent_orig, int parent_n
 
 void DashBoard::snapshotWidgetOriginsRecursive(MyGUI::Widget* parent)
 {
-    MyGUI::EnumeratorWidgetPtr e = parent->getEnumerator();
-    while (e.next())
+    for (size_t i = 0; i < parent->getChildCount(); ++i) // MyGUI 3.5: Enumerator is deprecated
     {
-        MyGUI::Widget* w = e.current();
+        MyGUI::Widget* w = parent->getChildAt(i);
         WidgetOrigin origin;
         origin.coord = w->getCoord();
         MyGUI::TextBox* txt = w->castType<MyGUI::TextBox>(/* _throw: */ false);
@@ -973,10 +972,9 @@ void DashBoard::snapshotWidgetOriginsRecursive(MyGUI::Widget* parent)
 
 void DashBoard::applyUiScaleRecursive(MyGUI::Widget* parent, MyGUI::IntSize parent_orig_size, MyGUI::IntSize parent_new_size)
 {
-    MyGUI::EnumeratorWidgetPtr e = parent->getEnumerator();
-    while (e.next())
+    for (size_t i = 0; i < parent->getChildCount(); ++i) // MyGUI 3.5: Enumerator is deprecated
     {
-        MyGUI::Widget* w = e.current();
+        MyGUI::Widget* w = parent->getChildAt(i);
         auto itor = m_widget_origins.find(w);
         if (itor == m_widget_origins.end())
         {
@@ -1088,7 +1086,7 @@ bool DashBoard::parseLink(std::string& linkArgs, int& linkID, char& condition, f
 void DashBoard::loadLayoutRecursive(MyGUI::WidgetPtr w)
 {
     std::string name = w->getName();
-    std::string debug = w->getUserString("debug");
+    std::string debug = std::string(w->getUserString("debug"));
 
     // make it unclickable
     w->setUserString("interactive", "0");
@@ -1148,14 +1146,14 @@ void DashBoard::loadLayoutRecursive(MyGUI::WidgetPtr w)
     std::string formatNumStr = "format";
     std::string directionNumStr = "direction";
 
-    std::string anim = w->getUserString(animNumStr);
+    std::string anim = std::string(w->getUserString(animNumStr));
     std::string linkArgs;
     if (anim != "")
     {
         bool linkIDForVisibilitySet = false;
         while (anim != "")
         {
-            linkArgs = w->getUserString(linkNumStr);
+            linkArgs = std::string(w->getUserString(linkNumStr));
 
             // animations for this control?
             if (!linkArgs.empty())
@@ -1270,11 +1268,11 @@ void DashBoard::loadLayoutRecursive(MyGUI::WidgetPtr w)
                     ctrl.graphicalAnimation.condition = condition;
                     ctrl.graphicalAnimation.conditionArgument = conditionArgument;
 
-                    String texture = w->getUserString(textureNumStr);
+                    String texture = std::string(w->getUserString(textureNumStr));
                     if (!texture.empty())
                         strncpy(ctrl.graphicalAnimation.texture, texture.c_str(), sizeof ctrl.graphicalAnimation.texture);
 
-                    String format = w->getUserString(formatNumStr);
+                    String format = std::string(w->getUserString(formatNumStr));
                     if (!format.empty())
                         strncpy(ctrl.graphicalAnimation.format, format.c_str(), sizeof ctrl.graphicalAnimation.format);
 
@@ -1357,12 +1355,12 @@ void DashBoard::loadLayoutRecursive(MyGUI::WidgetPtr w)
                         ctrl.geometricAnimationCount++;
 
                         // parse more attributes
-                        geometricAnim.wmin = StringConverter::parseReal(w->getUserString(minNumStr));
-                        geometricAnim.wmax = StringConverter::parseReal(w->getUserString(maxNumStr));
-                        geometricAnim.vmin = StringConverter::parseReal(w->getUserString(vminNumStr));
-                        geometricAnim.vmax = StringConverter::parseReal(w->getUserString(vmaxNumStr));
+                        geometricAnim.wmin = StringConverter::parseReal(std::string(w->getUserString(minNumStr)));
+                        geometricAnim.wmax = StringConverter::parseReal(std::string(w->getUserString(maxNumStr)));
+                        geometricAnim.vmin = StringConverter::parseReal(std::string(w->getUserString(vminNumStr)));
+                        geometricAnim.vmax = StringConverter::parseReal(std::string(w->getUserString(vmaxNumStr)));
 
-                        String direction = w->getUserString(directionNumStr);
+                        String direction = std::string(w->getUserString(directionNumStr));
                         if (direction == "right")
                             geometricAnim.direction = DIRECTION_RIGHT;
                         else if (direction == "left")
@@ -1421,7 +1419,7 @@ void DashBoard::loadLayoutRecursive(MyGUI::WidgetPtr w)
             textureNumStr = fmt::format("texture{}", animNum);
             formatNumStr = fmt::format("format{}", animNum);
             directionNumStr = fmt::format("direction{}", animNum);
-            anim = w->getUserString(animNumStr);
+            anim = std::string(w->getUserString(animNumStr));
         }
 
         controls.push_back(ctrl);
@@ -1429,7 +1427,7 @@ void DashBoard::loadLayoutRecursive(MyGUI::WidgetPtr w)
     else
     {
         // Control with no animations. Process normal link.
-        linkArgs = w->getUserString("link");
+        linkArgs = std::string(w->getUserString("link"));
         // links for this control?
         if (!linkArgs.empty())
         {
@@ -1448,10 +1446,9 @@ void DashBoard::loadLayoutRecursive(MyGUI::WidgetPtr w)
     }
 
     // walk the children now
-    MyGUI::EnumeratorWidgetPtr e = w->getEnumerator();
-    while (e.next())
+    for (size_t i = 0; i < w->getChildCount(); ++i) // MyGUI 3.5: Enumerator is deprecated
     {
-        loadLayoutRecursive(e.current());
+        loadLayoutRecursive(w->getChildAt(i));
     }
 }
 

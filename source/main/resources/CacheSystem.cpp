@@ -242,14 +242,14 @@ CacheEntryPtr CacheSystem::FindEntryByFilename(LoaderType type, bool partial, co
     if (log_candidates.size() > 0)
     {
         App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_NOTICE,
-            fmt::format(_LC("CacheSystem", "Mod '{}' was not found in cache; candidates ({}) are:"), _filename_maybe_bundlequalified, log_candidates.size()));
+            fmt::format(fmt::runtime(_LC("CacheSystem", "Mod '{}' was not found in cache; candidates ({}) are:")), _filename_maybe_bundlequalified, log_candidates.size()));
         for (CacheEntryPtr& entry: log_candidates)
         {
             std::string bundle_name, bundle_path;
             StringUtil::toLowerCase(bundle_name);
             Ogre::StringUtil::splitFilename(entry->resource_bundle_path, bundle_name, bundle_path);
             App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_NOTICE,
-                fmt::format(_LC("CacheSystem", "* {}:{}"), bundle_name, entry->fname));
+                fmt::format(fmt::runtime(_LC("CacheSystem", "* {}:{}")), bundle_name, entry->fname));
         }   
     }
 
@@ -1166,6 +1166,7 @@ void CacheSystem::ParseSingleZip(String path)
             LOG("Error while opening archive: '" + path + "': " + e.getFullDescription());
         }
         ResourceGroupManager::getSingleton().destroyResourceGroup(RGN_TEMP);
+        ArchiveManager::getSingleton().unload(path);
         m_resource_paths.insert(path);
     }
 }
@@ -1435,13 +1436,13 @@ void CacheSystem::LoadAssetPack(CacheEntryPtr& target_entry, Ogre::String const 
         catch (std::exception const& e)
         {
             App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_TERRN, Console::CONSOLE_SYSTEM_ERROR,
-                fmt::format(_L("Failed to load asset pack '{}' (requested by '{}'): {}"), assetpack_entry->fname, target_entry->fname, e.what()));
+                fmt::format(fmt::runtime(_L("Failed to load asset pack '{}' (requested by '{}'): {}")), assetpack_entry->fname, target_entry->fname, e.what()));
         }
     }
     else
     {
         App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_TERRN, Console::CONSOLE_SYSTEM_WARNING, 
-            fmt::format(_L("Asset pack '{}' (requested by '{}') not found"), assetpack_filename, target_entry->fname));
+            fmt::format(fmt::runtime(_L("Asset pack '{}' (requested by '{}') not found")), assetpack_filename, target_entry->fname));
     }
 }
 
@@ -1789,7 +1790,7 @@ CacheEntryPtr CacheSystem::CreateProject(CreateProjectRequest* request)
     if (!request->cpr_source_entry)
     {
         App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_ERROR,
-            fmt::format(_LC("CacheSystem", "Cannot create project '{}' - no source mod specified!"), request->cpr_name));
+            fmt::format(fmt::runtime(_LC("CacheSystem", "Cannot create project '{}' - no source mod specified!")), request->cpr_name));
         return nullptr;
     }
 
@@ -1801,14 +1802,14 @@ CacheEntryPtr CacheSystem::CreateProject(CreateProjectRequest* request)
     if (FolderExists(project_path) && !request->cpr_overwrite)
     {
         App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_ERROR,
-            fmt::format(_LC("CacheSystem", "Project directory '{}' already exists!"), request->cpr_name));
+            fmt::format(fmt::runtime(_LC("CacheSystem", "Project directory '{}' already exists!")), request->cpr_name));
         return nullptr;
     }
     CreateFolder(project_path);
     if (!FolderExists(project_path))
     {
         App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_ERROR,
-            fmt::format(_LC("CacheSystem", "Project directory '{}' could not be created!"), request->cpr_name));
+            fmt::format(fmt::runtime(_LC("CacheSystem", "Project directory '{}' could not be created!")), request->cpr_name));
         return nullptr;
     }
 
@@ -1936,7 +1937,7 @@ CacheEntryPtr CacheSystem::CreateProject(CreateProjectRequest* request)
             catch (Ogre::Exception& oex)
             {
                 App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_WARNING,
-                    fmt::format(_LC("CacheSystem", "Could not copy file '{}' to project '{}', message: {}."),
+                    fmt::format(fmt::runtime(_LC("CacheSystem", "Could not copy file '{}' to project '{}', message: {}.")),
                         fileinfo.filename, request->cpr_name, oex.getDescription()));       
             }
         }
@@ -1957,7 +1958,7 @@ CacheEntryPtr CacheSystem::CreateProject(CreateProjectRequest* request)
            if (!doc->loadFromResource(request->cpr_source_entry->fname, request->cpr_source_entry->resource_group, flags))
           {
                App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_ERROR,
-                   fmt::format(_LC("CacheSystem", "Could not load project file '{}' to perform fixups."),
+                   fmt::format(fmt::runtime(_LC("CacheSystem", "Could not load project file '{}' to perform fixups.")),
                        project_entry->fname));
                return nullptr;
           }
@@ -1990,7 +1991,7 @@ CacheEntryPtr CacheSystem::CreateProject(CreateProjectRequest* request)
        if (!doc->saveToResource(project_entry->fname, project_entry->resource_group))
        {
             App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_ERROR,
-                fmt::format(_LC("CacheSystem", "Could not save fixed-up project file '{}'."),
+                fmt::format(fmt::runtime(_LC("CacheSystem", "Could not save fixed-up project file '{}'.")),
                     project_entry->fname));
             return nullptr;
        }
@@ -2028,7 +2029,7 @@ void CacheSystem::ModifyProject(ModifyProjectRequest* request)
         if (request->mpr_target_actor->getWorkingTuneupDef()->use_addonparts.count(request->mpr_subject) != 0)
         {
             App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_ACTOR, Console::CONSOLE_SYSTEM_WARNING,
-                fmt::format(_LC("Tuning", "Addon part '{}' is already equipped."), request->mpr_subject));
+                fmt::format(fmt::runtime(_LC("Tuning", "Addon part '{}' is already equipped.")), request->mpr_subject));
             return; // Nothing to do!
         }
         
@@ -2036,7 +2037,7 @@ void CacheSystem::ModifyProject(ModifyProjectRequest* request)
         if (!subject_entry)
         {
             App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_ACTOR, Console::CONSOLE_SYSTEM_WARNING,
-                fmt::format(_LC("Tuning", "Addon part '{}' was not found in mod cache (probably not installed)."), request->mpr_subject));
+                fmt::format(fmt::runtime(_LC("Tuning", "Addon part '{}' was not found in mod cache (probably not installed).")), request->mpr_subject));
             return; // Nothing to do!
         }
 
@@ -2195,7 +2196,7 @@ void CacheSystem::ModifyProject(ModifyProjectRequest* request)
         if (!save_entry)
         {
             App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_ERROR,
-                fmt::format(_LC("CacheSystem", "Error loading tuneup: file '{}', not found in mod cache"), request->mpr_subject));
+                fmt::format(fmt::runtime(_LC("CacheSystem", "Error loading tuneup: file '{}', not found in mod cache")), request->mpr_subject));
             return;
         }
         this->LoadResource(save_entry);
@@ -2216,7 +2217,7 @@ void CacheSystem::ModifyProject(ModifyProjectRequest* request)
         if (!actor_ok)
         {
             App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_ERROR,
-                fmt::format(_LC("CacheSystem", "Error updating truck file: actor not found or disposed")));
+                fmt::format(fmt::runtime(_LC("CacheSystem", "Error updating truck file: actor not found or disposed"))));
             return;
         }
         RoR::CacheEntryPtr entry = request->mpr_target_actor->getUsedActorEntry();
@@ -2224,7 +2225,7 @@ void CacheSystem::ModifyProject(ModifyProjectRequest* request)
         if (!entry_ok)
         {
             App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_ERROR,
-                fmt::format(_LC("CacheSystem", "Error updating truck file: cache entry missing or not a project")));
+                fmt::format(fmt::runtime(_LC("CacheSystem", "Error updating truck file: cache entry missing or not a project"))));
             return;
         }
         request->mpr_target_actor->propagateNodeBeamChangesToDef();
@@ -2273,7 +2274,7 @@ void CacheSystem::DeleteProject(CacheEntryPtr& entry)
             if (!Ogre::FileSystemLayer::removeFile(PathCombine(entry->resource_bundle_path, fileinfo.filename)))
             {
                 App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_ERROR,
-                    fmt::format(_LC("CacheSystem", "Problem deleting project '{}' - could not delete file '{}'"), entry->fname, fileinfo.filename));
+                    fmt::format(fmt::runtime(_LC("CacheSystem", "Problem deleting project '{}' - could not delete file '{}'")), entry->fname, fileinfo.filename));
             }
         }
 
@@ -2283,7 +2284,7 @@ void CacheSystem::DeleteProject(CacheEntryPtr& entry)
         if (!Ogre::FileSystemLayer::removeDirectory(entry->resource_bundle_path))
         {
             App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_ERROR,
-                fmt::format(_LC("CacheSystem", "Problem deleting project '{}' - could not delete directory '{}'"), entry->fname, entry->resource_bundle_path));
+                fmt::format(fmt::runtime(_LC("CacheSystem", "Problem deleting project '{}' - could not delete directory '{}'")), entry->fname, entry->resource_bundle_path));
         }
 
         // Remove the entry
@@ -2470,7 +2471,7 @@ void CacheSystem::DeleteResourceBundleByFilename(const std::string& bundle_filen
     if (!this->IsRepoFileInstalled(bundle_filename, bundle_path))
     {
         App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_WARNING,
-            fmt::format(_LC("CacheSystem", "Could not delete resource bundle '{}': not found in mod cache."), bundle_filename));
+            fmt::format(fmt::runtime(_LC("CacheSystem", "Could not delete resource bundle '{}': not found in mod cache.")), bundle_filename));
         return;
     }
 
@@ -2483,7 +2484,7 @@ void CacheSystem::DeleteResourceBundleByFilename(const std::string& bundle_filen
             TRIGGER_EVENT_ASYNC(SE_GENERIC_MODCACHE_ACTIVITY,
                 /*ints*/ MODCACHEACTIVITY_ENTRY_DELETED, entry->number);
             App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_NOTICE,
-                fmt::format(_LC("CacheSystem", "Deleted {} '{}' because bundle {} is being removed."), entry->fext, entry->dname, bundle_filename));
+                fmt::format(fmt::runtime(_LC("CacheSystem", "Deleted {} '{}' because bundle {} is being removed.")), entry->fext, entry->dname, bundle_filename));
         }
     }
 
@@ -2497,7 +2498,7 @@ void CacheSystem::DeleteResourceBundleByFilename(const std::string& bundle_filen
         if (!Ogre::FileSystemLayer::removeFile(bundle_path))
         {
             App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_ERROR,
-                fmt::format(_LC("CacheSystem", "Could not delete resource bundle file '{}' from disk."), bundle_filename));
+                fmt::format(fmt::runtime(_LC("CacheSystem", "Could not delete resource bundle file '{}' from disk.")), bundle_filename));
             return;
         }
         TRIGGER_EVENT_ASYNC(SE_GENERIC_MODCACHE_ACTIVITY,
@@ -2507,7 +2508,7 @@ void CacheSystem::DeleteResourceBundleByFilename(const std::string& bundle_filen
     catch (Ogre::Exception& oex)
     {
         App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_ERROR,
-            fmt::format(_LC("CacheSystem", "Could not delete resource bundle '{}', message: {}."), bundle_filename, oex.getDescription()));
+            fmt::format(fmt::runtime(_LC("CacheSystem", "Could not delete resource bundle '{}', message: {}.")), bundle_filename, oex.getDescription()));
     }
 }
 

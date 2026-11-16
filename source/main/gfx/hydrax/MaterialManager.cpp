@@ -3111,7 +3111,7 @@ namespace Hydrax
 		{
 			FP_Parameters->setNamedConstant("uSunColor", mHydrax->getSunColor());
 			FP_Parameters->setNamedConstant("uLightDirection",
-				(mHydrax->getMesh()->getObjectSpacePosition(mHydrax->getCamera()->getPosition()) -
+				(mHydrax->getMesh()->getObjectSpacePosition(mHydrax->getCamera()->getParentSceneNode()->getPosition()) -
 				 mHydrax->getMesh()->getObjectSpacePosition(mHydrax->getSunPosition()))
 			     .normalisedCopy());
 		    FP_Parameters->setNamedConstant("uIntensity", mHydrax->getGodRaysIntensity());
@@ -3849,7 +3849,7 @@ namespace Hydrax
 				setNamedConstant("uSunColor", mMaterialManager->mHydrax->getSunColor());
 
 			FP_Parameters->setNamedConstant("uLightDirection",
-				   (mMaterialManager->mHydrax->getMesh()->getObjectSpacePosition(mMaterialManager->mHydrax->getCamera()->getPosition()) -
+				   (mMaterialManager->mHydrax->getMesh()->getObjectSpacePosition(mMaterialManager->mHydrax->getCamera()->getParentSceneNode()->getPosition()) -
 				    mMaterialManager->mHydrax->getMesh()->getObjectSpacePosition(mMaterialManager->mHydrax->getSunPosition()))
 					.normalisedCopy());
 

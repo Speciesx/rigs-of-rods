@@ -102,10 +102,6 @@ RoR.cfg
     
     Nickname (string)
 
-    Caelum Fog Density (float)
-        how dense the fog with Caelum sky is, default: 0.005
-        possible Values: 0.05-0.000001
-
     Sandstorm Fog Start
         where the fog with Sandstorm starts, default: 500
         possible Values: 100-10000

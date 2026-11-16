@@ -30,12 +30,6 @@ jobs:
           cmake -DCMAKE_BUILD_TYPE=Release -DMYGUI_BUILD_DEMOS=FALSE -DMYGUI_BUILD_TOOLS=FALSE .
           sudo make -j 2 install 
 
-      - name: Build Caelum
-        run: |
-          git clone --depth 1 https://github.com/RigsOfRods/ogre-caelum.git && cd ogre-caelum
-          cmake -DCMAKE_BUILD_TYPE=Release -DCaelum_BUILD_SAMPLES=FALSE -DINSTALL_OGRE_PLUGIN=OFF .
-          sudo make -j 2 install 
-
       - name: Build PagedGeometry
         run: |
           git clone --depth 1 https://github.com/RigsOfRods/ogre-pagedgeometry.git && cd ogre-pagedgeometry

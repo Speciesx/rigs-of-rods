@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_SOURCE_DIR}/cmake/find-modules)
 
 cmake_policy(SET CMP0127 OLD)
+set(CMAKE_CONFIGURATION_TYPES "Debug" "Release" CACHE STRING "Configuration types")
 
 include(CMakeDependentOption)
 include(Macros)
@@ -16,7 +17,7 @@ set(PROJECT_NAME_SHORT "RoR")
 set(PROJECT_NAME_UNDERSCORE "Rigs_of_Rods")
 set(PROJECT_NAME_LONG "Rigs of Rods")
 
-set(REQUIRED_DEPS_VERSION 30)
+set(REQUIRED_DEPS_VERSION 31)
 
 # The version is used by installer
 project(${PROJECT_NAME_UNDERSCORE} VERSION 2026.01)
@@ -48,6 +49,9 @@ set(FETCHCONTENT_QUIET OFF)
 SET(BUILD_SHARED_LIBS ON)
 SET(CMAKE_USE_RELATIVE_PATHS OFF)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 # setup paths
 SET(CMAKE_PREFIX_PATH ${ROR_DEPENDENCY_DIR} ${CMAKE_PREFIX_PATH})
@@ -85,6 +89,8 @@ mark_as_advanced(
 
 if (WIN32)
     add_definitions("/D_CRT_SECURE_NO_WARNINGS /wd4005 /wd4996 /wd4251 /wd4275 /wd4099 /nologo")
+    # C++20: report the real language version in __cplusplus (MSVC default is 199711L); /permissive- is implied by /std:c++20
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/Zc:__cplusplus>)
 
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}        /MP /GL /Ox /Ob2 /Oi /Ot /Oy /fp:fast /GS- /MP /Zi")
     set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL}     /MP /Zi")

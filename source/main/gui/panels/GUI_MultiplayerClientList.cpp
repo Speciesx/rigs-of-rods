@@ -302,7 +302,7 @@ void MpClientList::DrawPeerOptCheckbox(const BitMask_t flag, const std::string& 
 
 void RoR::GUI::MpClientList::DrawServerCommandBtn(const std::string& cmdfmt, const std::string& label)
 {
-    std::string chatmsg = fmt::format(cmdfmt, m_users[m_peeropts_menu_active_user_vectorpos].uniqueid);
+    std::string chatmsg = fmt::format(fmt::runtime(cmdfmt), m_users[m_peeropts_menu_active_user_vectorpos].uniqueid);
     if (ImGui::Button(label.c_str()))
     {
         App::GetGameContext()->PushMessage(Message(MSG_GUI_SHOW_CHATBOX_REQUESTED, chatmsg));

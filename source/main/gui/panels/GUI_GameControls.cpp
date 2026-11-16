@@ -373,7 +373,7 @@ void GameControls::ApplyChanges()
     {
         format_string = "{} {} 0 {}"; // Name, Type, DeviceNumber (unused), Binding
     }
-    std::string line = fmt::format(format_string,
+    std::string line = fmt::format(fmt::runtime(format_string),
         App::GetInputEngine()->eventIDToName(m_active_event),
         InputEngine::getEventTypeName(m_selected_evtype),
         m_active_buffer.ToCStr());

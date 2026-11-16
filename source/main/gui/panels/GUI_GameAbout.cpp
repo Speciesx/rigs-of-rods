@@ -58,6 +58,10 @@ void GameAbout::Draw()
     ImGui::SameLine();
     ImGui::Text("%s, %s", ROR_BUILD_DATE, ROR_BUILD_TIME);
 
+    ImGui::TextDisabled("%s: ", _LC("About", "Build with OGRE version"));
+    ImGui::SameLine();
+    ImGui::Text("%i.%i.%i (%s)", OGRE_VERSION_MAJOR, OGRE_VERSION_MINOR, OGRE_VERSION_PATCH, OGRE_VERSION_NAME);
+
     ImGui::Separator();
 
     ImGui::TextColored(theme.value_blue_text_color, "%s:", _LC("About", "Authors"));
@@ -121,9 +125,6 @@ void GameAbout::Draw()
     ImGui::NewLine();
     ImGui::TextColored(theme.value_blue_text_color, "%s:", _LC("About", "Used Libs"));
     ImGui::Text("%s%s", "Ogre3D:",         " 3D rendering engine");
-#ifdef USE_CAELUM
-    ImGui::Text("%s%s", "Caelum:",         " Atmospheric effects");
-#endif
     ImGui::Text("%s%s", "Hydrax:",         " Water rendering");
 #ifdef USE_ANGELSCRIPT
     ImGui::Text("%s%s", "AngelScript:",    " Scripting Backend");

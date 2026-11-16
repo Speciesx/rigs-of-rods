@@ -41,34 +41,7 @@ using namespace Ogre;
 using namespace Forests;
 
 
-/// For Ogre 1.7.2 and 1.7.3 VertexElementType enum writed as
-///
-/// VET_FLOAT1 = 0
-/// VET_FLOAT2 = 1
-/// VET_FLOAT3 = 2
-/// VET_FLOAT4 = 3
-/// VET_COLOUR = 4
-/// VET_SHORT1 = 5
-/// VET_SHORT2 = 6
-/// VET_SHORT3 = 7
-/// VET_SHORT4 = 8
-/// VET_UBYTE4 = 9
-/// VET_COLOUR_ARGB = 10
-/// VET_COLOUR_ABGR = 11
-const size_t BatchedGeometry::s_vertexType2Size[VET_COLOUR_ABGR + 1] = {
-   VertexElement::getTypeSize(VET_FLOAT1),
-   VertexElement::getTypeSize(VET_FLOAT2),
-   VertexElement::getTypeSize(VET_FLOAT3),
-   VertexElement::getTypeSize(VET_FLOAT4),
-   VertexElement::getTypeSize(VET_COLOUR),
-   VertexElement::getTypeSize(VET_SHORT1),
-   VertexElement::getTypeSize(VET_SHORT2),
-   VertexElement::getTypeSize(VET_SHORT3),
-   VertexElement::getTypeSize(VET_SHORT4),
-   VertexElement::getTypeSize(VET_UBYTE4),
-   VertexElement::getTypeSize(VET_COLOUR_ARGB),
-   VertexElement::getTypeSize(VET_COLOUR_ABGR)
-};
+
 
 
 //-------------------------------------------------------------------------------------
@@ -553,6 +526,7 @@ void BatchedGeometry::SubBatch::addSubEntity(SubEntity *ent, const Vector3 &posi
    if (color != ColourValue::White)
    {
       m_RequireVertexColors = true;
+#if OGRE_VERSION_MAJOR < 13
       VertexElementType format = Root::getSingleton().getRenderSystem()->getColourVertexElementType();
       switch (format)
       {
@@ -565,6 +539,7 @@ void BatchedGeometry::SubBatch::addSubEntity(SubEntity *ent, const Vector3 &posi
          OGRE_EXCEPT(Exception::ERR_INVALIDPARAMS, "Unknown RenderSystem color format");
          break;
       }
+#endif // OGRE 13+: vertex colours are always VET_UBYTE4_NORM in RGBA byte order (== old ABGR), no swizzle needed.
    }
 
    m_queueMesh.push_back(newMesh);
@@ -786,7 +761,7 @@ void BatchedGeometry::SubBatch::_buildIdentiryOrientation(const QueuedMesh &queu
                default:
                   // Raw copy
                   //memcpy(destPtr, sourcePtr, VertexElement::getTypeSize(elem.getType()));
-                  memcpy(destPtr, sourcePtr, s_vertexType2Size[elem.getType()]);
+                  memcpy(destPtr, sourcePtr, VertexElement::getTypeSize(elem.getType()));
                   break;
                };
 
@@ -917,7 +892,7 @@ void BatchedGeometry::SubBatch::_buildFullTransform(const QueuedMesh &queuedMesh
 
                default:
                   //memcpy(destPtr, sourcePtr, VertexElement::getTypeSize(elem.getType()));
-                  memcpy(destPtr, sourcePtr, s_vertexType2Size[elem.getType()]);
+                  memcpy(destPtr, sourcePtr, VertexElement::getTypeSize(elem.getType()));
                   break;
                };
 

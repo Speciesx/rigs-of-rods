@@ -1,9 +1,8 @@
-import * from "shadows.material"
 import * from "texture_manager.material"
 
 material managed/flexmesh_transparent/simple
 {
-	technique BaseTechnique: Shadows/managed_transparent/base_receiver //Include shadows
+	technique BaseTechnique //Include shadows
 	{
 		pass BaseRender
 		{
@@ -20,7 +19,7 @@ material managed/flexmesh_transparent/simple
 
 material managed/flexmesh_transparent/damageonly
 {
-	technique BaseTechnique: Shadows/managed_transparent/base_receiver //Include shadows
+	technique BaseTechnique //Include shadows
 	{
 		pass BaseRender
 		{
@@ -48,7 +47,7 @@ material managed/flexmesh_transparent/damageonly
 
 material managed/flexmesh_transparent/specularonly
 {
-	technique BaseTechnique: Shadows/managed_transparent/base_receiver //Include shadows
+	technique BaseTechnique //Include shadows
 	{
 		pass BaseRender
 		{
@@ -75,7 +74,7 @@ material managed/flexmesh_transparent/specularonly
 
 material managed/flexmesh_transparent/speculardamage
 {
-	technique BaseTechnique: Shadows/managed_transparent/base_receiver //Include shadows
+	technique BaseTechnique //Include shadows
 	{
 		pass BaseRender
 		{
@@ -109,7 +108,7 @@ material managed/flexmesh_transparent/speculardamage
 
 material managed/mesh_transparent/simple
 {
-	technique BaseTechnique: Shadows/managed_transparent/base_receiver //Include shadows
+	technique BaseTechnique //Include shadows
 	{
 		pass BaseRender
 		{
@@ -126,7 +125,7 @@ material managed/mesh_transparent/simple
 
 material managed/mesh_transparent/specular
 {
-	technique BaseTechnique: Shadows/managed_transparent/base_receiver //Include shadows
+	technique BaseTechnique //Include shadows
 	{
 		pass BaseRender
 		{

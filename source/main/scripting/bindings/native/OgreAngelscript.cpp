@@ -298,7 +298,7 @@ void registerOgreVector3(AngelScript::asIScriptEngine* engine)
     r = engine->RegisterObjectMethod("vector3", "bool directionEquals(const vector3 &in, radian &in) const", asMETHOD(Vector3,directionEquals), asCALL_THISCALL);
     ROR_ASSERT( r >= 0 );
 
-    r = engine->RegisterObjectMethod("vector3", "bool isNaN() const", asMETHOD(Vector3,isNaN), asCALL_THISCALL);
+    r = engine->RegisterObjectMethod("vector3", "bool isNaN() const", asFUNCTION(Vector3IsNaN), asCALL_CDECL_OBJLAST);
     ROR_ASSERT( r >= 0 );
 }
 
@@ -406,7 +406,7 @@ void registerOgreVector2(AngelScript::asIScriptEngine* engine)
     r = engine->RegisterObjectMethod("vector2", "bool positionEquals(const vector2 &in, float) const", asMETHOD(Vector2,positionEquals), asCALL_THISCALL);
     ROR_ASSERT( r >= 0 );
 
-    r = engine->RegisterObjectMethod("vector2", "bool isNaN() const", asMETHOD(Vector2,isNaN), asCALL_THISCALL);
+    r = engine->RegisterObjectMethod("vector2", "bool isNaN() const", asFUNCTION(Vector2IsNaN), asCALL_CDECL_OBJLAST);
     ROR_ASSERT( r >= 0 );
 }
 
@@ -633,7 +633,7 @@ void registerOgreQuaternion(AngelScript::asIScriptEngine* engine)
     ROR_ASSERT( r >= 0 );
     r = engine->RegisterObjectMethod("quaternion", "bool equals(const quaternion &in, const radian &in) const", asMETHOD(Quaternion,equals), asCALL_THISCALL);
     ROR_ASSERT( r >= 0 );
-    r = engine->RegisterObjectMethod("quaternion", "bool isNaN() const", asMETHOD(Quaternion,isNaN), asCALL_THISCALL);
+    r = engine->RegisterObjectMethod("quaternion", "bool isNaN() const", asFUNCTION(QuaternionIsNaN), asCALL_CDECL_OBJLAST);
     ROR_ASSERT( r >= 0 );
 
     // Register some static methods
@@ -833,7 +833,7 @@ void registerOgreSceneNode(AngelScript::asIScriptEngine* engine)
     r = engine->SetDefaultNamespace("Ogre"); ROR_ASSERT(r >= 0);
 
     r = engine->RegisterObjectMethod("SceneNode", "void attachObject(MovableObject@ obj)", asMETHODPR(SceneNode, attachObject, (MovableObject*), void), asCALL_THISCALL); ROR_ASSERT(r >= 0);
-    r = engine->RegisterObjectMethod("SceneNode", "MovableObject@ getAttachedObject(const string& in)", asMETHODPR(SceneNode, getAttachedObject, (const String&), MovableObject*), asCALL_THISCALL); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneNode", "MovableObject@ getAttachedObject(const string& in)", asMETHODPR(SceneNode, getAttachedObject, (const String&) const, MovableObject*), asCALL_THISCALL); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "MovableObject@ detachObject(uint16)", asMETHODPR(SceneNode, detachObject, (uint16), MovableObject*), asCALL_THISCALL); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "void detachObject(MovableObject@ obj)", asMETHODPR(SceneNode, detachObject, (MovableObject*), void), asCALL_THISCALL); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "MovableObject@ detachObject(const string& in)", asMETHODPR(SceneNode, detachObject, (const String&), MovableObject*), asCALL_THISCALL); ROR_ASSERT(r >= 0);
@@ -845,7 +845,7 @@ void registerOgreSceneNode(AngelScript::asIScriptEngine* engine)
     r = engine->RegisterObjectMethod("SceneNode", "void removeAndDestroyChild(SceneNode@)", asMETHODPR(SceneNode, removeAndDestroyChild, (SceneNode*), void), asCALL_THISCALL); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "void removeAndDestroyAllChildren()", asMETHOD(SceneNode, removeAndDestroyAllChildren), asCALL_THISCALL); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "void showBoundingBox(bool bShow)", asMETHOD(SceneNode, showBoundingBox), asCALL_THISCALL); ROR_ASSERT(r >= 0);
-    r = engine->RegisterObjectMethod("SceneNode", "void hideBoundingBox(bool bHide)", asMETHOD(SceneNode, hideBoundingBox), asCALL_THISCALL); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneNode", "void hideBoundingBox(bool bHide)", asFUNCTION(SceneNodeHideBoundingBox), asCALL_CDECL_OBJFIRST); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "bool getShowBoundingBox() const", asMETHOD(SceneNode, getShowBoundingBox), asCALL_THISCALL); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "SceneNode@ createChildSceneNode(const string& in name, const vector3& in translate = vector3(0.f, 0.f, 0.f), const quaternion& in rotate = quaternion())", asMETHODPR(SceneNode, createChildSceneNode, (const String&, const Vector3&, const Quaternion&), SceneNode*), asCALL_THISCALL); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "void setFixedYawAxis(bool useFixed, const vector3& in fixedAxis = vector3(0.f, 1.f, 0.f))", asMETHOD(SceneNode, setFixedYawAxis), asCALL_THISCALL); ROR_ASSERT(r >= 0);
@@ -856,13 +856,13 @@ void registerOgreSceneNode(AngelScript::asIScriptEngine* engine)
     r = engine->RegisterObjectMethod("SceneNode", "MovableObjectArray@ getAttachedObjects()", asFUNCTION(SceneNodeGetAttachedObjects), asCALL_CDECL_OBJLAST); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "void lookAt(const vector3 &in, TransformSpace, const vector3 &in = vector3(0,0,-1))", asMETHODPR(SceneNode, lookAt, (const Vector3&, Node::TransformSpace, const Vector3&), void), asCALL_THISCALL);
     r = engine->RegisterObjectMethod("SceneNode", "void setAutoTracking(bool, SceneNode@, const vector3 &in = vector3(0,0,-1), const vector3 &in = vector3())", asMETHODPR(SceneNode, setAutoTracking, (bool, SceneNode* const, const Vector3&, const Vector3&), void), asCALL_THISCALL);
-    r = engine->RegisterObjectMethod("SceneNode", "SceneNode@ getAutoTrackTarget()", asMETHODPR(SceneNode, getAutoTrackTarget, (), SceneNode*), asCALL_THISCALL); ROR_ASSERT(r >= 0);
-    r = engine->RegisterObjectMethod("SceneNode", "const vector3& getAutoTrackOffset()", asMETHODPR(SceneNode, getAutoTrackOffset, (), const Vector3&), asCALL_THISCALL); ROR_ASSERT(r >= 0);
-    r = engine->RegisterObjectMethod("SceneNode", "const vector3& getAutoTrackLocalDirection()", asMETHODPR(SceneNode, getAutoTrackLocalDirection, (), const Vector3&), asCALL_THISCALL); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneNode", "SceneNode@ getAutoTrackTarget()", asMETHODPR(SceneNode, getAutoTrackTarget, () const, SceneNode*), asCALL_THISCALL); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneNode", "const vector3& getAutoTrackOffset()", asMETHODPR(SceneNode, getAutoTrackOffset, () const, const Vector3&), asCALL_THISCALL); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneNode", "const vector3& getAutoTrackLocalDirection()", asMETHODPR(SceneNode, getAutoTrackLocalDirection, () const, const Vector3&), asCALL_THISCALL); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneNode", "SceneNode@ getParentSceneNode()", asMETHODPR(SceneNode, getParentSceneNode, () const, SceneNode*), asCALL_THISCALL); ROR_ASSERT(r >= 0);
-    r = engine->RegisterObjectMethod("SceneNode", "void setVisible(bool, bool cascade = true)", asMETHODPR(SceneNode, setVisible, (bool, bool), void), asCALL_THISCALL); ROR_ASSERT(r >= 0);
-    r = engine->RegisterObjectMethod("SceneNode", "void flipVisibility(bool = true)", asMETHODPR(SceneNode, flipVisibility, (bool), void), asCALL_THISCALL); ROR_ASSERT(r >= 0);
-    r = engine->RegisterObjectMethod("SceneNode", "void setDebugDisplayEnabled(bool, bool cascade = true)", asMETHODPR(SceneNode, setDebugDisplayEnabled, (bool, bool), void), asCALL_THISCALL); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneNode", "void setVisible(bool, bool cascade = true)", asMETHODPR(SceneNode, setVisible, (bool, bool) const, void), asCALL_THISCALL); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneNode", "void flipVisibility(bool = true)", asMETHODPR(SceneNode, flipVisibility, (bool) const, void), asCALL_THISCALL); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneNode", "void setDebugDisplayEnabled(bool, bool cascade = true)", asMETHODPR(SceneNode, setDebugDisplayEnabled, (bool, bool) const, void), asCALL_THISCALL); ROR_ASSERT(r >= 0);
 
     registerOgreNodeBase<SceneNode>(engine, "SceneNode");
 
@@ -880,7 +880,7 @@ void registerOgreSceneManager(AngelScript::asIScriptEngine* engine)
 
     // Entities
     r = engine->RegisterObjectMethod("SceneManager", "Entity@ createEntity(const string&in ent_name, const string &in mesh_name, const string &in mesh_rg = \"OgreAutodetect\")", asFUNCTION(SceneManagerCreateEntity), asCALL_CDECL_OBJFIRST); ROR_ASSERT(r >= 0);
-    r = engine->RegisterObjectMethod("SceneManager", "void destroyEntity(Entity@)", asMETHODPR(SceneManager, destroyEntity, (Entity*), void), asCALL_THISCALL); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneManager", "void destroyEntity(Entity@)", asFUNCTION(SceneManagerDestroyEntity), asCALL_CDECL_OBJFIRST); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneManager", "void destroyEntity(const string &in)", asMETHODPR(SceneManager, destroyEntity, (const Ogre::String&), void), asCALL_THISCALL); ROR_ASSERT(r >= 0);
 
     // Scene nodes
@@ -896,7 +896,7 @@ void registerOgreSceneManager(AngelScript::asIScriptEngine* engine)
     r = engine->RegisterObjectMethod("SceneManager", "ManualObject@ createManualObject(const string &in)", asMETHODPR(SceneManager, createManualObject, (const Ogre::String&), Ogre::ManualObject*), asCALL_THISCALL); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneManager", "ManualObject@ getManualObject(const string &in)", asMETHODPR(SceneManager, getManualObject, (const Ogre::String&) const, Ogre::ManualObject*), asCALL_THISCALL); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("SceneManager", "void destroyManualObject(const string &in)", asMETHODPR(SceneManager, destroyManualObject, (const Ogre::String&), void), asCALL_THISCALL); ROR_ASSERT(r >= 0);
-    r = engine->RegisterObjectMethod("SceneManager", "void destroyManualObject(ManualObject@)", asMETHODPR(SceneManager, destroyManualObject, (Ogre::ManualObject*), void), asCALL_THISCALL); ROR_ASSERT(r >= 0);
+    r = engine->RegisterObjectMethod("SceneManager", "void destroyManualObject(ManualObject@)", asFUNCTION(SceneManagerDestroyManualObject), asCALL_CDECL_OBJFIRST); ROR_ASSERT(r >= 0);
 
     r = engine->SetDefaultNamespace(""); ROR_ASSERT(r >= 0);
 }

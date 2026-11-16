@@ -974,14 +974,14 @@ bool AddonPartUtility::DoubleCheckForAddonpartConflict(ActorPtr target_actor, Ca
         GUI::MessageBoxConfig* dialog = new GUI::MessageBoxConfig;
         dialog->mbc_content_width = 700.f;
         dialog->mbc_title = _LC("Tuning", "Cannot install addon part, conflicts were detected.");
-        dialog->mbc_text = fmt::format(_LC("Tuning", "Requested addon part: '{}' (file '{}')."), addonpart_entry->dname, addonpart_entry->fname);
+        dialog->mbc_text = fmt::format(fmt::runtime(_LC("Tuning", "Requested addon part: '{}' (file '{}').")), addonpart_entry->dname, addonpart_entry->fname);
         dialog->mbc_text += "\n";
-        dialog->mbc_text += fmt::format(_LC("Tuning", "Total conflicts: {}."), conflicts.size());
+        dialog->mbc_text += fmt::format(fmt::runtime(_LC("Tuning", "Total conflicts: {}.")), conflicts.size());
         dialog->mbc_text += "\n";
         for (size_t i=0; i < conflicts.size(); i++)
         {
             dialog->mbc_text += "\n";
-            dialog->mbc_text += fmt::format(_LC("Tuning", "[{}/{}] '{}' (file '{}') conflicts with '{}' #{}."),
+            dialog->mbc_text += fmt::format(fmt::runtime(_LC("Tuning", "[{}/{}] '{}' (file '{}') conflicts with '{}' #{}.")),
                 i+1, conflicts.size(),
                 conflicts[i].atc_addonpart2->dname, conflicts[i].atc_addonpart2->fname,
                 conflicts[i].atc_keyword, conflicts[i].atc_element_id);

@@ -48,7 +48,6 @@ public:
         static const ResourcePack WALLPAPERS;
         static const ResourcePack AIRFOILS;
         static const ResourcePack BEAM_OBJECTS;
-        static const ResourcePack CAELUM;
         static const ResourcePack CUBEMAPS;
         static const ResourcePack DASHBOARDS;
         static const ResourcePack FAMICONS;

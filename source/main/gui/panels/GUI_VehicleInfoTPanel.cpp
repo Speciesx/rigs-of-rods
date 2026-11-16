@@ -58,7 +58,7 @@ void VehicleInfoTPanel::Draw(RoR::GfxActor* actorx)
     {
         m_startupdemo_timer.reset();
         App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_NOTICE,
-                                      fmt::format(_LC("VehicleButtons", "Hover the mouse on the left to see controls")), "lightbulb.png");
+                                      fmt::format(fmt::runtime(_LC("VehicleButtons", "Hover the mouse on the left to see controls"))), "lightbulb.png");
         m_startupdemo_init = true;
     }
     if (App::ui_show_vehicle_buttons->getBool() && m_startupdemo_timer.getMilliseconds() < 5000)
@@ -608,8 +608,8 @@ void VehicleInfoTPanel::DrawVehicleStatsUI(RoR::GfxActor* actorx)
 void VehicleInfoTPanel::DrawVehicleDiagUI(RoR::GfxActor* actorx)
 {
     ImGui::TextDisabled("%s", _LC("TopMenubar", "Live diagnostic views:"));
-    ImGui::TextDisabled("%s", fmt::format(_LC("TopMenubar", "(Toggle with {})"), App::GetInputEngine()->getEventCommandTrimmed(EV_COMMON_TOGGLE_DEBUG_VIEW)).c_str());
-    ImGui::TextDisabled("%s", fmt::format(_LC("TopMenubar", "(Cycle with {})"), App::GetInputEngine()->getEventCommandTrimmed(EV_COMMON_CYCLE_DEBUG_VIEWS)).c_str());
+    ImGui::TextDisabled("%s", fmt::format(fmt::runtime(_LC("TopMenubar", "(Toggle with {})")), App::GetInputEngine()->getEventCommandTrimmed(EV_COMMON_TOGGLE_DEBUG_VIEW)).c_str());
+    ImGui::TextDisabled("%s", fmt::format(fmt::runtime(_LC("TopMenubar", "(Cycle with {})")), App::GetInputEngine()->getEventCommandTrimmed(EV_COMMON_CYCLE_DEBUG_VIEWS)).c_str());
 
     int debug_view_type = static_cast<int>(actorx->GetDebugView());
     ImGui::RadioButton(_LC("TopMenubar", "Normal view"),     &debug_view_type,  static_cast<int>(DebugViewType::DEBUGVIEW_NONE));

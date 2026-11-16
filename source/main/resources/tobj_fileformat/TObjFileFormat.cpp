@@ -518,7 +518,7 @@ void TObj::WriteToStream(TObjDocumentPtr doc, Ogre::DataStreamPtr stream)
     WriteTObjDelimiter(stream, "grid", (int)doc->grid_enabled);
     if (doc->grid_enabled)
     {
-        std::string line = fmt::format("grid {}, {}, {}\n");
+        std::string line = fmt::format("grid {}, {}, {}\n", doc->grid_position.x, doc->grid_position.y, doc->grid_position.z); // Args were missing (caught by C++20 compile-time format check)
         stream->write(line.c_str(), line.length());
     }
 

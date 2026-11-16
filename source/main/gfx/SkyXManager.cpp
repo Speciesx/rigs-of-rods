@@ -20,6 +20,7 @@
 */
 
 #include "SkyXManager.h"
+#include <cstdlib>
 
 #include "Actor.h"
 #include "AppContext.h"
@@ -50,6 +51,7 @@ SkyXManager::SkyXManager(Ogre::String configFile)
 
 	mCfgFileManager = new SkyX::CfgFileManager(mSkyX, mBasicController, App::GetCameraManager()->GetCamera());
 	mCfgFileManager->load(configFile);
+	mBaseTimeMultiplier = mSkyX->getTimeMultiplier();
 
 	mSkyX->create();
 
@@ -76,6 +78,29 @@ SkyXManager::SkyXManager(Ogre::String configFile)
 	mRainParticles.reset(new SkyXRainParticles(mSkyX, App::GetGfxScene()->GetSceneManager()));
 
 	this->SaveMapDefaults();
+
+	// Diagnostics: ROR_SKY_TEST=nodome | reddome (comma separated) - isolates why the sky looks wrong
+	if (const char* test = std::getenv("ROR_SKY_TEST"))
+	{
+		const Ogre::String t(test);
+		Ogre::Entity* ent = mSkyX->getMeshManager()->getEntity();
+		if (ent && t.find("nodome") != Ogre::String::npos)
+		{
+			ent->setVisible(false);
+			Ogre::LogManager::getSingleton().logMessage("[SkyX] TEST: skydome entity hidden");
+		}
+		if (ent && t.find("reddome") != Ogre::String::npos)
+		{
+			Ogre::MaterialPtr m = Ogre::MaterialManager::getSingleton().create("RoR_SkyTestRed", "General");
+			Ogre::Pass* pass = m->getTechnique(0)->getPass(0);
+			pass->setLightingEnabled(false);
+			pass->setDepthCheckEnabled(false);
+			pass->setDepthWriteEnabled(false);
+			pass->createTextureUnitState()->setColourOperationEx(Ogre::LBX_SOURCE1, Ogre::LBS_MANUAL, Ogre::LBS_CURRENT, Ogre::ColourValue(1, 0, 0));
+			ent->setMaterialName("RoR_SkyTestRed");
+			Ogre::LogManager::getSingleton().logMessage("[SkyX] TEST: skydome uses plain red material");
+		}
+	}
 }
 
 SkyXManager::~SkyXManager()
@@ -205,6 +230,7 @@ void SkyXManager::DetectPlayerMovement(float dt)
 
 bool SkyXManager::UpdateSkyLight()
 {
+	{ static int s_dump_counter = 0; if ((s_dump_counter++ % 600) == 1) { Ogre::LogManager::getSingleton().logMessage(Ogre::String("[SkyX] time=") + GetPrettyTime() + " sunDir=" + Ogre::StringConverter::toString(mSkyX->getController()->getSunDirection())); mSkyX->getGPUManager()->dumpSkydomeState(); mSkyX->getMeshManager()->dumpEntityState(App::GetCameraManager()->GetCamera()); } }
 	Ogre::Vector3 lightDir = -getMainLightDirection();
 	const Ogre::Vector3 camPos = App::GetCameraManager()->GetCameraNode()->_getDerivedPosition();
 	Ogre::Vector3 sunPos = camPos - lightDir*mSkyX->getMeshManager()->getSkydomeRadius(App::GetCameraManager()->GetCamera());
@@ -218,8 +244,8 @@ bool SkyXManager::UpdateSkyLight()
     }
 		
 
-	mLight0->setPosition(sunPos*0.02);
-	mLight1->setDirection(lightDir);
+	mLight0->getParentSceneNode()->setPosition(sunPos*0.02);
+	mLight1->getParentSceneNode()->setDirection(lightDir);
     if (App::GetGameContext()->GetTerrain()->getWater())
     {
         App::GetGameContext()->GetTerrain()->getGfxWater()->WaterSetSunPosition(sunPos*0.1);
@@ -258,6 +284,14 @@ bool SkyXManager::UpdateSkyLight()
 		amb.saturate();
 		sm->setAmbientLight(amb);
 		mAmbientTouched = (nightScale != 1.f); // back to the exact map value once the scale is neutral again
+	}
+
+	// Fog of a converted Caelum map: colour follows the sky (underwater view manages the fog by itself)
+	if (mFogFollowsSky && !mUwActive)
+	{
+		// Haze tint: slightly blueish, darkens with the ambient light during dusk/night.
+		Ogre::ColourValue fog_col(ambientCol.x * 0.75f, ambientCol.y * 0.8f, ambientCol.z * 0.9f);
+		sm->setFog(sm->getFogMode(), fog_col, sm->getFogDensity(), sm->getFogStart(), sm->getFogEnd());
 	}
 
 	if (mBasicController->getTime().x > 12)
@@ -323,7 +357,13 @@ bool SkyXManager::InitLight()
 
 	mLight1 = App::GetGfxScene()->GetSceneManager()->createLight("Light1");
 	mLight1->setType(Ogre::Light::LT_DIRECTIONAL);
-	mLight1->setPosition(100,100,100);
+
+        Ogre::SceneNode* mLight0_snode = RoR::App::GetGfxScene()->GetSceneManager()->getRootSceneNode()->createChildSceneNode();
+        mLight0_snode->attachObject(mLight0);
+
+        Ogre::SceneNode* mLight1_snode = RoR::App::GetGfxScene()->GetSceneManager()->getRootSceneNode()->createChildSceneNode();
+        mLight1_snode->attachObject(mLight1);
+        mLight1_snode->setPosition(100,100,100);
 
 	return true;
 }
@@ -440,6 +480,33 @@ void SkyXManager::ResetToMapDefaults()
 	lm->setLightningTimeMultiplier(d.lightningSpeed);
 	lm->setLightningColor(d.lightningColor);
 	lm->setEnabled(d.lightning);
+}
+
+float SkyXManager::GetTimeOfDay()
+{
+	return (mBasicController) ? mBasicController->getTime().x : 0.f;
+}
+
+void SkyXManager::SetTimeOfDay(float hour)
+{
+	if (!mBasicController)
+		return;
+	hour = std::fmod(hour, 24.f);
+	if (hour < 0.f)
+		hour += 24.f;
+	Ogre::Vector3 t = mBasicController->getTime();
+	t.x = hour;
+	mBasicController->setTime(t);
+}
+
+std::string SkyXManager::GetPrettyTime()
+{
+	const float hour = this->GetTimeOfDay();
+	const int h = static_cast<int>(hour);
+	const int m = static_cast<int>((hour - h) * 60.f);
+	char buf[20];
+	snprintf(buf, sizeof(buf), "%02d:%02d", h, m);
+	return buf;
 }
 
 size_t SkyXManager::getMemoryUsage()

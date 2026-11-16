@@ -77,7 +77,7 @@ void GameChatBox::Draw()
     if (initialized)
     {
         App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_NOTICE,
-                                      fmt::format(_LC("ChatBox", "Press {} to spawn a vehicle"),
+                                      fmt::format(fmt::runtime(_LC("ChatBox", "Press {} to spawn a vehicle")),
                    App::GetInputEngine()->getEventCommandTrimmed(EV_COMMON_GET_NEW_VEHICLE)), "lightbulb.png");
         initialized = false;
     }
@@ -200,7 +200,7 @@ void GameChatBox::SubmitMessage()
             {
                 App::GetConsole()->putMessage(
                     Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_WARNING,
-                    fmt::format(_LC("ChatBox", "Whisper message not sent, unknown username: {}"), username));
+                    fmt::format(fmt::runtime(_LC("ChatBox", "Whisper message not sent, unknown username: {}")), username));
             }
         }
         else

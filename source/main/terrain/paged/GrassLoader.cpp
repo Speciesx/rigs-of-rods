@@ -130,9 +130,15 @@ void GrassLoader::frameUpdate()
 void GrassLoader::loadPage(PageInfo &page)
 {
 	//Generate meshes
+	bool first = true;
+
 	std::list<GrassLayer*>::iterator it;
 	for (it = layerList.begin(); it != layerList.end(); ++it){
 		GrassLayer *layer = *it;
+
+		if (first)  // once for all layers
+			layer->parent->rTable->resetRandomIndex();
+		first = false;
 
 		// Continue to the next layer if the current page is outside of the layers map boundaries.
 		if(layer->mapBounds.right < page.bounds.left || layer->mapBounds.left > page.bounds.right ||
@@ -849,7 +855,7 @@ unsigned int GrassLayer::_populateGrassList_Uniform(PageInfo page, float *posBuf
 {
 	float *posPtr = posBuff;
 
-	parent->rTable->resetRandomIndex();
+	//parent->rTable->resetRandomIndex();
 
 	//No density map
 	if (!minY && !maxY)
@@ -917,7 +923,7 @@ unsigned int GrassLayer::_populateGrassList_UnfilteredDM(PageInfo page, float *p
 {
 	float *posPtr = posBuff;
 
-	parent->rTable->resetRandomIndex();
+	//parent->rTable->resetRandomIndex();
 
 	//Use density map
 	if (!minY && !maxY){
@@ -990,7 +996,7 @@ unsigned int GrassLayer::_populateGrassList_BilinearDM(PageInfo page, float *pos
 {
 	float *posPtr = posBuff;
 
-	parent->rTable->resetRandomIndex();
+	//parent->rTable->resetRandomIndex();
 
 	if (!minY && !maxY){
 		//No height range

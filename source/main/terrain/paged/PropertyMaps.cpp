@@ -259,12 +259,19 @@ ColorMap::ColorMap(TexturePtr map, MapChannel channel)
 	HardwarePixelBufferSharedPtr buff = map->getBuffer();
 
 	//Prepare a PixelBox (24-bit RGB) to receive the color values
+#if OGRE_VERSION_MAJOR >= 13
+	// OGRE 13+: vertex colours are always VET_UBYTE4_NORM (RGBA byte order, same layout as the old VET_COLOUR_ABGR)
+	VertexElementType format = VET_COLOUR_ABGR;
+#else
 	VertexElementType format = Root::getSingleton().getRenderSystem()->getColourVertexElementType();
+#endif
 	switch (format){
+#if OGRE_VERSION_MAJOR < 13
 		case VET_COLOUR_ARGB:
 			//DirectX9
 			pixels = new PixelBox(Box(0, 0, buff->getWidth(), buff->getHeight()), PF_A8R8G8B8);
 			break;
+#endif
 		case VET_COLOUR_ABGR:
 			//OpenGL
 			pixels = new PixelBox(Box(0, 0, buff->getWidth(), buff->getHeight()), PF_A8B8G8R8);

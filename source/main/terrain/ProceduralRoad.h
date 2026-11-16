@@ -86,6 +86,7 @@ private:
     void computePoints(Ogre::Vector3* pts, Ogre::Vector3 pos, Ogre::Quaternion rot, RoadType type, float width, float bwidth, float bheight);
     void textureFit(Ogre::Vector3 p1, Ogre::Vector3 p2, Ogre::Vector3 p3, Ogre::Vector3 p4, TextureFit texfit, Ogre::Vector2* texc, Ogre::Vector3 pos, Ogre::Vector3 lastpos, float width);
     void createMesh(const std::string& materialName = ""); //!< If materialName is empty, the default material will be used.
+    void createMaterial(); //!< Clones the submesh material and enables RTSS on it.
 
     struct CoVertice_t
     {
@@ -96,6 +97,7 @@ private:
 
     Ogre::MeshPtr msh;
     Ogre::SubMesh* mainsub = nullptr;
+    Ogre::MaterialPtr mat; // createMaterial();
 
     Ogre::Vector2 tex[MAX_VERTEX] = {};
     Ogre::Vector3 vertex[MAX_VERTEX] = {};

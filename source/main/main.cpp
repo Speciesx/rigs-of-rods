@@ -63,9 +63,11 @@
 #include <iomanip>
 #include <string>
 #include <fstream>
+#include <OgreRTShaderSystem.h>
+#include <OgreSGTechniqueResolverListener.h>
 
 #ifdef USE_CURL
-#   include <curl/curl.h>
+#include <curl/curl.h>
 #endif //USE_CURL
 
 #ifdef __cplusplus
@@ -143,6 +145,7 @@ int main(int argc, char *argv[])
             return -1; // Error already displayed
         }
 
+
         Ogre::TextureManager::getSingleton().setDefaultNumMipmaps(5);
 
         // Deploy base config files from 'skeleton.zip'
@@ -195,6 +198,22 @@ int main(int argc, char *argv[])
         App::GetGfxScene()->GetSceneManager()->addRenderQueueListener(overlay_system);
         App::CreateCameraManager(); // Creates OGRE Camera
         App::GetGfxScene()->GetEnvMap().SetupEnvMap(); // Needs camera
+
+        //Note: for DirectX this needs to happen early
+        if (!Ogre::RTShader::ShaderGenerator::initialize())
+        {
+            ErrorUtils::ShowError(_L("Startup error"),_L("Failed to setup RTShader system"));
+            return -1;
+        }
+
+        auto mShaderGenerator = Ogre::RTShader::ShaderGenerator::getSingletonPtr();
+        App::GetContentManager()->AddResourcePack(ContentManager::ResourcePack::RTSHADER);
+        mShaderGenerator->setShaderCachePath(App::sys_cache_dir->getStr());
+        mShaderGenerator->addSceneManager(App::GetGfxScene()->GetSceneManager());
+        App::GetAppContext()->GetViewport()->setMaterialScheme(Ogre::MSN_SHADERGEN);
+
+        auto* schemeNotFoundHandler = new OgreBites::SGTechniqueResolverListener(mShaderGenerator);
+        Ogre::MaterialManager::getSingleton().addListener(schemeNotFoundHandler);
 
         App::CreateGuiManager(); // Needs scene manager
 
@@ -995,7 +1014,7 @@ int main(int argc, char *argv[])
                         App::GetGuiManager()->RepositorySelector.QueueInstallRepoFile(request);
 
                         App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_NOTICE,
-                                                       fmt::format(_LC("RepositorySelector", "Repo file installation requested: {}"), request->rfir_filename));
+                                                       fmt::format(fmt::runtime(_LC("RepositorySelector", "Repo file installation requested: {}")), request->rfir_filename));
                     }
                     catch (...)
                     {
@@ -1088,7 +1107,7 @@ int main(int argc, char *argv[])
                             if (App::mp_state->getEnum<MpState>() == MpState::CONNECTED)
                             {
                                 App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_NOTICE,
-                                                                      fmt::format(_LC("ChatBox", "Press {} to start chatting"),
+                                                                      fmt::format(fmt::runtime(_LC("ChatBox", "Press {} to start chatting")),
                                                    App::GetInputEngine()->getEventCommandTrimmed(EV_COMMON_ENTER_CHATMODE)), "lightbulb.png");
                             }
     #endif // USE_SOCKETW
@@ -1718,7 +1737,7 @@ int main(int argc, char *argv[])
                                                           _L("Entered terrain editing mode"));
 
                             App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_NOTICE,
-                                fmt::format(_L("Press {} or middle mouse click to select an object"),
+                                fmt::format(fmt::runtime(_L("Press {} or middle mouse click to select an object")),
                                     App::GetInputEngine()->getEventCommandTrimmed(EV_COMMON_ENTER_OR_EXIT_TRUCK)), "lightbulb.png");
                             
                         }

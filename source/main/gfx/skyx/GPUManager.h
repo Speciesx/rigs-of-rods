@@ -96,6 +96,9 @@ namespace SkyX
 		 */
 		const Ogre::String getSkydomeMaterialName() const;
 
+		/** Write the state of the skydome material (programs, support, current uLightDir) to the log - diagnostics */
+		void dumpSkydomeState();
+
 		/** Get moon material name
 		    @return Moon material name
 		 */

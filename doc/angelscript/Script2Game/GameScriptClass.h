@@ -387,20 +387,20 @@ public:
 	TerrainClass@ getTerrain();
     
 	/**
-	 * Checks if Caleum is enabled.
-	 * @return true if Caleum is available
+	 * Checks if a dynamic sky is available. Caelum was removed - this now reports SkyX (name kept for compatibility).
+	 * @return true if SkyX is active
 	 */
 	bool getCaelumAvailable();
     
 	/**
-	 * gets the time of the day in seconds
-	 * @return string with HH::MM::SS format
+	 * Gets the SkyX time of day (Caelum was removed - name kept for compatibility).
+	 * @return string with HH:MM format
 	 */
 	string getCaelumTime();
 	
 	/**
-	 * sets the time of the day in seconds
-	 * @param value day time in seconds
+	 * Sets the speed of the SkyX day cycle (Caelum was removed - name kept for compatibility).
+	 * @param value simulated seconds per real second (1 = real time)
 	 */
 	void setCaelumTime(float value);
     

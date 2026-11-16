@@ -76,17 +76,6 @@ parts:
         source-tag: master
         source-depth: 1
         after: [ogre]
-    caelum:
-        plugin: cmake
-        configflags:
-            - -DCMAKE_BUILD_TYPE=Release
-            - -DCMAKE_INSTALL_PREFIX=/usr/
-            - -DCMAKE_CXX_FLAGS=-std=c++11
-            - -DCaelum_BUILD_SAMPLES=FALSE
-            - -DINSTALL_OGRE_PLUGIN=OFF
-        source: https://github.com/RigsOfRods/ogre-caelum.git
-        source-depth: 1
-        after: [ogre]
     socketw:
         plugin: cmake
         source: https://github.com/RigsOfRods/socketw.git
@@ -148,4 +137,4 @@ parts:
             - libpulse0
             - libois-1.3.0v5
             - libcurl3
-        after: [ogre, mygui, caelum, socketw, angelscript, rapidjson, mofilereader, desktop-glib-only]
+        after: [ogre, mygui, socketw, angelscript, rapidjson, mofilereader, desktop-glib-only]

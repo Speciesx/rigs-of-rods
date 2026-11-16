@@ -231,11 +231,7 @@ bool AppContext::SetUpRendering()
     m_ogre_root = new Ogre::Root("", cfg_filepath, log_filepath);
 
     // load OGRE plugins manually
-#ifdef _DEBUG
-    std::string plugins_path = PathCombine(RoR::App::sys_process_dir->getStr(), "plugins_d.cfg");
-#else
-	std::string plugins_path = PathCombine(RoR::App::sys_process_dir->getStr(), "plugins.cfg");
-#endif
+    std::string plugins_path = PathCombine(RoR::App::sys_process_dir->getStr(), "plugins.cfg");
     LOG(fmt::format("[RoR|Startup|Rendering] Loading OGRE renderer plugins config '{}'.", plugins_path));
     try
     {
@@ -249,14 +245,17 @@ bool AppContext::SetUpRendering()
             {
                 m_ogre_root->loadPlugin(PathCombine(plugin_dir, plugin_filename));
             }
-            catch (Ogre::Exception&) {} // Logged by OGRE
+            catch (Ogre::Exception& e) // OGRE 14 no longer logs exceptions by itself
+            {
+                LOG(fmt::format("[RoR|Startup|Rendering] Failed to load plugin '{}': {}", plugin_filename, e.getFullDescription()));
+            }
         }
     }
     catch (Ogre::Exception& e)
     {
         ErrorUtils::ShowError (
             _L("Startup error"), 
-            fmt::format(_L("Could not load file '{}' - make sure the game is installed correctly.\n\nDetailed info: {}"), plugins_path, e.getDescription()));
+            fmt::format(fmt::runtime(_L("Could not load file '{}' - make sure the game is installed correctly.\n\nDetailed info: {}")), plugins_path, e.getDescription()));
         return false;
     }
 
@@ -480,7 +479,7 @@ void AppContext::PrepareProfiler()
     if (App::diag_profiler_rate->getInt() < 1) // Check valid uint & Avoid division by zero in OGRE
     {
         App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_WARNING,
-            fmt::format(_L("Invalid profiler update rate ({}), resetting to default"), App::diag_profiler_rate->getInt()));
+            fmt::format(fmt::runtime(_L("Invalid profiler update rate ({}), resetting to default")), App::diag_profiler_rate->getInt()));
         App::diag_profiler_rate->setVal(10); // Default in OGRE
     }
     Ogre::Profiler::getSingleton().setUpdateDisplayFrequency((Ogre::uint)App::diag_profiler_rate->getInt());

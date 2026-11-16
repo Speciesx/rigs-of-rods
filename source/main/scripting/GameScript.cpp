@@ -55,7 +55,7 @@
 #include "ScriptEngine.h"
 #include "ServerScriptEngine.h"
 #include "ScriptUtils.h"
-#include "SkyManager.h"
+#include "SkyXManager.h"
 #include "SoundScriptManager.h"
 #include "Terrain.h"
 #include "TerrainGeometryManager.h"
@@ -157,35 +157,34 @@ Radian GameScript::getPersonRotation()
     return result;
 }
 
+// Caelum was replaced by SkyX; the script API keeps its name for compatibility with existing mods.
 String GameScript::getCaelumTime()
 {
     String result = "";
-#ifdef USE_CAELUM
-    if (App::GetGameContext()->GetTerrain())
+    if (App::GetGameContext()->GetTerrain() && App::GetGameContext()->GetTerrain()->getSkyXManager())
     {
-        result = App::GetGameContext()->GetTerrain()->getSkyManager()->GetPrettyTime();
+        result = App::GetGameContext()->GetTerrain()->getSkyXManager()->GetPrettyTime();
     }
-#endif // USE_CAELUM
     return result;
 }
 
 void GameScript::setCaelumTime(float value)
 {
-#ifdef USE_CAELUM
     if (!this->HaveSimTerrain(__FUNCTION__))
         return;
 
-    App::GetGameContext()->GetTerrain()->getSkyManager()->SetSkyTimeFactor(value);
-#endif // USE_CAELUM
+    if (App::GetGameContext()->GetTerrain()->getSkyXManager())
+    {
+        // Caelum time factor = sim seconds per real second; SkyX uses sim hours per real second.
+        App::GetGameContext()->GetTerrain()->getSkyXManager()->SetBaseTimeMultiplier(value / 3600.f);
+    }
 }
 
 bool GameScript::getCaelumAvailable()
 {
     bool result = false;
-#ifdef USE_CAELUM
     if (App::GetGameContext()->GetTerrain())
-        result = App::GetGameContext()->GetTerrain()->getSkyManager() != 0;
-#endif // USE_CAELUM
+        result = App::GetGameContext()->GetTerrain()->getSkyXManager() != nullptr;
     return result;
 }
 

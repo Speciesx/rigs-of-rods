@@ -31,9 +31,6 @@
 #include "SkyXWeatherAudio.h"
 #include "Terrain.h"
 
-#ifdef USE_CAELUM
-#include "SkyManager.h"
-#endif
 
 #include <algorithm>
 #include <cmath>
@@ -80,24 +77,6 @@ void SkyControlsPanel::Draw()
     SX::SkyX* skyx = (skyx_mgr != nullptr) ? skyx_mgr->GetSkyX() : nullptr;
     const bool skyx_active = (skyx != nullptr) && skyx->isCreated();
 
-#ifdef USE_CAELUM
-    SkyManager* caelum = (terrain && !skyx_active) ? terrain->getSkyManager() : nullptr;
-#else
-    void* caelum = nullptr;
-#endif
-
-#ifdef USE_CAELUM
-    Caelum::CaelumSystem* csys = (caelum != nullptr) ? caelum->GetCaelumSys() : nullptr;
-    Caelum::FlatCloudLayer* clayer = nullptr;
-    if (csys != nullptr && csys->getCloudSystem() != nullptr && csys->getCloudSystem()->getLayerCount() > 0)
-    {
-        clayer = csys->getCloudSystem()->getLayer(0);
-    }
-#else
-    void* csys = nullptr;
-    void* clayer = nullptr;
-#endif
-
     std::string active_name = _LC("SkySettings", "Sandstorm (no settings)");
     if (!terrain)
     {
@@ -106,10 +85,6 @@ void SkyControlsPanel::Draw()
     else if (skyx_active)
     {
         active_name = "SkyX";
-    }
-    else if (caelum != nullptr)
-    {
-        active_name = "Caelum";
     }
     ImGui::Text("%s", _LC("SkySettings", "Active sky:"));
     ImGui::SameLine();
@@ -125,9 +100,9 @@ void SkyControlsPanel::Draw()
     }
     ImGui::Separator();
 
-    // --- Time (SkyX and Caelum share these controls) ---
+    // --- Time ---
     SX::BasicController* ctrl = skyx_active ? dynamic_cast<SX::BasicController*>(skyx->getController()) : nullptr;
-    const bool can_time = (ctrl != nullptr) || (caelum != nullptr);
+    const bool can_time = (ctrl != nullptr);
 
     BeginGreyed(!can_time);
     {
@@ -136,14 +111,6 @@ void SkyControlsPanel::Draw()
         {
             hour = ctrl->getTime().x;
         }
-#ifdef USE_CAELUM
-        else if (caelum != nullptr)
-        {
-            // Julian day starts at noon; same clock as SkyManager::GetPrettyTime()
-            const double jd = caelum->GetTime();
-            hour = static_cast<float>((jd + 0.5 - std::floor(jd + 0.5)) * 24.0);
-        }
-#endif
         if (ImGui::SliderFloat(_LC("SkySettings", "Time of day (h):"), &hour, 0.f, 24.f, "%.2f") && can_time)
         {
             if (ctrl != nullptr)
@@ -152,13 +119,6 @@ void SkyControlsPanel::Draw()
                 t.x = hour;
                 ctrl->setTime(t);
             }
-#ifdef USE_CAELUM
-            else if (caelum != nullptr)
-            {
-                const double jd = caelum->GetTime();
-                caelum->SetTime(std::floor(jd + 0.5) + static_cast<double>(hour) / 24.0 - 0.5);
-            }
-#endif
         }
 
         DrawGCheckbox(App::gfx_sky_time_cycle, _LC("SkySettings", "Cycle time"));
@@ -290,14 +250,14 @@ void SkyControlsPanel::Draw()
         EndGreyed(!skyx_active);
     }
 
-    // --- Clouds (SkyX volumetric clouds and the first Caelum cloud layer share density, altitude and wind) ---
+    // --- Clouds (SkyX volumetric clouds) ---
     SX::VCloudsManager* vcm = skyx_active ? skyx->getVCloudsManager() : nullptr;
     SX::VClouds::VClouds* vc = nullptr;
     if (vcm != nullptr && vcm->isCreated())
     {
         vc = vcm->getVClouds();
     }
-    bool can_clouds = (vc != nullptr) || (clayer != nullptr);
+    bool can_clouds = (vc != nullptr);
 
     bool apply_height = false; // SkyX can only change altitude/thickness by rebuilding the clouds, done when a slider is released
     if (ImGui::CollapsingHeader(_LC("SkySettings", "Clouds")))
@@ -318,7 +278,7 @@ void SkyControlsPanel::Draw()
                 }
                 vc = vcm->isCreated() ? vcm->getVClouds() : nullptr;
                 m_cloud_height_valid = false;
-                can_clouds = (vc != nullptr) || (clayer != nullptr);
+                can_clouds = (vc != nullptr);
             }
         }
         EndGreyed(vcm == nullptr);
@@ -342,12 +302,6 @@ void SkyControlsPanel::Draw()
             {
                 density = vc->getWheater().x;
             }
-#ifdef USE_CAELUM
-            else if (clayer != nullptr)
-            {
-                density = clayer->getCloudCover();
-            }
-#endif
             if (ImGui::SliderFloat(_LC("SkySettings", "Cloud density:"), &density, 0.f, 1.f, "%.2f") && can_clouds)
             {
                 if (vc != nullptr)
@@ -355,34 +309,16 @@ void SkyControlsPanel::Draw()
                     const Ogre::Vector2 w = vc->getWheater();
                     vc->setWheater(density, w.y, false);
                 }
-#ifdef USE_CAELUM
-                else if (clayer != nullptr)
-                {
-                    clayer->setCloudCover(density);
-                }
-#endif
             }
 
-            // SkyX can only change the altitude when the clouds are rebuilt (button below), Caelum applies it live
+            // SkyX can only change the altitude when the clouds are rebuilt (button below)
             float altitude = (vc != nullptr) ? m_cloud_height.x : 0.f;
-#ifdef USE_CAELUM
-            if (vc == nullptr && clayer != nullptr)
-            {
-                altitude = clayer->getHeight();
-            }
-#endif
             if (ImGui::SliderFloat(_LC("SkySettings", "Cloud altitude (m):"), &altitude, 0.f, 10000.f, "%.0f") && can_clouds)
             {
                 if (vc != nullptr)
                 {
                     m_cloud_height.x = altitude;
                 }
-#ifdef USE_CAELUM
-                else if (clayer != nullptr)
-                {
-                    clayer->setHeight(altitude);
-                }
-#endif
             }
             if (vc != nullptr && ImGui::IsItemDeactivatedAfterEdit())
             {
@@ -398,20 +334,6 @@ void SkyControlsPanel::Draw()
                 wind = vcm->getWindSpeed();
                 wind_dir = vc->getWindDirection().valueDegrees();
             }
-#ifdef USE_CAELUM
-            else if (clayer != nullptr)
-            {
-                const Ogre::Vector2 speed = clayer->getCloudSpeed();
-                wind = speed.length();
-                wind_dir = Ogre::Math::ATan2(speed.y, speed.x).valueDegrees();
-                if (wind_dir < 0.f)
-                {
-                    wind_dir += 360.f;
-                }
-                wind_max = 0.0002f; // Caelum counts texture offset per second
-                wind_format = "%.6f";
-            }
-#endif
             bool wind_dirty = false;
             wind_dirty |= ImGui::SliderFloat(_LC("SkySettings", "Wind speed:"), &wind, 0.f, wind_max, wind_format);
             wind_dirty |= ImGui::SliderFloat(_LC("SkySettings", "Wind direction (deg):"), &wind_dir, 0.f, 360.f, "%.0f");
@@ -423,13 +345,6 @@ void SkyControlsPanel::Draw()
                     vcm->setWindSpeed(wind);
                     vc->setWindDirection(Ogre::Radian(Ogre::Degree(wind_dir)));
                 }
-#ifdef USE_CAELUM
-                else if (clayer != nullptr)
-                {
-                    const float rad = Ogre::Degree(wind_dir).valueRadians();
-                    clayer->setCloudSpeed(Ogre::Vector2(wind * std::cos(rad), wind * std::sin(rad)));
-                }
-#endif
             }
         }
         EndGreyed(!can_clouds);
@@ -653,135 +568,6 @@ void SkyControlsPanel::Draw()
         EndGreyed(layer == nullptr);
     }
 
-#ifdef USE_CAELUM
-    // --- Caelum: fog and haze ---
-    if (ImGui::CollapsingHeader(_LC("SkySettings", "Fog and haze")))
-    {
-        if (csys == nullptr)
-        {
-            ImGui::TextDisabled("%s", _LC("SkySettings", "(Caelum only)"));
-        }
-
-        // Scene fog range, only when the sky script / map config lets Caelum manage the fog
-        const bool fog_ctl = (csys != nullptr) && (csys->getManageSceneFog() != Ogre::FOG_NONE);
-        BeginGreyed(!fog_ctl);
-        {
-            float fog_start = fog_ctl ? csys->getManageSceneFogStart() : 0.f;
-            float fog_end = fog_ctl ? csys->getManageSceneFogEnd() : 0.f;
-            bool fog_dirty = false;
-            fog_dirty |= ImGui::SliderFloat(_LC("SkySettings", "Fog start (m):"), &fog_start, 0.f, 20000.f, "%.0f", 2.f);
-            fog_dirty |= ImGui::SliderFloat(_LC("SkySettings", "Fog end (m):"), &fog_end, 0.f, 20000.f, "%.0f", 2.f);
-            if (fog_dirty && fog_ctl)
-            {
-                csys->setManageSceneFogStart(fog_start);
-                csys->setManageSceneFogEnd(fog_end);
-            }
-
-            const Ogre::ColourValue fc = fog_ctl ? csys->getSceneFogColourMultiplier() : Ogre::ColourValue::White;
-            float fog_color[3] = { fc.r, fc.g, fc.b };
-            if (ImGui::ColorEdit3(_LC("SkySettings", "Fog color multiplier:"), fog_color) && fog_ctl)
-            {
-                csys->setSceneFogColourMultiplier(Ogre::ColourValue(fog_color[0], fog_color[1], fog_color[2], fc.a));
-            }
-        }
-        EndGreyed(!fog_ctl);
-
-        BeginGreyed(csys == nullptr);
-        {
-            float global_fog = (csys != nullptr) ? csys->getGlobalFogDensityMultiplier() : 1.f;
-            if (ImGui::SliderFloat(_LC("SkySettings", "Fog density multiplier:"), &global_fog, 0.f, 5.f, "%.2f") && csys != nullptr)
-            {
-                csys->setGlobalFogDensityMultiplier(global_fog);
-            }
-        }
-        EndGreyed(csys == nullptr);
-
-        Caelum::GroundFog* ground_fog = (csys != nullptr) ? csys->getGroundFog() : nullptr;
-        BeginGreyed(ground_fog == nullptr);
-        {
-            float gf = (csys != nullptr) ? csys->getGroundFogDensityMultiplier() : 0.03f;
-            if (ImGui::SliderFloat(_LC("SkySettings", "Ground fog density:"), &gf, 0.f, 0.3f, "%.4f", 3.f) && csys != nullptr)
-            {
-                csys->setGroundFogDensityMultiplier(gf);
-            }
-        }
-        EndGreyed(ground_fog == nullptr);
-
-        Caelum::SkyDome* dome = (csys != nullptr) ? csys->getSkyDome() : nullptr;
-        BeginGreyed(dome == nullptr);
-        {
-            bool haze = (dome != nullptr) ? dome->getHazeEnabled() : false;
-            if (ImGui::Checkbox(_LC("SkySettings", "Sky haze"), &haze) && dome != nullptr)
-            {
-                dome->setHazeEnabled(haze);
-            }
-        }
-        EndGreyed(dome == nullptr);
-    }
-
-    // --- Caelum: sun light and stars ---
-    if (ImGui::CollapsingHeader(_LC("SkySettings", "Sun light and stars")))
-    {
-        if (csys == nullptr)
-        {
-            ImGui::TextDisabled("%s", _LC("SkySettings", "(Caelum only)"));
-        }
-
-        Caelum::BaseSkyLight* sun = (csys != nullptr) ? csys->getSun() : nullptr;
-        BeginGreyed(sun == nullptr);
-        {
-            Ogre::ColourValue diffuse = (sun != nullptr) ? sun->getDiffuseMultiplier() : Ogre::ColourValue(3.f, 3.f, 2.7f);
-            float d[3] = { diffuse.r, diffuse.g, diffuse.b };
-            if (ImGui::SliderFloat3(_LC("SkySettings", "Sun diffuse multiplier:"), d, 0.f, 10.f, "%.2f") && sun != nullptr)
-            {
-                sun->setDiffuseMultiplier(Ogre::ColourValue(d[0], d[1], d[2], diffuse.a));
-            }
-
-            Ogre::ColourValue specular = (sun != nullptr) ? sun->getSpecularMultiplier() : Ogre::ColourValue(5.f, 5.f, 5.f);
-            float sp[3] = { specular.r, specular.g, specular.b };
-            if (ImGui::SliderFloat3(_LC("SkySettings", "Sun specular multiplier:"), sp, 0.f, 10.f, "%.2f") && sun != nullptr)
-            {
-                sun->setSpecularMultiplier(Ogre::ColourValue(sp[0], sp[1], sp[2], specular.a));
-            }
-
-            Ogre::ColourValue ambient = (sun != nullptr) ? sun->getAmbientMultiplier() : Ogre::ColourValue(0.5f, 0.5f, 0.5f);
-            float am[3] = { ambient.r, ambient.g, ambient.b };
-            if (ImGui::SliderFloat3(_LC("SkySettings", "Sun ambient multiplier:"), am, 0.f, 3.f, "%.2f") && sun != nullptr)
-            {
-                sun->setAmbientMultiplier(Ogre::ColourValue(am[0], am[1], am[2], ambient.a));
-            }
-        }
-        EndGreyed(sun == nullptr);
-
-        BeginGreyed(csys == nullptr);
-        {
-            const Ogre::ColourValue min_amb = (csys != nullptr) ? csys->getMinimumAmbientLight() : Ogre::ColourValue(0.1f, 0.1f, 0.3f);
-            float amb[3] = { min_amb.r, min_amb.g, min_amb.b };
-            if (ImGui::ColorEdit3(_LC("SkySettings", "Minimum ambient light:"), amb) && csys != nullptr)
-            {
-                csys->setMinimumAmbientLight(Ogre::ColourValue(amb[0], amb[1], amb[2], min_amb.a));
-            }
-        }
-        EndGreyed(csys == nullptr);
-
-        Caelum::PointStarfield* stars = (csys != nullptr) ? csys->getPointStarfield() : nullptr;
-        BeginGreyed(stars == nullptr);
-        {
-            float star_size = (stars != nullptr) ? stars->getMag0PixelSize() : 16.f;
-            if (ImGui::SliderFloat(_LC("SkySettings", "Star size (pixels):"), &star_size, 1.f, 32.f, "%.1f") && stars != nullptr)
-            {
-                stars->setMag0PixelSize(star_size);
-            }
-
-            float mag_scale = (stars != nullptr) ? stars->getMagnitudeScale() : 2.512f;
-            if (ImGui::SliderFloat(_LC("SkySettings", "Star magnitude scale:"), &mag_scale, 1.1f, 6.f, "%.2f") && stars != nullptr)
-            {
-                stars->setMagnitudeScale(mag_scale);
-            }
-        }
-        EndGreyed(stars == nullptr);
-    }
-#endif // USE_CAELUM
 
     // --- SkyX: precipitation (ported from Caelum) ---
     if (ImGui::CollapsingHeader(_LC("SkySettings", "Precipitation")))

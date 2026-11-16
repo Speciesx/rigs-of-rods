@@ -3,7 +3,7 @@ set(CMAKE_THREAD_PREFER_PTHREAD YES)
 find_package(Threads REQUIRED)
 
 # --- Ogre 3D graphics engine ---
-find_package(OGRE 1.11 REQUIRED COMPONENTS Bites Overlay Paging RTShaderSystem MeshLodGenerator Terrain)
+find_package(OGRE 14 REQUIRED COMPONENTS Bites Overlay Paging RTShaderSystem MeshLodGenerator Terrain)
 
 # --- Object Oriented Input System ---
 find_package(OIS REQUIRED)
@@ -43,6 +43,3 @@ cmake_dependent_option(ROR_USE_ANGELSCRIPT "use angelscript" ON "TARGET Angelscr
 find_package(CURL)
 cmake_dependent_option(ROR_USE_CURL "use curl" ON "CURL_FOUND" OFF)
 
-# --- Caelum -- Ogre addon for realistic sky rendering ---
-find_package(Caelum)
-cmake_dependent_option(ROR_USE_CAELUM "use caelum" ON "TARGET Caelum::Caelum" OFF)

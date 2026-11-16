@@ -41,7 +41,7 @@
 #include "Network.h"
 #include "PlatformUtils.h"
 #include "Replay.h"
-#include "SkyManager.h"
+#include "SkyXManager.h"
 #include "Terrain.h"
 #include "Terrn2FileFormat.h"
 #include "TuneupFileFormat.h"
@@ -294,10 +294,6 @@ void TopMenubar::Draw(float dt)
     if ((m_open_menu != TopMenu::TOPMENU_SETTINGS) && ImGui::IsItemHovered())
     {
         m_open_menu = TopMenu::TOPMENU_SETTINGS;
-#ifdef USE_CAELUM
-        if (App::gfx_sky_mode->getEnum<GfxSkyMode>() == GfxSkyMode::CAELUM)
-            m_daytime = App::GetGameContext()->GetTerrain()->getSkyManager()->GetTime();
-#endif // USE_CAELUM
     }
 
     ImGui::SameLine();
@@ -641,15 +637,15 @@ void TopMenubar::Draw(float dt)
             }
 
             // SKY SETTINGS
-#ifdef USE_CAELUM
-            if (App::gfx_sky_mode->getEnum<GfxSkyMode>() == GfxSkyMode::CAELUM)
+            if (App::gfx_sky_mode->getEnum<GfxSkyMode>() == GfxSkyMode::SKYX && App::GetGameContext()->GetTerrain()->getSkyXManager())
             {
+                SkyXManager* skyx_mgr = App::GetGameContext()->GetTerrain()->getSkyXManager();
                 ImGui::Separator();
                 ImGui::TextColored(GRAY_HINT_TEXT, "%s", _LC("TopMenubar", "Time of day:"));
-                float time = App::GetGameContext()->GetTerrain()->getSkyManager()->GetTime();
-                if (ImGui::SliderFloat("", &time, m_daytime - 0.5f, m_daytime + 0.5f, ""))
+                float time = skyx_mgr->GetTimeOfDay();
+                if (ImGui::SliderFloat("##skyx_daytime", &time, 0.f, 24.f, skyx_mgr->GetPrettyTime().c_str()))
                 {
-                    App::GetGameContext()->GetTerrain()->getSkyManager()->SetTime(time);
+                    skyx_mgr->SetTimeOfDay(time);
                 }
                 ImGui::SameLine();
                 DrawGCheckbox(App::gfx_sky_time_cycle, _LC("TopMenubar", "Cycle"));
@@ -657,8 +653,7 @@ void TopMenubar::Draw(float dt)
                 {
                     DrawGIntSlider(App::gfx_sky_time_speed, _LC("TopMenubar", "Speed"), 10, 2000);
                 }
-            }       
-#endif // USE_CAELUM
+            }
 
             // WATER SETTINGS
             if (RoR::App::gfx_water_waves->getBool() && App::mp_state->getEnum<MpState>() != MpState::CONNECTED && App::GetGameContext()->GetTerrain()->getWater())
@@ -1214,7 +1209,7 @@ void TopMenubar::Draw(float dt)
                 if (ai_waypoints.empty())
                 {
                     App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_NOTICE,
-                                                    fmt::format(_LC("TopMenubar", "Select a preset, record or open survey map ({}) to set waypoints."),
+                                                    fmt::format(fmt::runtime(_LC("TopMenubar", "Select a preset, record or open survey map ({}) to set waypoints.")),
                                                     App::GetInputEngine()->getEventCommandTrimmed(EV_SURVEY_MAP_CYCLE)), "lightbulb.png");
                 }
                 else
@@ -1418,7 +1413,7 @@ void TopMenubar::Draw(float dt)
                         RoR::Log(json.c_str());
 
                         App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_INFO, Console::CONSOLE_SYSTEM_NOTICE,
-                                                      fmt::format(_LC("TopMenubar", "{} waypoints exported to RoR.log"),
+                                                      fmt::format(fmt::runtime(_LC("TopMenubar", "{} waypoints exported to RoR.log")),
                                                       ai_waypoints.size()), "lightbulb.png");
                     }
 
@@ -1495,7 +1490,7 @@ void TopMenubar::Draw(float dt)
                 TuneupDefPtr& tuneup_def = tuning_actor->getWorkingTuneupDef();
 
                 // SAVED TUNEUPS
-                ImGui::TextDisabled(fmt::format(_LC("Tuning", "Saved tuneups ({})"), tuning_saves.cqy_results.size()).c_str());
+                ImGui::TextDisabled(fmt::format(fmt::runtime(_LC("Tuning", "Saved tuneups ({})")), tuning_saves.cqy_results.size()).c_str());
                 for (CacheQueryResult& tuneup_result: tuning_saves.cqy_results)
                 {
                     ImGui::PushID(tuneup_result.cqr_entry->fname.c_str());
@@ -1608,7 +1603,7 @@ void TopMenubar::Draw(float dt)
                 // ADDONPARTS
 
                 ImGui::SetNextItemOpen(true, ImGuiCond_FirstUseEver);
-                std::string addonparts_title = fmt::format(_LC("TopMenubar", "Addon parts ({})"), tuning_addonparts.size());
+                std::string addonparts_title = fmt::format(fmt::runtime(_LC("TopMenubar", "Addon parts ({})")), tuning_addonparts.size());
                 if (ImGui::CollapsingHeader(addonparts_title.c_str()))
                 {
                     for (size_t i = 0; i < tuning_addonparts.size(); i++)
@@ -1705,7 +1700,7 @@ void TopMenubar::Draw(float dt)
 
                 // Draw props
                 size_t total_props = tuning_actor->GetGfxActor()->getProps().size();
-                std::string props_title = fmt::format(_LC("Tuning", "Props ({})"), total_props);
+                std::string props_title = fmt::format(fmt::runtime(_LC("Tuning", "Props ({})")), total_props);
                 if (ImGui::CollapsingHeader(props_title.c_str()))
                 {
                     // Draw all props (those removed by addonparts are also present as placeholders)
@@ -1763,7 +1758,7 @@ void TopMenubar::Draw(float dt)
 
                 // Ditto for flexbodies
                 size_t total_flexbodies = tuning_actor->GetGfxActor()->GetFlexbodies().size();
-                std::string flexbodies_title = fmt::format(_LC("Tuning", "Flexbodies ({})"), total_flexbodies);
+                std::string flexbodies_title = fmt::format(fmt::runtime(_LC("Tuning", "Flexbodies ({})")), total_flexbodies);
                 if (ImGui::CollapsingHeader(flexbodies_title.c_str()))
                 {
                     // Draw all flexbodies (those removed by addonparts are also present as placeholders)
@@ -1794,7 +1789,7 @@ void TopMenubar::Draw(float dt)
 
                 // Draw wheels
                 const int total_wheels = tuning_actor->ar_num_wheels;
-                std::string wheels_title = fmt::format(_LC("TopMenubar", "Wheels ({})"), total_wheels);
+                std::string wheels_title = fmt::format(fmt::runtime(_LC("TopMenubar", "Wheels ({})")), total_wheels);
                 if (ImGui::CollapsingHeader(wheels_title.c_str()))
                 {
                     for (WheelID_t i = 0; i < total_wheels; i++)
@@ -1870,7 +1865,7 @@ void TopMenubar::Draw(float dt)
 
                 // Draw flares
                 size_t total_flares = tuning_actor->ar_flares.size();
-                std::string flares_title = fmt::format(_LC("Tuning", "Flares ({})"), total_flares);
+                std::string flares_title = fmt::format(fmt::runtime(_LC("Tuning", "Flares ({})")), total_flares);
                 if (ImGui::CollapsingHeader(flares_title.c_str()))
                 {
                     // Draw all flares (those removed by addonparts are also present as placeholders)
@@ -1919,7 +1914,7 @@ void TopMenubar::Draw(float dt)
 
                 // Draw exhausts
                 size_t total_exhausts = tuning_actor->GetGfxActor()->getExhausts().size();
-                std::string exhausts_title = fmt::format(_LC("Tuning", "Exhausts ({})"), total_exhausts);
+                std::string exhausts_title = fmt::format(fmt::runtime(_LC("Tuning", "Exhausts ({})")), total_exhausts);
                 if (ImGui::CollapsingHeader(exhausts_title.c_str()))
                 {
                     // Draw all exhausts (those removed by addonparts are also present as placeholders)
@@ -1950,7 +1945,7 @@ void TopMenubar::Draw(float dt)
 
                 // Draw managed materials
                 size_t total_materials = tuning_actor->ar_managed_materials.size();
-                std::string materials_title = fmt::format(_LC("Tuning", "Managed Materials ({})"), total_materials);
+                std::string materials_title = fmt::format(fmt::runtime(_LC("Tuning", "Managed Materials ({})")), total_materials);
                 if (ImGui::CollapsingHeader(materials_title.c_str()))
                 {
                     // Draw all materials (those removed by addonparts are also present as placeholders)
@@ -1981,7 +1976,7 @@ void TopMenubar::Draw(float dt)
 
                 // Draw videocameras
                 size_t total_videocameras = tuning_actor->GetGfxActor()->getVideoCameras().size();
-                std::string videocameras_title = fmt::format(_LC("Tuning", "Videocameras ({})"), total_videocameras);
+                std::string videocameras_title = fmt::format(fmt::runtime(_LC("Tuning", "Videocameras ({})")), total_videocameras);
                 if (ImGui::CollapsingHeader(videocameras_title.c_str()))
                 {
                     // Draw all videocameras (those removed by addonparts are also present as placeholders)
@@ -2300,7 +2295,7 @@ void TopMenubar::DrawSpecialStateBox(float top_offset)
     if (App::GetGameContext()->GetActorManager()->IsSimulationPaused() && !App::GetGuiManager()->IsGuiHidden())
     {
         special_color = ORANGE_TEXT;
-        special_text = fmt::format(_LC("TopMenubar", "All physics paused, press {} to resume"),
+        special_text = fmt::format(fmt::runtime(_LC("TopMenubar", "All physics paused, press {} to resume")),
                                    App::GetInputEngine()->getEventCommandTrimmed(EV_COMMON_TOGGLE_PHYSICS));
         content_width = ImGui::CalcTextSize(special_text.c_str()).x;
     }
@@ -2309,7 +2304,7 @@ void TopMenubar::DrawSpecialStateBox(float top_offset)
              !App::GetGuiManager()->IsGuiHidden())
     {
         special_color = GREEN_TEXT;
-        special_text = fmt::format(_LC("TopMenubar", "Vehicle physics paused, press {} to resume"),
+        special_text = fmt::format(fmt::runtime(_LC("TopMenubar", "Vehicle physics paused, press {} to resume")),
                                    App::GetInputEngine()->getEventCommandTrimmed(EV_TRUCK_TOGGLE_PHYSICS));
         content_width = ImGui::CalcTextSize(special_text.c_str()).x;
     }
@@ -2322,7 +2317,7 @@ void TopMenubar::DrawSpecialStateBox(float top_offset)
     }
     else if (App::GetGameContext()->GetRepairMode().IsLiveRepairActive())
     {
-        special_text = fmt::format(_LC("TopMenubar", "Live repair mode, hit '{}' to stop"),
+        special_text = fmt::format(fmt::runtime(_LC("TopMenubar", "Live repair mode, hit '{}' to stop")),
             App::GetInputEngine()->getEventCommandTrimmed(EV_COMMON_REPAIR_TRUCK));
         content_width = ImGui::GetFontSize() * 28.125f;
         m_state_box = StateBox::STATEBOX_LIVE_REPAIR;
@@ -2331,7 +2326,7 @@ void TopMenubar::DrawSpecialStateBox(float top_offset)
     }
     else if (App::GetGameContext()->GetRepairMode().IsQuickRepairActive())
     {
-        special_text = fmt::format(_LC("TopMenubar", "Quick repair ('{}' for Live repair)"),
+        special_text = fmt::format(fmt::runtime(_LC("TopMenubar", "Quick repair ('{}' for Live repair)")),
             App::GetInputEngine()->getEventCommandTrimmed(EV_COMMON_LIVE_REPAIR_MODE));
         content_width = ImGui::GetFontSize() * 28.125f;
         m_state_box = StateBox::STATEBOX_QUICK_REPAIR;
@@ -2378,7 +2373,7 @@ void TopMenubar::DrawSpecialStateBox(float top_offset)
     else if (App::sim_state->getEnum<SimState>() == SimState::EDITOR_MODE)
     {
         special_color = GREEN_TEXT;
-        special_text = fmt::format(_LC("TopMenubar", "Terrain editing mode, press {} to exit"),
+        special_text = fmt::format(fmt::runtime(_LC("TopMenubar", "Terrain editing mode, press {} to exit")),
             App::GetInputEngine()->getEventCommandTrimmed(EV_COMMON_TOGGLE_TERRAIN_EDITOR));
 
         if (App::GetGameContext()->GetTerrain()->getCacheEntry()->resource_bundle_type == "Zip")
@@ -2389,7 +2384,7 @@ void TopMenubar::DrawSpecialStateBox(float top_offset)
         }
         else
         {
-            special_text = fmt::format(_LC("TopMenubar", "Terrain editing mode, press {} to exit"),
+            special_text = fmt::format(fmt::runtime(_LC("TopMenubar", "Terrain editing mode, press {} to exit")),
                 App::GetInputEngine()->getEventCommandTrimmed(EV_COMMON_TOGGLE_TERRAIN_EDITOR));
             content_width = ImGui::CalcTextSize(special_text.c_str()).x;
             m_state_box = StateBox::STATEBOX_OVERWRITE_TERRAIN;

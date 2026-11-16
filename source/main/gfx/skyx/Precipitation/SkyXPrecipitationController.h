@@ -9,6 +9,8 @@
 
 namespace SkyX // Ported to SkyX by ohlidalp
 {
+	class PrecipitationInstance; // Forward declaration - a `friend` declaration alone does not make the name visible (C++ standard, MSVC /permissive-)
+
 	struct PrecipitationPresetParams
 	{
 		Ogre::ColourValue Colour;

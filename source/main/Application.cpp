@@ -253,7 +253,6 @@ CVar* gfx_surveymap_icons;
 CVar* gfx_declutter_map;
 CVar* gfx_envmap_enabled;
 CVar* gfx_envmap_rate;
-CVar* gfx_shadow_quality;
 CVar* gfx_skidmarks_mode;
 CVar* gfx_sight_range;
 CVar* gfx_camera_height;
@@ -518,7 +517,6 @@ std::string ToLocalizedString(GfxSkyMode e)
     switch (e)
     {
     case GfxSkyMode::SANDSTORM: return _LC("GfxSkyMode", "Sandstorm (fastest)");
-    case GfxSkyMode::CAELUM:    return _LC("GfxSkyMode", "Caelum (best looking, slower)");
     case GfxSkyMode::SKYX:      return _LC("GfxSkyMode", "SkyX (best looking, slower)");
     default:                    return "";
     }

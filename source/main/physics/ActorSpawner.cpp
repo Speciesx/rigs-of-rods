@@ -78,6 +78,7 @@
 #include <OgreSceneManager.h>
 #include <OgreMovableObject.h>
 #include <OgreParticleSystem.h>
+#include <OgreParticleSystemRenderer.h>
 #include <OgreEntity.h>
 #include <climits>
 #include <fmt/format.h>
@@ -131,12 +132,12 @@ void ActorSpawner::ConfigureAddonParts(ActorPtr actor)
                 }
                 else
                 {
-                    this->AddMessage(Message::TYPE_WARNING, fmt::format(_L("Could not load addon part '{}' (file '{}')"), addonpart_entry->dname, addonpart_entry->fname));
+                    this->AddMessage(Message::TYPE_WARNING, fmt::format(fmt::runtime(_L("Could not load addon part '{}' (file '{}')")), addonpart_entry->dname, addonpart_entry->fname));
                 }
             }
             else
             {
-                this->AddMessage(Message::TYPE_WARNING, fmt::format(_L("Requested addon part '{}' is not installed"), addonpart));
+                this->AddMessage(Message::TYPE_WARNING, fmt::format(fmt::runtime(_L("Requested addon part '{}' is not installed")), addonpart));
             }
         }
     }
@@ -1079,6 +1080,7 @@ void ActorSpawner::ProcessWing(RigDef::Wing & def)
                 left_flash_prop.pp_beacon_rot_rate[0]=1.0;
                 left_flash_prop.pp_beacon_type='w';
                 //light
+                left_flash_prop.pp_beacon_light_snode[0] = App::GetGfxScene()->GetSceneManager()->getRootSceneNode()->createChildSceneNode();
                 left_flash_prop.pp_beacon_light[0]=App::GetGfxScene()->GetSceneManager()->createLight(this->ComposeName("left flash light @ wing", m_actor->ar_num_wings));
                 left_flash_prop.pp_beacon_light[0]->setType(Ogre::Light::LT_POINT);
                 left_flash_prop.pp_beacon_light[0]->setDiffuseColour( Ogre::ColourValue(1.0, 1.0, 1.0));
@@ -1086,6 +1088,7 @@ void ActorSpawner::ProcessWing(RigDef::Wing & def)
                 left_flash_prop.pp_beacon_light[0]->setAttenuation(50.0, 1.0, 0.3, 0.0);
                 left_flash_prop.pp_beacon_light[0]->setCastShadows(false);
                 left_flash_prop.pp_beacon_light[0]->setVisible(false);
+                left_flash_prop.pp_beacon_light_snode[0]->attachObject(left_flash_prop.pp_beacon_light[0]);
                 //the flare billboard
                 left_flash_prop.pp_beacon_scene_node[0] = m_flares_parent_scenenode->createChildSceneNode(this->ComposeName("left flash flare @ wing", m_actor->ar_num_wings));
                 left_flash_prop.pp_beacon_bbs[0]=App::GetGfxScene()->GetSceneManager()->createBillboardSet(this->ComposeName("left flash flare bbs @ wing", m_actor->ar_num_wings),1);
@@ -1142,6 +1145,7 @@ void ActorSpawner::ProcessWing(RigDef::Wing & def)
                 right_flash_prop.pp_beacon_rot_rate[0]=1.0;
                 right_flash_prop.pp_beacon_type='w';
                 //light
+                right_flash_prop.pp_beacon_light_snode[0] = App::GetGfxScene()->GetSceneManager()->getRootSceneNode()->createChildSceneNode();
                 right_flash_prop.pp_beacon_light[0]=App::GetGfxScene()->GetSceneManager()->createLight(this->ComposeName("right flash flare light @ wing", m_actor->ar_num_wings));
                 right_flash_prop.pp_beacon_light[0]->setType(Ogre::Light::LT_POINT);
                 right_flash_prop.pp_beacon_light[0]->setDiffuseColour( Ogre::ColourValue(1.0, 1.0, 1.0));
@@ -1149,6 +1153,7 @@ void ActorSpawner::ProcessWing(RigDef::Wing & def)
                 right_flash_prop.pp_beacon_light[0]->setAttenuation(50.0, 1.0, 0.3, 0.0);
                 right_flash_prop.pp_beacon_light[0]->setCastShadows(false);
                 right_flash_prop.pp_beacon_light[0]->setVisible(false);
+                right_flash_prop.pp_beacon_light_snode[0]->attachObject(right_flash_prop.pp_beacon_light[0]);
                 //the flare billboard
                 right_flash_prop.pp_beacon_scene_node[0] = m_flares_parent_scenenode->createChildSceneNode(this->ComposeName("right flash flare @ wing", m_actor->ar_num_wings));
                 right_flash_prop.pp_beacon_bbs[0]=App::GetGfxScene()->GetSceneManager()->createBillboardSet(this->ComposeName("right flash flare bbs @ wing", m_actor->ar_num_wings),1);
@@ -1789,14 +1794,16 @@ void ActorSpawner::ProcessProp(RigDef::Prop & def)
             prop.pp_beacon_rot_angle[0] = 2.0 * 3.14 * frand();
             prop.pp_beacon_rot_rate[0] = 4.0 * 3.14 + frand() - 0.5;
             /* the light */
-            auto pp_beacon_light = App::GetGfxScene()->GetSceneManager()->createLight();
-            pp_beacon_light->setType(Ogre::Light::LT_SPOTLIGHT);
-            pp_beacon_light->setDiffuseColour(def.special_prop_beacon.color);
-            pp_beacon_light->setSpecularColour(def.special_prop_beacon.color);
-            pp_beacon_light->setAttenuation(50.0, 1.0, 0.3, 0.0);
-            pp_beacon_light->setSpotlightRange( Ogre::Degree(35), Ogre::Degree(45) );
-            pp_beacon_light->setCastShadows(false);
-            pp_beacon_light->setVisible(false);
+            auto flare_light_snode = App::GetGfxScene()->GetSceneManager()->getRootSceneNode()->createChildSceneNode();
+            auto flare_beacon_light = App::GetGfxScene()->GetSceneManager()->createLight();
+            flare_beacon_light->setType(Ogre::Light::LT_SPOTLIGHT);
+            flare_beacon_light->setDiffuseColour(def.special_prop_beacon.color);
+            flare_beacon_light->setSpecularColour(def.special_prop_beacon.color);
+            flare_beacon_light->setAttenuation(50.0, 1.0, 0.3, 0.0);
+            flare_beacon_light->setSpotlightRange( Ogre::Degree(35), Ogre::Degree(45) );
+            flare_beacon_light->setCastShadows(false);
+            flare_beacon_light->setVisible(false);
+            flare_light_snode->attachObject(flare_beacon_light);
             /* the flare billboard */
             prop.pp_media[1] = TuneupUtil::getTweakedPropMedia(m_actor->getWorkingTuneupDef(), prop_id, 1, def.special_prop_beacon.flare_material_name);
             auto flare_scene_node = m_flares_parent_scenenode->createChildSceneNode(this->ComposeName("beacon @ prop", prop_id));
@@ -1813,7 +1820,8 @@ void ActorSpawner::ProcessProp(RigDef::Prop & def)
             // Complete
             prop.pp_beacon_scene_node[0] = flare_scene_node;
             prop.pp_beacon_bbs[0] = flare_billboard_sys;
-            prop.pp_beacon_light[0] = pp_beacon_light;
+            prop.pp_beacon_light[0] = flare_beacon_light;
+            prop.pp_beacon_light_snode[0] = flare_light_snode;
         }
         else if(def.special == RigDef::SpecialProp::REDBEACON)
         {
@@ -1821,13 +1829,15 @@ void ActorSpawner::ProcessProp(RigDef::Prop & def)
             prop.pp_beacon_rot_rate[0] = 1.0;
             prop.pp_beacon_type = 'r';
             //the light
-            auto pp_beacon_light=App::GetGfxScene()->GetSceneManager()->createLight();//propname);
-            pp_beacon_light->setType(Ogre::Light::LT_POINT);
-            pp_beacon_light->setDiffuseColour( Ogre::ColourValue(1.0, 0.0, 0.0));
-            pp_beacon_light->setSpecularColour( Ogre::ColourValue(1.0, 0.0, 0.0));
-            pp_beacon_light->setAttenuation(50.0, 1.0, 0.3, 0.0);
-            pp_beacon_light->setCastShadows(false);
-            pp_beacon_light->setVisible(false);
+            auto flare_light_snode = App::GetGfxScene()->GetSceneManager()->getRootSceneNode()->createChildSceneNode();
+            auto flare_beacon_light=App::GetGfxScene()->GetSceneManager()->createLight();//propname);
+            flare_beacon_light->setType(Ogre::Light::LT_POINT);
+            flare_beacon_light->setDiffuseColour( Ogre::ColourValue(1.0, 0.0, 0.0));
+            flare_beacon_light->setSpecularColour( Ogre::ColourValue(1.0, 0.0, 0.0));
+            flare_beacon_light->setAttenuation(50.0, 1.0, 0.3, 0.0);
+            flare_beacon_light->setCastShadows(false);
+            flare_beacon_light->setVisible(false);
+            flare_light_snode->attachObject(flare_beacon_light);
             //the flare billboard
             auto flare_scene_node = m_flares_parent_scenenode->createChildSceneNode(this->ComposeName("redbeacon @ prop", prop_id));
             auto flare_billboard_sys = App::GetGfxScene()->GetSceneManager()->createBillboardSet(1); //propname,1);
@@ -1842,10 +1852,10 @@ void ActorSpawner::ProcessProp(RigDef::Prop & def)
             flare_scene_node->setVisible(false);
 
             // Finalize
-            prop.pp_beacon_light[0] = pp_beacon_light;
+            prop.pp_beacon_light[0] = flare_beacon_light;
             prop.pp_beacon_scene_node[0] = flare_scene_node;
             prop.pp_beacon_bbs[0] = flare_billboard_sys;
-            
+            prop.pp_beacon_light_snode[0] = flare_light_snode;
         }
         else if(def.special == RigDef::SpecialProp::LIGHTBAR)
         {
@@ -1857,6 +1867,7 @@ void ActorSpawner::ProcessProp(RigDef::Prop & def)
                 prop.pp_beacon_rot_rate[k] = 4.0 * 3.14 + frand() - 0.5;
                 prop.pp_beacon_bbs[k] = nullptr;
                 //the light
+                prop.pp_beacon_light_snode[k] = App::GetGfxScene()->GetSceneManager()->getRootSceneNode()->createChildSceneNode();
                 prop.pp_beacon_light[k]=App::GetGfxScene()->GetSceneManager()->createLight();
                 prop.pp_beacon_light[k]->setType(Ogre::Light::LT_SPOTLIGHT);
                 if (k>1)
@@ -1873,6 +1884,8 @@ void ActorSpawner::ProcessProp(RigDef::Prop & def)
                 prop.pp_beacon_light[k]->setSpotlightRange( Ogre::Degree(35), Ogre::Degree(45) );
                 prop.pp_beacon_light[k]->setCastShadows(false);
                 prop.pp_beacon_light[k]->setVisible(false);
+                prop.pp_beacon_light_snode[k]->attachObject(prop.pp_beacon_light[k]);
+
                 //the flare billboard
                 prop.pp_beacon_scene_node[k] = m_flares_parent_scenenode->createChildSceneNode(this->ComposeName(fmt::format("lightbar {}/4 @ prop", k), prop_id));
                 prop.pp_beacon_bbs[k]=App::GetGfxScene()->GetSceneManager()->createBillboardSet(1);
@@ -2448,6 +2461,9 @@ void ActorSpawner::AddBaseFlare(RigDef::FlareBase & def)
         flare.light->setType(Ogre::Light::LT_SPOTLIGHT);
         flare.light->setSpotlightRange( Ogre::Degree(35), Ogre::Degree(45) );
         flare.light->setCastShadows(false);
+
+        Ogre::SceneNode* snode = App::GetGfxScene()->GetSceneManager()->getRootSceneNode()->createChildSceneNode();
+        snode->attachObject(flare.light);
     }
     m_actor->ar_flares.push_back(flare);
 }
@@ -7210,6 +7226,9 @@ void ActorSpawner::CreateVideoCamera(RigDef::VideoCamera* def)
 
         vcam.vcam_ogre_camera = App::GetGfxScene()->GetSceneManager()->createCamera(vcam.vcam_material->getName() + "_camera");
 
+        Ogre::SceneNode* vcam_snode = App::GetGfxScene()->GetSceneManager()->getRootSceneNode()->createChildSceneNode();
+        vcam_snode->attachObject(vcam.vcam_ogre_camera);
+
         if (!App::gfx_window_videocams->getBool())
         {
             vcam.vcam_render_tex = Ogre::TextureManager::getSingleton().createManual(
@@ -7333,6 +7352,9 @@ void ActorSpawner::CreateMirrorPropVideoCam(
         vcam.vcam_ogre_camera->setAspectRatio(
             (App::GetCameraManager()->GetCamera()->getViewport()->getActualWidth() / App::GetCameraManager()->GetCamera()->getViewport()->getActualHeight()) / 2.0f);
 
+        Ogre::SceneNode* snode = App::GetGfxScene()->GetSceneManager()->getRootSceneNode()->createChildSceneNode();
+        snode->attachObject(vcam.vcam_ogre_camera);
+
         // Setup rendering
         vcam.vcam_render_target = vcam.vcam_render_tex->getBuffer()->getRenderTarget();
         vcam.vcam_render_target->setActive(true);
@@ -7393,7 +7415,7 @@ Ogre::ParticleSystem* ActorSpawner::CreateParticleSystem(std::string const & nam
     params["templateName"] = template_name;
 
     Ogre::MovableObject* obj = App::GetGfxScene()->GetSceneManager()->createMovableObject(
-       name, Ogre::ParticleSystemFactory::FACTORY_TYPE_NAME, &params);
+       name, Ogre::MOT_PARTICLE_SYSTEM, &params);
     Ogre::ParticleSystem* psys = static_cast<Ogre::ParticleSystem*>(obj);
     psys->setVisibilityFlags(DEPTHMAP_DISABLED); // disable particles in depthmap
 

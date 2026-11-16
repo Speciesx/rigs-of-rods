@@ -1449,7 +1449,7 @@ void ActorManager::ExportActorDef(RigDef::DocumentPtr def, std::string filename,
     catch (Ogre::Exception& oex)
     {
         App::GetConsole()->putMessage(Console::CONSOLE_MSGTYPE_ACTOR, Console::CONSOLE_SYSTEM_ERROR,
-                                      fmt::format(_LC("Truck", "Failed to export truck '{}' to resource group '{}', message: {}"),
+                                      fmt::format(fmt::runtime(_LC("Truck", "Failed to export truck '{}' to resource group '{}', message: {}")),
                                                   filename, rg_name, oex.getFullDescription()));
     }
 }

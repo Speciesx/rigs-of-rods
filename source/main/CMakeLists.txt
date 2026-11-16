@@ -28,8 +28,7 @@ set(SOURCE_FILES
         gameplay/TyrePressure.{h,cpp}
         gameplay/VehicleAI.{h,cpp}
         gfx/AdvancedScreen.h
-        gfx/ColoredTextAreaOverlayElement.{h,cpp}
-        gfx/ColoredTextAreaOverlayElementFactory.h
+        gfx/CaelumSkyXConverter.{h,cpp}
         gfx/DustPool.{h,cpp}
         gfx/EnvironmentMap.{h,cpp}
         gfx/GfxActor.{h,cpp}
@@ -38,10 +37,9 @@ set(SOURCE_FILES
         gfx/HydraxWater.{h,cpp}
         gfx/IGfxWater.h
         gfx/MovableText.{h,cpp}
-        gfx/ShadowManager.{h,cpp}
+        gfx/RTSSManager.{h,cpp}
         gfx/SimBuffers.{h,cpp}
         gfx/Skidmark.{h,cpp}
-        gfx/SkyManager.{h,cpp}
         gfx/SkyXManager.{h,cpp}
         gfx/SkyXRainParticles.{h,cpp}
         gfx/SkyXWeatherAudio.{h,cpp}
@@ -76,7 +74,6 @@ set(SOURCE_FILES
         gfx/particle/ExtinguishableFireAffectorFactory.h
         gfx/particle/FireExtinguisherAffector.{h,cpp}
         gfx/particle/FireExtinguisherAffectorFactory.h
-        gfx/particle/OgreParticleCustomParam.h
         gfx/particle/OgreShaderParticleRenderer.{h,cpp}
         gfx/skyx/AtmosphereManager.{h,cpp}
         gfx/skyx/BasicController.{h,cpp}
@@ -206,7 +203,6 @@ set(SOURCE_FILES
         system/Console.{h,cpp}
         system/ConsoleCmd.{h,cpp}
         system/CVar.{h,cpp}
-        terrain/OgreTerrainPSSMMaterialGenerator.{h,cpp}
         terrain/ProceduralManager.{h,cpp}
         terrain/ProceduralRoad.{h,cpp}
         terrain/SurveyMapEntity.h
@@ -529,11 +525,6 @@ if (ROR_USE_CURL)
     endif ()
 endif ()
 
-if (ROR_USE_CAELUM)
-    target_link_libraries(${BINNAME} PRIVATE Caelum::Caelum)
-    target_compile_definitions(${BINNAME} PRIVATE USE_CAELUM)
-endif ()
-
 ####################################################################################################
 #  POST-BUILD STEPS
 ####################################################################################################
@@ -548,14 +539,13 @@ extract_pot("${SOURCE_FILES}")
 # -----------------------
 if (NOT WIN32)
     set(CFG_COMMENT_RENDERSYSTEM_D3D9 "# ")
+    set(CFG_COMMENT_RENDERSYSTEM_D3D11 "# ")
 endif ()
 
 if (WIN32)
-    set(CFG_COMMENT_RENDERSYSTEM_GL "# ")
+    # set(CFG_COMMENT_RENDERSYSTEM_GL "# ")
+    set(CFG_COMMENT_RENDERSYSTEM_GL3PLUS "# ")
 endif ()
-
-set(CFG_COMMENT_RENDERSYSTEM_D3D11 "# ")
-set(CFG_COMMENT_RENDERSYSTEM_GL3PLUS "# ")
 
 if (DEFINED OGRE_PLUGIN_DIR AND NOT WIN32)
     set(PLUGINS_FOLDER "${OGRE_PLUGIN_DIR}")
@@ -563,21 +553,7 @@ else ()
     set(PLUGINS_FOLDER ".")
 endif ()
 
-if (WIN32)
-    set(CFG_OGRE_PLUGIN_CAELUM "Plugin=Caelum")
-    set(CFG_OGRE_PLUGIN_CAELUM_D "Plugin=Caelum_d")
-else ()
-    if (ROR_USE_CAELUM STREQUAL "SYSTEM")
-        set(CFG_OGRE_PLUGIN_CAELUM "Plugin=../libCaelum.so")
-        set(CFG_OGRE_PLUGIN_CAELUM_D "Plugin=../libCaelum_d.so")
-    else ()
-        set(CFG_OGRE_PLUGIN_CAELUM "Plugin=libCaelum.so")
-        set(CFG_OGRE_PLUGIN_CAELUM_D "Plugin=libCaelum_d.so")
-    endif ()
-endif ()
-
 configure_file(plugins.cfg.in ${RUNTIME_OUTPUT_DIRECTORY}/plugins.cfg)
-configure_file(plugins_d.cfg.in ${RUNTIME_OUTPUT_DIRECTORY}/plugins_d.cfg)
 
 # Copy resources to bin directory
 # -----------------------
