@@ -60,8 +60,7 @@ void main_vp(
 	uniform float uScale,               // 1 / (outerRadius - innerRadius)
 	uniform float uScaleDepth,          // Where the average atmosphere density is found
 	uniform float uScaleOverScaleDepth, // Scale / ScaleDepth
-	// Number of samples
-	uniform int   uNumberOfSamples,
+	// Number of samples (float: the loop below has a fixed trip count, see SKYX_MAX_SAMPLES)
 	uniform float uSamples)
 {
     // Clip space position
@@ -90,8 +89,12 @@ void main_vp(
 
 	// Loop the ray
 	float3 color = float3(0,0,0);
-	for (int i = 0; i < uNumberOfSamples; i++)
+	// Fixed trip count: a loop bounded by an int uniform needs an int constant register in vs_2_0,
+	// which is not delivered reliably under OGRE 14 / D3D9 (loop ran 0 times -> black dome).
+	// Samples beyond uSamples are masked out instead.
+	for (int i = 0; i < 8; i++)
 	{
+		float fMask = (i < uSamples) ? 1.0 : 0.0;
 		float fHeight = length(v3SamplePoint);
 		float fDepth = exp(uScaleOverScaleDepth * (uInnerRadius-fHeight));
 		
@@ -102,7 +105,7 @@ void main_vp(
 		float3 v3Attenuate = exp(-fScatter * (uInvWaveLength * uKr4PI + uKm4PI)); // <<< TODO
 		
 		// Accumulate color
-		v3Attenuate *= (fDepth * fScaledLength);
+		v3Attenuate *= (fDepth * fScaledLength * fMask);
 		color += v3Attenuate;
 
 		// Next sample point

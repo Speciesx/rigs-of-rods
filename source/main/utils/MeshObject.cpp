@@ -147,10 +147,35 @@ void MeshObject::createEntity(Ogre::String meshName, Ogre::String entityRG, Ogre
                 lod_available = true;
             }
 
-            if (lod_available)
-                Ogre::MeshLodGenerator::getSingleton().generateLodLevels(config);
-            else if (App::gfx_auto_lod->getBool())
-                Ogre::MeshLodGenerator::getSingleton().generateAutoconfiguredLodLevels(m_mesh);
+            // OGRE 14 MeshLodGenerator crashes (access violation, not catchable) on meshes it cannot handle.
+            // Only let it work on plain triangle-list meshes, and log before the call so a crash names the mesh.
+            bool lod_safe = true;
+            for (unsigned short si = 0; si < m_mesh->getNumSubMeshes(); ++si)
+            {
+                Ogre::SubMesh* sub = m_mesh->getSubMesh(si);
+                if (sub->operationType != Ogre::RenderOperation::OT_TRIANGLE_LIST
+                    || sub->indexData == nullptr || sub->indexData->indexCount < 3
+                    || sub->indexData->indexBuffer->getType() == Ogre::HardwareIndexBuffer::IT_32BIT // suspected crash cause in the OGRE 14 LOD generator (e.g. Desert Trails LJDT_VisitorMap)
+                    || (!sub->useSharedVertices && (sub->vertexData == nullptr || sub->vertexData->vertexCount == 0)))
+                {
+                    lod_safe = false;
+                }
+            }
+            if (m_mesh->getNumSubMeshes() == 0 || (m_mesh->sharedVertexData != nullptr && m_mesh->sharedVertexData->vertexCount == 0))
+                lod_safe = false;
+
+            if (lod_safe && (lod_available || App::gfx_auto_lod->getBool()))
+            {
+                LOG(fmt::format("[RoR|LOD] generating LOD levels for mesh '{}' (group '{}', manual LODs: {})", meshName, entityRG, lod_available));
+                if (lod_available)
+                    Ogre::MeshLodGenerator::getSingleton().generateLodLevels(config);
+                else
+                    Ogre::MeshLodGenerator::getSingleton().generateAutoconfiguredLodLevels(m_mesh);
+            }
+            else if (!lod_safe)
+            {
+                LOG(fmt::format("[RoR|LOD] skipping LOD generation for mesh '{}': unsupported layout", meshName));
+            }
         }
 
         // now create an entity around the mesh and attach it to the scene graph

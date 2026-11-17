@@ -105,7 +105,6 @@ namespace SkyX
 		{
 			mOptions.NumberOfSamples = NewOptions.NumberOfSamples;
 
-			mGPUManager->setGpuProgramParameter(GPUManager::GPUP_VERTEX, "uNumberOfSamples", mOptions.NumberOfSamples);
 			mGPUManager->setGpuProgramParameter(GPUManager::GPUP_VERTEX, "uSamples", static_cast<Ogre::Real>(mOptions.NumberOfSamples));
 		}
 

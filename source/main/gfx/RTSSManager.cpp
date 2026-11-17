@@ -44,6 +44,17 @@ RTSSManager::~RTSSManager()
 
 void RTSSManager::SetupRTSS()
 {
+    // Per-pixel lighting: the RTSS default is per-vertex, which lights whole (large) tree/leaf quads
+    // as blocks when a spotlight (headlights) only touches some of their vertices.
+    static bool perPixelAdded = false; // ShaderGenerator outlives terrains - add the template only once
+    if (!perPixelAdded)
+    {
+        perPixelAdded = true;
+        auto* shaderGen = Ogre::RTShader::ShaderGenerator::getSingletonPtr();
+        auto* renderState = shaderGen->getRenderState(Ogre::MSN_SHADERGEN);
+        renderState->addTemplateSubRenderState(shaderGen->createSubRenderState(RTShader::SRS_PER_PIXEL_LIGHTING));
+    }
+
     // RTSS PSSM3
     if(App::gfx_shadow_type->getEnum<GfxShadowType>() == GfxShadowType::PSSM)
     {

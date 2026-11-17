@@ -293,6 +293,13 @@ bool SkyXManager::UpdateSkyLight()
 	float nightWeight = 1.f - std::min(std::max((point - 0.42f) / 0.08f, 0.f), 1.f);
 	nightWeight = nightWeight * nightWeight * (3.f - 2.f * nightWeight); // smoothstep
 	const float nightScale = std::max(0.f, 1.f + (mNightBrightness - 1.f) * nightWeight);
+
+	// Water surface (reflection/refraction/sun glint are not lit by the scene): dim it at night
+	if (App::GetGameContext()->GetTerrain()->getHydraxManager())
+	{
+		const float waterNight = std::min(1.f, std::max(0.06f, 0.15f * mNightBrightness));
+		App::GetGameContext()->GetTerrain()->getHydraxManager()->GetHydrax()->setBrightness(1.f + (waterNight - 1.f) * nightWeight);
+	}
 	ambientCol *= nightScale;
 	mLight1->setDiffuseColour(ambientCol.x, ambientCol.y, ambientCol.z);
 
