@@ -172,7 +172,6 @@ inline void ApplyFragmentProgram(Ogre::Pass* pass)
     pass->getFragmentProgramParameters()->setNamedConstant("alphaRef", alphaRef);
 }
 
-<<<<<<< HEAD
 /// D3D11: the default shadow caster has no alpha test, so alpha-tested foliage casts solid quads.
 /// Gives the technique its own caster material: texture alpha + alpha test, nothing else (depth only).
 inline void ApplyAlphaShadowCaster(Ogre::Technique* tech)
@@ -252,6 +251,4 @@ inline void ApplyAlphaShadowCaster(Ogre::Technique* tech)
     }
 }
 
-=======
->>>>>>> fbbc381a55766fed82ef5e8127451dde0c1a7e79
 } // namespace PagedD3D11
