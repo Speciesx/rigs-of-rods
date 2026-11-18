@@ -595,7 +595,28 @@ namespace SkyX { namespace VClouds
 	void DataManager::_updateVolTextureData(Cell ***c, const VolTextureId& TexId, const int& nx, const int& ny, const int& nz)
 	{
 		Ogre::HardwarePixelBufferSharedPtr buffer = mVolTextures[TexId]->getBuffer(0,0);
-		
+
+		if (Ogre::Root::getSingleton().getRenderSystem()->getName().find("Direct3D11") != Ogre::String::npos)
+		{
+			// D3D11: locking a 3D texture goes through a staging copy whose pitches do not match what we write.
+			// Upload a tightly packed CPU copy of the full volume instead (sizes match exactly, see blitFromMemory()).
+			std::vector<Ogre::uint32> data(static_cast<size_t>(nx) * ny * nz);
+			Ogre::PixelBox src(nx, ny, nz, Ogre::PF_BYTE_RGBA, data.data());
+			for (int z = 0; z < nz; z++)
+			{
+				for (int y = 0; y < ny; y++)
+				{
+					for (int x = 0; x < nx; x++)
+					{
+						Ogre::PixelUtil::packColour(c[x][y][z].dens, c[x][y][z].light, 0, 0, Ogre::PF_BYTE_RGBA,
+							&data[(static_cast<size_t>(z) * ny + y) * nx + x]);
+					}
+				}
+			}
+			buffer->blitFromMemory(src);
+			return;
+		}
+
 		buffer->lock(Ogre::HardwareBuffer::HBL_DISCARD);
 		const Ogre::PixelBox &pb = buffer->getCurrentLock();
 

@@ -29,10 +29,32 @@
 #include "SimData.h"
 
 #include <fmt/format.h>
+#include <vector>
 #include <Ogre.h>
 
 using namespace Ogre;
 using namespace RoR;
+
+bool RoR::IsNodeAttachedToAirframe(Actor* actor, NodeNum_t node)
+{
+    const int n = actor->ar_num_nodes;
+    if (node >= n)
+        return true;
+    std::vector<int> parent(n);
+    for (int i = 0; i < n; i++)
+        parent[i] = i;
+    auto find = [&](int x) { while (parent[x] != x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+    for (int i = 0; i < actor->ar_num_beams; i++)
+    {
+        const beam_t& b = actor->ar_beams[i];
+        if (b.bm_broken || b.bm_disabled || b.bm_inter_actor || b.p1 == nullptr || b.p2 == nullptr)
+            continue;
+        if (b.refL > 0.f && b.L > 3.f * b.refL)
+            continue; // stretched out, the part is flying away
+        parent[find(b.p1->pos)] = find(b.p2->pos);
+    }
+    return find(node) == find(0);
+}
 
 Turboprop::Turboprop(
     ActorPtr a,
@@ -181,7 +203,11 @@ void Turboprop::updateVisuals(RoR::GfxActor* gfx_actor)
         Vector3 dir = node_buf[nodeback].AbsPosition - node_buf[noderef].AbsPosition;
         emit->setDirection(dir);
         emit->setParticleVelocity(propwash - propwash / 10, propwash + propwash / 10);
-        if (!failed)
+        if (m_detached)
+        {
+            emit->setEnabled(false); // torn off: no exhaust, no smoke
+        }
+        else if (!failed)
         {
             if (ignition)
             {
@@ -251,6 +277,17 @@ void Turboprop::updateForces(float dt, int doUpdate)
     if ((avg - m_actor->ar_nodes[noderef].RelPosition).length() > 0.4)
     {
         failed = true;
+    }
+    // check for engine torn off the airframe (checked 4x per second)
+    m_attach_timer += dt;
+    if (!failed && m_attach_timer > 0.25f)
+    {
+        m_attach_timer = 0.f;
+        if (!IsNodeAttachedToAirframe(m_actor.GetRef(), noderef))
+        {
+            failed = true;
+            m_detached = true;
+        }
     }
     //evaluate engine power
     float enginepower = 0; //in kilo-Watt
@@ -469,6 +506,7 @@ void Turboprop::reset()
     rpm = 0;
     throtle = 0;
     failed = false;
+    m_detached = false;
     ignition = false;
     reverse = false;
     pitch = 0;

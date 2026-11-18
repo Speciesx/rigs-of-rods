@@ -50,6 +50,9 @@
 #include "Utils.h"
 
 #include <OgreFileSystem.h>
+#include <OgreHighLevelGpuProgramManager.h>
+#include <OgreScriptCompiler.h>
+#include "D3D11ShaderFix.h"
 #include <regex>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
@@ -353,6 +356,48 @@ bool ContentManager::resourceCollision(Ogre::Resource* resource, Ogre::ResourceM
     return false; // Instruct OGRE to drop the new resource and keep the original.
 }
 
+static bool IsD3D11Active()
+{
+    Ogre::RenderSystem* rs = Ogre::Root::getSingleton().getRenderSystem();
+    return rs && rs->getName().find("Direct3D11") != Ogre::String::npos;
+}
+
+// D3D11 knows no shader model 1.x/2.x: scripts written for D3D9 use `target vs_1_1` / `ps_2_0` (SkyX, Hydrax, ...).
+// Upgrade them to shader model 3 - D3D11 maps it to 4.0 when 'enable_backwards_compatibility' is set (see handleEvent()).
+static void UpgradeLegacyShaderTargets(Ogre::ConcreteNodeList& nodes)
+{
+    // In the OGRE script parser, the values of a property are the *children* of the property node:
+    // `target vs_1_1` => node 'target' with child 'vs_1_1'.
+    for (auto it = nodes.begin(); it != nodes.end(); ++it)
+    {
+        if ((*it)->token == "target")
+        {
+            for (auto& value : (*it)->children)
+            {
+                Ogre::String& t = value->token;
+                const Ogre::String old_target = t;
+                if (t == "vs_1_1" || t == "vs_2_0" || t == "vs_2_a")
+                    t = "vs_3_0";
+                else if (t == "ps_1_1" || t == "ps_1_2" || t == "ps_1_3" || t == "ps_1_4" || t == "ps_2_0" || t == "ps_2_a" || t == "ps_2_b")
+                    t = "ps_3_0";
+                if (t != old_target)
+                {
+                    RoR::LogFormat("[RoR|D3D11] shader target '%s' -> '%s' (%s:%d)", old_target.c_str(), t.c_str(), value->file.c_str(), (int)value->line);
+                }
+            }
+        }
+        UpgradeLegacyShaderTargets((*it)->children);
+    }
+}
+
+void ContentManager::preConversion(Ogre::ScriptCompiler *compiler, Ogre::ConcreteNodeListPtr nodes)
+{
+    if (IsD3D11Active())
+    {
+        UpgradeLegacyShaderTargets(*nodes);
+    }
+}
+
 bool ContentManager::handleEvent(ScriptCompiler *compiler, ScriptCompilerEvent *evt, void *retval)
 {
     if (evt->mType == CreateMaterialScriptCompilerEvent::eventType)
@@ -381,6 +426,37 @@ bool ContentManager::handleEvent(ScriptCompiler *compiler, ScriptCompilerEvent *
                 particleEvent->mName.c_str(), particleEvent->mFile.c_str());
             return true; // Instruct OGRE to skip the particle system
         }
+    }
+    else if (evt->mType == CreateGpuProgramScriptCompilerEvent::eventType && IsD3D11Active())
+    {
+        // D3D11: scripts contain D3D9-style HLSL (`POSITION` outputs, `tex2D`, ...). Compile it in backwards compatibility mode.
+        auto* progEvent = static_cast<CreateGpuProgramScriptCompilerEvent*>(evt);
+        if (progEvent->mSyntax != "hlsl")
+            return false;
+        RoR::LogFormat("[RoR|D3D11] compiling HLSL program '%s' in backwards compatibility mode", progEvent->mName.c_str());
+
+        HighLevelGpuProgramPtr prog = HighLevelGpuProgramManager::getSingleton().createProgram(
+            progEvent->mName, progEvent->mResourceGroup, progEvent->mSyntax, progEvent->mProgramType);
+        if (prog) // Null if duplicate, see `resourceCollision()`
+        {
+            if (!progEvent->mSource.empty())
+            {
+                // Normally done by OGRE, but not when we handle the event.
+                // Load the text ourselves to fix the VS/PS register layout (see D3D11ShaderFix.h).
+                try
+                {
+                    DataStreamPtr stream = ResourceGroupManager::getSingleton().openResource(progEvent->mSource, progEvent->mResourceGroup);
+                    prog->setSource(RoR::D3D11ShaderFix::FixSignatures(stream->getAsString()));
+                }
+                catch (Ogre::Exception&)
+                {
+                    prog->setSourceFile(progEvent->mSource);
+                }
+            }
+            prog->setParameter("enable_backwards_compatibility", "true");
+        }
+        *static_cast<GpuProgram**>(retval) = prog.get(); // Script properties (entry_point, target...) are applied afterwards.
+        return true;
     }
 #if OGRE_VERSION < 0x010C08 // OGRE 1.12.8+ does this itself, see `D3D9HLSLProgram::getTarget()`
     else if (evt->mType == CreateHighLevelGpuProgramScriptCompilerEvent::eventType)

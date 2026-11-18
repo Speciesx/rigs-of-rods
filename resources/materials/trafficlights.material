@@ -28,7 +28,6 @@ material trafficlightmain: RoR/Managed_Mats/Base
 				texture trafficlightsdiffuse.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}

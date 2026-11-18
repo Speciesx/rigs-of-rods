@@ -46,7 +46,7 @@ SkyXManager::SkyXManager(Ogre::String configFile)
 
 	//Ogre::ResourceGroupManager::getSingleton().addResourceLocation("..\\resource\\SkyX\\","FileSystem", "SkyX",true); //Temp
 
-	mBasicController = new SkyX::BasicController();
+	mBasicController = new SkyX::BasicController(/*deleteBySkyX=*/false); // deleted in ~SkyXManager()
 	mSkyX = new SkyX::SkyX(App::GetGfxScene()->GetSceneManager(), mBasicController);
 
 	mCfgFileManager = new SkyX::CfgFileManager(mSkyX, mBasicController, App::GetCameraManager()->GetCamera());
@@ -78,54 +78,6 @@ SkyXManager::SkyXManager(Ogre::String configFile)
 	mRainParticles.reset(new SkyXRainParticles(mSkyX, App::GetGfxScene()->GetSceneManager()));
 
 	this->SaveMapDefaults();
-
-	// Diagnostics: ROR_SKY_TEST=nodome | reddome (comma separated) - isolates why the sky looks wrong
-	if (const char* test = std::getenv("ROR_SKY_TEST"))
-	{
-		const Ogre::String t(test);
-		Ogre::Entity* ent = mSkyX->getMeshManager()->getEntity();
-		if (ent && t.find("nodome") != Ogre::String::npos)
-		{
-			ent->setVisible(false);
-			Ogre::LogManager::getSingleton().logMessage("[SkyX] TEST: skydome entity hidden");
-		}
-		if (t.find("nosky") != Ogre::String::npos)
-		{
-			mSkyX->setVisible(false); // dome + moon + volumetric clouds
-			Ogre::LogManager::getSingleton().logMessage("[SkyX] TEST: whole SkyX hidden");
-		}
-		if (t.find("bgred") != Ogre::String::npos)
-		{
-			App::GetCameraManager()->GetCamera()->getViewport()->setBackgroundColour(Ogre::ColourValue(1, 0, 0));
-			Ogre::LogManager::getSingleton().logMessage("[SkyX] TEST: viewport background set to red");
-		}
-		if (t.find("bgblack") != Ogre::String::npos)
-		{
-			App::GetCameraManager()->GetCamera()->getViewport()->setBackgroundColour(Ogre::ColourValue::Black);
-			Ogre::LogManager::getSingleton().logMessage("[SkyX] TEST: viewport background set to black");
-		}
-		if (ent && t.find("opaque") != Ogre::String::npos)
-		{
-			// Dome shader keeps running, but alpha blending is off: shows its raw colour regardless of iOpacity
-			Ogre::MaterialPtr dm = Ogre::MaterialManager::getSingleton().getByName(ent->getSubEntity(0)->getMaterialName());
-			if (dm)
-			{
-				dm->getTechnique(0)->getPass(0)->setSceneBlending(Ogre::SBT_REPLACE);
-				Ogre::LogManager::getSingleton().logMessage("[SkyX] TEST: skydome scene_blend replace (no alpha)");
-			}
-		}
-		if (ent && t.find("reddome") != Ogre::String::npos)
-		{
-			Ogre::MaterialPtr m = Ogre::MaterialManager::getSingleton().create("RoR_SkyTestRed", "General");
-			Ogre::Pass* pass = m->getTechnique(0)->getPass(0);
-			pass->setLightingEnabled(false);
-			pass->setDepthCheckEnabled(false);
-			pass->setDepthWriteEnabled(false);
-			pass->createTextureUnitState()->setColourOperationEx(Ogre::LBX_SOURCE1, Ogre::LBS_MANUAL, Ogre::LBS_CURRENT, Ogre::ColourValue(1, 0, 0));
-			ent->setMaterialName("RoR_SkyTestRed");
-			Ogre::LogManager::getSingleton().logMessage("[SkyX] TEST: skydome uses plain red material");
-		}
-	}
 }
 
 SkyXManager::~SkyXManager()
@@ -138,9 +90,14 @@ SkyXManager::~SkyXManager()
     // Removes the precipitation compositor from the (persistent) viewport
     mSkyX->detachViewport(RoR::App::GetAppContext()->GetViewport());
 
+    RoR::App::GetAppContext()->GetOgreRoot()->removeFrameListener(mSkyX);
     RoR::App::GetAppContext()->GetRenderWindow()->removeListener(mSkyX);
     mSkyX->remove();
 
+    delete mCfgFileManager;
+    mCfgFileManager = nullptr;
+
+    delete mSkyX;
     mSkyX = nullptr;
 
     delete mBasicController;
@@ -180,8 +137,35 @@ bool SkyXManager::update(float dt, float audio_dt)
 	const bool camUnderwater = (water != nullptr) && water->IsUnderWater(camPos);
 	mRainParticles->Update(audio_dt < 0.f ? dt : audio_dt, camPos, mLight1->getDiffuseColour(), camUnderwater);
 	this->UpdateUnderwaterView(camUnderwater);
+	if (!mUwActive)
+		this->UpdateAltitudeFog(camPos);
 	mSkyX->getPrecipitationController()->setScreenEffectShelter(mRainParticles->GetShelter());
 	return true;
+}
+
+void SkyXManager::UpdateAltitudeFog(const Ogre::Vector3& camPos)
+{
+	Ogre::SceneManager* sm = App::GetGfxScene()->GetSceneManager();
+	const Ogre::FogMode mode = sm->getFogMode();
+	if (mode == Ogre::FOG_NONE)
+		return;
+	// Something else changed the fog (map load, weather, underwater): take it over as the new base
+	if (!mAltFogValid || mode != mAltFogMode || sm->getFogStart() != mAltFogSetStart
+		|| sm->getFogEnd() != mAltFogSetEnd || sm->getFogDensity() != mAltFogSetDensity)
+	{
+		mAltFogValid = true;
+		mAltFogMode = mode;
+		mAltFogStart = sm->getFogStart();
+		mAltFogEnd = sm->getFogEnd();
+		mAltFogDensity = sm->getFogDensity();
+	}
+	const float ground = App::GetGameContext()->GetTerrain()->getHeightAt(camPos.x, camPos.z);
+	const float h = std::max(0.f, camPos.y - ground);
+	const float f = 1.f + std::min(std::max(h - 300.f, 0.f) / 400.f, 40.f); // x1 up to 300 m, about x32 at 12 km
+	mAltFogSetStart = mAltFogStart * f;
+	mAltFogSetEnd = mAltFogEnd * f;
+	mAltFogSetDensity = mAltFogDensity / f;
+	sm->setFog(mode, sm->getFogColour(), mAltFogSetDensity, mAltFogSetStart, mAltFogSetEnd);
 }
 
 void SkyXManager::UpdateUnderwaterView(bool camUnderwater)
@@ -209,12 +193,29 @@ void SkyXManager::UpdateUnderwaterView(bool camUnderwater)
 		const Ogre::ColourValue water(std::min(c.x, 1.f), std::min(c.y, 1.f), std::min(c.z, 1.f));
 		vp->setBackgroundColour(water);
 		const Ogre::Real end = (mUwSavedFogMode == Ogre::FOG_LINEAR && mUwSavedFogEnd > 0.f) ? std::min<Ogre::Real>(mUwSavedFogEnd, 250.f) : 250.f;
-		sm->setFog(Ogre::FOG_LINEAR, water, 0.f, 0.f, end);
+		// Keep the fog MODE of the map: RTSS bakes the fog mode into every generated shader,
+		// so changing it invalidates and regenerates all materials (lag on every dive/surface).
+		// Only colour/density/range change here - those are shader constants.
+		switch (mUwSavedFogMode)
+		{
+		case Ogre::FOG_EXP:  sm->setFog(Ogre::FOG_EXP,  water, 4.f / end, 0.f, end); break; // exp(-4)   ~ 2% at 'end'
+		case Ogre::FOG_EXP2: sm->setFog(Ogre::FOG_EXP2, water, 2.f / end, 0.f, end); break; // exp(-2^2) ~ 2% at 'end'
+		default:             sm->setFog(Ogre::FOG_LINEAR, water, 0.f, 0.f, end); break;
+		}
 	}
 	else if (mUwActive)
 	{
 		vp->setBackgroundColour(mUwSavedBackground);
-		sm->setFog(mUwSavedFogMode, mUwSavedFogColour, mUwSavedFogDensity, mUwSavedFogStart, mUwSavedFogEnd);
+		if (mUwSavedFogMode == Ogre::FOG_NONE)
+		{
+			// Map without fog: stay in FOG_LINEAR (set while underwater) with a range that is never reached,
+			// so the RTSS shaders don't get regenerated on every surface/dive switch.
+			sm->setFog(Ogre::FOG_LINEAR, mUwSavedFogColour, 0.f, 1.0e7f, 2.0e7f);
+		}
+		else
+		{
+			sm->setFog(mUwSavedFogMode, mUwSavedFogColour, mUwSavedFogDensity, mUwSavedFogStart, mUwSavedFogEnd);
+		}
 		mUwActive = false;
 	}
 }
@@ -255,7 +256,6 @@ void SkyXManager::DetectPlayerMovement(float dt)
 
 bool SkyXManager::UpdateSkyLight()
 {
-	{ static int s_dump_counter = 0; if ((s_dump_counter++ % 600) == 1) { Ogre::LogManager::getSingleton().logMessage(Ogre::String("[SkyX] time=") + GetPrettyTime() + " sunDir=" + Ogre::StringConverter::toString(mSkyX->getController()->getSunDirection())); mSkyX->getGPUManager()->dumpSkydomeState(); mSkyX->getMeshManager()->dumpEntityState(App::GetCameraManager()->GetCamera()); { Ogre::Viewport* dvp = App::GetCameraManager()->GetCamera()->getViewport(); Ogre::SceneManager* dsm = App::GetGfxScene()->GetSceneManager(); Ogre::LogManager::getSingleton().logMessage("[SkyX] dump: viewport bg=" + Ogre::StringConverter::toString(dvp->getBackgroundColour()) + " fogMode=" + Ogre::StringConverter::toString((int)dsm->getFogMode()) + " fogColour=" + Ogre::StringConverter::toString(dsm->getFogColour()) + " ambient=" + Ogre::StringConverter::toString(dsm->getAmbientLight()) + " skyBoxEnabled=" + Ogre::StringConverter::toString(dsm->isSkyBoxEnabled())); } } }
 	Ogre::Vector3 lightDir = -getMainLightDirection();
 	const Ogre::Vector3 camPos = App::GetCameraManager()->GetCameraNode()->_getDerivedPosition();
 	Ogre::Vector3 sunPos = camPos - lightDir*mSkyX->getMeshManager()->getSkydomeRadius(App::GetCameraManager()->GetCamera());
@@ -539,15 +539,4 @@ std::string SkyXManager::GetPrettyTime()
 	char buf[20];
 	snprintf(buf, sizeof(buf), "%02d:%02d", h, m);
 	return buf;
-}
-
-size_t SkyXManager::getMemoryUsage()
-{
-	//TODO
-	return 0;
-}
-
-void SkyXManager::freeResources()
-{
-	//TODO
 }

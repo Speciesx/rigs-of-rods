@@ -437,7 +437,7 @@ void GeometryPageManager::update(unsigned long deltaTime, Vector3 &camPos, Vecto
 	Real speed = Math::Sqrt(camSpeed.x * camSpeed.x + camSpeed.z * camSpeed.z);
 	
 	unsigned long cacheInterval = 0;
-	if (speed == 0)
+	if (speed == 0 || pendingList.empty())	//(avoid division by zero below)
 		cacheInterval = maxCacheInterval;
 	else {
 		cacheInterval = (unsigned long)((mainGeom->getPageSize() * 0.8f) / (speed * pendingList.size()));

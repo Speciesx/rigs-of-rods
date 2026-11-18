@@ -139,6 +139,10 @@ namespace Hydrax
 			Ogre::MeshManager::getSingleton().remove(mRttOptions[Rtt].Name + "ClipPlane");
 
 			Tex.reset();
+			if (mPlanes[Rtt]->getParentSceneNode())
+			{
+				mPlanes[Rtt]->getParentSceneNode()->detachObject(mPlanes[Rtt]);
+			}
 			delete mPlanes[Rtt];
 			mPlanes[Rtt] = static_cast<Ogre::MovablePlane*>(NULL);
 		}
@@ -162,6 +166,10 @@ namespace Hydrax
 			mPlanesSceneNode->detachAllObjects();
             mPlanesSceneNode->getParentSceneNode()->removeAndDestroyChild(mPlanesSceneNode);
 			mPlanesSceneNode = 0;
+
+			// Added together with mPlanesSceneNode in initialize(): without this, every removeAll()/initialize() cycle
+			// (hide/show water, map change) registered one more listener, and a deleted Hydrax left a dangling one.
+			mHydrax->getSceneManager()->removeRenderQueueListener(&mReflectionListener.mCReflectionQueueListener);
 		}
 	}
 
@@ -210,7 +218,11 @@ namespace Hydrax
         RT_Texture_Viewport->setClearEveryFrame(true);
         RT_Texture_Viewport->setBackgroundColour(BackgroundColour);
         RT_Texture_Viewport->setOverlaysEnabled(false);
-		RT_Texture_Viewport->setShadowsEnabled(ShadowsEnabled);
+		// No shadows in the water RTTs (all render systems): they share the camera with the main view, so re-rendering the
+		// shadow textures for them (with the custom clip plane) breaks the shadows of the main view, costs 3 extra PSSM
+		// passes per RTT and makes textured objects white on D3D11. In reflection/refraction they are barely visible.
+		(void)ShadowsEnabled;
+		RT_Texture_Viewport->setShadowsEnabled(false);
 		if (MaterialScheme != "")
 		{
             RT_Texture_Viewport->setMaterialScheme(MaterialScheme);

@@ -1842,6 +1842,7 @@ void RoR::GfxActor::UpdateSimDataBuffer()
         dst.simbuf_ae_rpm        = src->getRPM();
         dst.simbuf_ae_ignition   = src->getIgnition();
         dst.simbuf_ae_failed     = src->isFailed();
+        dst.simbuf_ae_detached   = src->isDetached();
 
         if (dst.simbuf_ae_type == AeroEngineType::AE_XPROP)
         {

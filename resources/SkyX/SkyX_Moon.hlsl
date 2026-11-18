@@ -39,6 +39,9 @@ void main_vp(
 {
     // Clip space position
 	oPosition   = mul(uWorldViewProj, iPosition);
+	// Never clip at the far plane: Hydrax renders reflection/refraction with an oblique near clip plane,
+	// which tilts the far plane and cut holes into the sky (water-coloured "black spots").
+	oPosition.z = min(oPosition.z, oPosition.w * 0.99999);
 	// World position
 	float3 ObjectSpacePosition = mul(uWorld, iPosition) - uSkydomeCenter;
 

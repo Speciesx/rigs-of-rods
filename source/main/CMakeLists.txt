@@ -29,6 +29,7 @@ set(SOURCE_FILES
         gameplay/VehicleAI.{h,cpp}
         gfx/AdvancedScreen.h
         gfx/CaelumSkyXConverter.{h,cpp}
+        gfx/D3D11ShaderFix.h
         gfx/DustPool.{h,cpp}
         gfx/EnvironmentMap.{h,cpp}
         gfx/GfxActor.{h,cpp}
@@ -137,6 +138,7 @@ set(SOURCE_FILES
         gui/panels/GUI_MultiplayerSelector.{h,cpp}
         gui/panels/GUI_MultiplayerClientList.{h,cpp}
         gui/panels/GUI_NodeBeamUtils.{h,cpp}
+        gui/panels/GUI_AirDashboard.{h,cpp}
         gui/panels/GUI_VehicleInfoTPanel.{h,cpp}
         gui/panels/GUI_ScriptMonitor.{h,cpp}
         gui/panels/GUI_SimPerfStats.{h,cpp}
@@ -215,6 +217,7 @@ set(SOURCE_FILES
         terrain/paged/GrassLoader.{h,cpp}
         terrain/paged/ImpostorPage.{h,cpp}
         terrain/paged/PagedGeometry.{h,cpp}
+        terrain/paged/PagedD3D11.h
         terrain/paged/PagedGeometryConfig.h
         terrain/paged/PropertyMaps.{h,cpp}
         terrain/paged/RandomTable.h

@@ -15,8 +15,13 @@ Permission is granted to anyone to use this software for any purpose, including 
 #include <OgreMath.h>
 
 #include <random>
+#include <cstdlib>
+#include <cstring>
+#include <new>
 #ifdef _WIN32
+#ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0600
+#endif
 #include <windows.h>
 #endif
 
@@ -25,6 +30,8 @@ class RandomTable
 {
 public:
 	RandomTable(unsigned long size=0x8000);
+	RandomTable(const RandomTable &other);
+	RandomTable &operator=(const RandomTable &other);
 	~RandomTable();
 
 	void resetRandomIndex();
@@ -44,7 +51,36 @@ protected:
 inline RandomTable::RandomTable(unsigned long size) : tableSize(size), table(0), customRandomIndex(0)
 {
 	table = (float *)malloc(sizeof(float) * tableSize);
+	if (!table && tableSize)
+		throw std::bad_alloc();
 	generateRandomNumbers();
+}
+
+// a copy owns its own table (the implicitly generated copy would share the pointer and free it twice)
+inline RandomTable::RandomTable(const RandomTable &other) : tableSize(other.tableSize), table(0), customRandomIndex(other.customRandomIndex)
+{
+	table = (float *)malloc(sizeof(float) * tableSize);
+	if (!table && tableSize)
+		throw std::bad_alloc();
+	if (tableSize)
+		std::memcpy(table, other.table, sizeof(float) * tableSize);
+}
+
+inline RandomTable &RandomTable::operator=(const RandomTable &other)
+{
+	if (this != &other)
+	{
+		float *newTable = (float *)malloc(sizeof(float) * other.tableSize);
+		if (!newTable && other.tableSize)
+			throw std::bad_alloc();
+		if (other.tableSize)
+			std::memcpy(newTable, other.table, sizeof(float) * other.tableSize);
+		free(table);
+		table = newTable;
+		tableSize = other.tableSize;
+		customRandomIndex = other.customRandomIndex;
+	}
+	return *this;
 }
 
 inline RandomTable::~RandomTable()

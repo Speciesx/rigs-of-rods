@@ -48,6 +48,7 @@
 #include "GUI_MainSelector.h"
 #include "GUI_NodeBeamUtils.h"
 #include "GUI_DirectionArrow.h"
+#include "GUI_AirDashboard.h"
 #include "GUI_VehicleInfoTPanel.h"
 #include "GUI_SimPerfStats.h"
 #include "GUI_SurveyMap.h"
@@ -121,6 +122,7 @@ public:
     GUI::GameAbout              GameAbout;
     GUI::GameSettings           GameSettings;
     GUI::VehicleInfoTPanel      VehicleInfoTPanel;
+    GUI::AirDashboard           AirDashboard;
     GUI::SimPerfStats           SimPerfStats;
     GUI::MessageBoxDialog       MessageBoxDialog;
     GUI::MultiplayerSelector    MultiplayerSelector;

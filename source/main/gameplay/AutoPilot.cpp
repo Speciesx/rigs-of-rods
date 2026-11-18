@@ -327,8 +327,8 @@ int Autopilot::adjIAS(int d)
     ias += d;
     if (ias < 0)
         ias = 0;
-    if (ias > 350)
-        ias = 350;
+    if (ias > 1000) // was 350, too low for jets
+        ias = 1000;
     return ias;
 }
 

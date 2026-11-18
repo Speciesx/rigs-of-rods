@@ -82,6 +82,7 @@ public:
     float getpropwash() { return propwash; };
     Ogre::Vector3 getAxis() { return axis; };
     bool isFailed() { return failed; };
+    bool isDetached() { return m_detached; };
     AeroEngineType getType() { return AeroEngineType::AE_XPROP; };
     bool getIgnition() { return ignition; };
     void setIgnition(bool val) { ignition = val; };
@@ -111,6 +112,8 @@ private:
     float proparea;
     float airdensity;
     float timer;
+    float m_attach_timer = 0.f;
+    bool m_detached = false;
     float lastflip;
     float warmupstart;
     float warmuptime;

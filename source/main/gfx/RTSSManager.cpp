@@ -58,6 +58,14 @@ void RTSSManager::SetupRTSS()
     // RTSS PSSM3
     if(App::gfx_shadow_type->getEnum<GfxShadowType>() == GfxShadowType::PSSM)
     {
+        // The shadow caster only writes depth - it needs no lighting. The default material has lighting on,
+        // which makes RTSS add per-pixel lighting (reads NORMAL); D3D11 fails on meshes without normals (terrain).
+        Ogre::MaterialPtr casterMat = Ogre::MaterialManager::getSingleton().getByName("Ogre/TextureShadowCaster");
+        if (casterMat)
+        {
+            casterMat->setLightingEnabled(false);
+        }
+
         App::GetGfxScene()->GetSceneManager()->setShadowTechnique(SHADOWTYPE_TEXTURE_MODULATIVE_INTEGRATED);
         App::GetGfxScene()->GetSceneManager()->setShadowFarDistance(350);
         App::GetGfxScene()->GetSceneManager()->setShadowTextureCountPerLightType(Ogre::Light::LT_DIRECTIONAL, 3);

@@ -99,6 +99,7 @@ struct AeroEngineSB
     float             simbuf_tj_exhaust_velo; //! Turbojet
     bool              simbuf_ae_ignition:1;
     bool              simbuf_ae_failed:1;
+    bool              simbuf_ae_detached:1; //!< Torn off the airframe
     bool              simbuf_tj_afterburn:1; //! Turbojet afterburner
 };
 

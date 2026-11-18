@@ -95,6 +95,7 @@ private:
 
     // Ogre::ScriptCompilerListener
     bool handleEvent(Ogre::ScriptCompiler *compiler, Ogre::ScriptCompilerEvent *evt, void *retval) override;
+    void preConversion(Ogre::ScriptCompiler *compiler, Ogre::ConcreteNodeListPtr nodes) override;
 
     bool              m_base_resource_loaded;
 };

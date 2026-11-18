@@ -54,10 +54,6 @@ public:
 
 	bool InitLight();
 
-	size_t getMemoryUsage();
-
-	void freeResources();
-
 	bool UpdateSkyLight();
 
 	SkyX::SkyX* GetSkyX() { return mSkyX; }
@@ -172,6 +168,13 @@ protected:
 	Ogre::Real mUwSavedFogDensity = 0.f, mUwSavedFogStart = 0.f, mUwSavedFogEnd = 0.f;
     float mBaseTimeMultiplier = 0.01f;
     bool mFogFollowsSky = false;
+
+    /// High above the ground the fog range grows with the height, otherwise the whole terrain is swallowed by fog.
+    void UpdateAltitudeFog(const Ogre::Vector3& camPos);
+    bool mAltFogValid = false;
+    Ogre::FogMode mAltFogMode = Ogre::FOG_NONE;
+    Ogre::Real mAltFogDensity = 0.f, mAltFogStart = 0.f, mAltFogEnd = 0.f;      //!< fog as the map set it
+    Ogre::Real mAltFogSetDensity = 0.f, mAltFogSetStart = 0.f, mAltFogSetEnd = 0.f; //!< what we applied last
 };
 
 /// @} // addtogroup Gfx

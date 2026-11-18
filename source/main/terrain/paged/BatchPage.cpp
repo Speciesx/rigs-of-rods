@@ -26,6 +26,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 
 #include "BatchPage.h"
 #include "BatchedGeometry.h"
+#include "PagedD3D11.h"
 
 
 using namespace Ogre;
@@ -448,11 +449,11 @@ void BatchPage::_updateShaders()
 			HighLevelGpuProgramPtr vertexShader = HighLevelGpuProgramManager::getSingleton().createProgram(
 				vertexProgName, ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME, shaderLanguage, GPT_VERTEX_PROGRAM);
 
-			vertexShader->setSource(vertexProgSource);
+			vertexShader->setSource(PagedD3D11::IsActive() ? PagedD3D11::ConvertVertexSource(vertexProgSource) : vertexProgSource);
 
 			if (shaderLanguage == "hlsl")
 			{
-				vertexShader->setParameter("target", "vs_1_1");
+				vertexShader->setParameter("target", PagedD3D11::VsTarget());
 				vertexShader->setParameter("entry_point", "main");
 			}
 			else if(shaderLanguage == "cg")
@@ -494,7 +495,11 @@ void BatchPage::_updateShaders()
 					//if (pass->getVertexProgramName() == "")
 					//	pass->setVertexProgram(vertexProgName);
                if (!pass->hasVertexProgram())
+               {
                   pass->setVertexProgram(vertexProgName);
+                  if (PagedD3D11::IsActive())
+                     PagedD3D11::ApplyFragmentProgram(pass);
+               }
 
 					try
                {
@@ -532,6 +537,9 @@ void BatchPage::_updateShaders()
                      they will need to implement fade transitions to be compatible with BatchPage.", "BatchPage::_updateShaders()");
 					}
 				}
+
+				if (PagedD3D11::IsActive())
+					PagedD3D11::ApplyAlphaShadowCaster(tech);
 			}
 
 		}

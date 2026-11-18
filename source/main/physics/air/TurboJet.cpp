@@ -167,7 +167,7 @@ void TurbojetVisual::UpdateVisuals(RoR::GfxActor* gfx_actor)
     Quaternion dir = Quaternion(laxis, paxis, taxis);
     m_nozzle_scenenode->setOrientation(dir);
     //afterburner
-    if (ae_buf.simbuf_tj_afterburn)
+    if (ae_buf.simbuf_tj_afterburn && !ae_buf.simbuf_ae_detached)
     {
         m_flame_scenenode->setVisible(true);
         float flamelength = (ae_buf.simbuf_tj_ab_thrust / 15.0) * (ae_buf.simbuf_ae_rpmpc / 100.0);
@@ -188,7 +188,11 @@ void TurbojetVisual::UpdateVisuals(RoR::GfxActor* gfx_actor)
         ParticleEmitter* emit = m_smoke_particle->getEmitter(0);
         emit->setDirection(-laxis);
         emit->setParticleVelocity(ae_buf.simbuf_tj_exhaust_velo);
-        if (!ae_buf.simbuf_ae_failed)
+        if (ae_buf.simbuf_ae_detached)
+        {
+            emit->setEnabled(false); // torn off: no exhaust, no smoke
+        }
+        else if (!ae_buf.simbuf_ae_failed)
         {
             if (ae_buf.simbuf_ae_ignition)
             {
@@ -239,6 +243,18 @@ void Turbojet::updateForces(float dt, int doUpdate)
         m_rpm_percent = 0;
         m_is_failed = true;
     }; //check for broken
+    // check for engine torn off the airframe (checked 4x per second)
+    m_attach_timer += dt;
+    if (!m_is_failed && m_attach_timer > 0.25f)
+    {
+        m_attach_timer = 0.f;
+        if (!IsNodeAttachedToAirframe(m_actor.GetRef(), m_node_back))
+        {
+            m_rpm_percent = 0;
+            m_is_failed = true;
+            m_detached = true;
+        }
+    }
 
     float warmupfactor = 1.0;
     if (m_warmup)
@@ -327,6 +343,7 @@ void Turbojet::reset()
     m_throtle = 0;
     m_propwash = 0;
     m_is_failed = false;
+    m_detached = false;
     m_ignition = false;
     m_reverse = false;
 }

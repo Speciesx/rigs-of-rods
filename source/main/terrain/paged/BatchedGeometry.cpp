@@ -187,7 +187,7 @@ uint32 CountUsedVertices(IndexData *id, std::map<uint32, uint32> &ibmap)
          break;
 
       default:
-         throw new Ogre::Exception(0, "Unknown index buffer type", "Converter.cpp::CountVertices");
+         OGRE_EXCEPT(Ogre::Exception::ERR_INTERNAL_ERROR, "Unknown index buffer type", "Converter.cpp::CountVertices");
          break;
    }
 
@@ -278,7 +278,7 @@ void BatchedGeometry::extractVertexDataFromShared(const Ogre::MeshPtr &mesh)
             break;
 
          default:
-            throw new Ogre::Exception(0, "Unknown index buffer type", "Converter.cpp::CountVertices");
+            OGRE_EXCEPT(Ogre::Exception::ERR_INTERNAL_ERROR, "Unknown index buffer type", "Converter.cpp::CountVertices");
             break;
       }
 
@@ -297,16 +297,24 @@ void BatchedGeometry::extractVertexDataFromShared(const Ogre::MeshPtr &mesh)
 ///
 String BatchedGeometry::getFormatString(SubEntity *ent)
 {
-   static char buf[1024];
    // add materialname and buffer type
-   int countWritten =  sprintf(buf, "%s|%d", ent->getMaterialName().c_str(), ent->getSubMesh()->indexData->indexBuffer->getType());
+   // (std::string instead of a fixed size static buffer: no overflow with long material names / many
+   // vertex elements, and no shared static state)
+   String buf = ent->getMaterialName();
+   buf += '|';
+   buf += std::to_string(static_cast<int>(ent->getSubMesh()->indexData->indexBuffer->getType()));
 
    // now add vertex decl
    const VertexDeclaration::VertexElementList &elemList = ent->getSubMesh()->vertexData->vertexDeclaration->getElements();
    for (VertexDeclaration::VertexElementList::const_iterator i = elemList.begin(), iend = elemList.end(); i != iend; ++i)
    {
       const VertexElement &el = *i;
-      countWritten += sprintf(buf + countWritten, "|%d|%d|%d", el.getSource(), el.getSemantic(), el.getType());
+      buf += '|';
+      buf += std::to_string(static_cast<int>(el.getSource()));
+      buf += '|';
+      buf += std::to_string(static_cast<int>(el.getSemantic()));
+      buf += '|';
+      buf += std::to_string(static_cast<int>(el.getType()));
    }
 
    return buf;
@@ -566,8 +574,8 @@ void BatchedGeometry::SubBatch::build()
       destIndexType, m_pIndexData->indexCount, HardwareBuffer::HBU_STATIC_WRITE_ONLY);
 
    //Lock the index buffer
-   uint32 *indexBuffer32;
-   uint16 *indexBuffer16;
+   uint32 *indexBuffer32 = 0;
+   uint16 *indexBuffer16 = 0;
    if (destIndexType == HardwareIndexBuffer::IT_32BIT)
       indexBuffer32 = static_cast<uint32*>(m_pIndexData->indexBuffer->lock(HardwareBuffer::HBL_DISCARD));
    else
@@ -748,13 +756,15 @@ void BatchedGeometry::SubBatch::_buildIdentiryOrientation(const QueuedMesh &queu
 
                case VES_DIFFUSE:
                   {
-                     uint32 tmpColor = *((uint32*)sourcePtr++);
+                     uint32 tmpColor;
+                     memcpy(&tmpColor, sourcePtr++, sizeof(uint32));
                      uint8 tmpR = static_cast<uint8>(((tmpColor) & 0xFF) * queuedMesh.color.r);
                      uint8 tmpG = static_cast<uint8>(((tmpColor >> 8) & 0xFF)  * queuedMesh.color.g);
                      uint8 tmpB = static_cast<uint8>(((tmpColor >> 16) & 0xFF) * queuedMesh.color.b);
                      //uint8 tmpA = 0xFF; //static_cast<uint8>(((tmpColor >> 24) & 0xFF) * queuedMesh.color.a);  // always alpha 1.f
                      //*((uint32*)destPtr) = tmpR | (tmpG << 8) | (tmpB << 16) | (tmpA << 24);
-                     *((uint32*)destPtr) = tmpR | (tmpG << 8) | (tmpB << 16) | (0xFF << 24);
+                     const uint32 tmpOut = tmpR | (tmpG << 8) | (tmpB << 16) | (0xFFu << 24);
+                     memcpy(destPtr, &tmpOut, sizeof(uint32));
                   }
                   break;
 
@@ -879,14 +889,16 @@ void BatchedGeometry::SubBatch::_buildFullTransform(const QueuedMesh &queuedMesh
 
                case VES_DIFFUSE:
                   {
-                     uint32 tmpColor = *((uint32*)sourcePtr);
+                     uint32 tmpColor;
+                     memcpy(&tmpColor, sourcePtr, sizeof(uint32));
                      uint8 tmpR = static_cast<uint8>(((tmpColor) & 0xFF)       * queuedMesh.color.r);
                      uint8 tmpG = static_cast<uint8>(((tmpColor >> 8) & 0xFF)  * queuedMesh.color.g);
                      uint8 tmpB = static_cast<uint8>(((tmpColor >> 16) & 0xFF) * queuedMesh.color.b);
                      //uint8 tmpA = 0xFF; //static_cast<uint8>(((tmpColor >> 24) & 0xFF) * queuedMesh.color.a);  // always alpha 1.f
 
                      //*((uint32*)destPtr) = tmpR | (tmpG << 8) | (tmpB << 16) | (tmpA << 24);
-                     *((uint32*)destPtr) = tmpR | (tmpG << 8) | (tmpB << 16) | (0xFF << 24);
+                     const uint32 tmpOut = tmpR | (tmpG << 8) | (tmpB << 16) | (0xFFu << 24);
+                     memcpy(destPtr, &tmpOut, sizeof(uint32));
                   }
                   break;
 

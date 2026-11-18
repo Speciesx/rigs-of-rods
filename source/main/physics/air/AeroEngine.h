@@ -35,6 +35,10 @@ namespace RoR {
 /// @addtogroup Aerial
 /// @{
 
+/// Returns false if the node has been torn off the airframe (no intact path of beams to node 0).
+/// Stretched beams (> 3x rest length) count as severed, even if they did not formally break.
+bool IsNodeAttachedToAirframe(Actor* actor, NodeNum_t node);
+
 class AeroEngine : public RefCountingObject<AeroEngine>
 {
 public:
@@ -61,6 +65,7 @@ public:
     virtual float getpropwash() =0;
     virtual Ogre::Vector3 getAxis() =0;
     virtual bool isFailed() =0;
+    virtual bool isDetached() =0; //!< Torn off the airframe: no exhaust/smoke at all
     virtual AeroEngineType getType() =0;
     virtual bool getIgnition() =0;
     virtual void setIgnition(bool val) =0;

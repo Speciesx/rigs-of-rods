@@ -82,6 +82,7 @@ public:
     void setIgnition(bool val) { m_ignition = val; };
     bool getWarmup() { return m_warmup; };
     bool isFailed() { return m_is_failed; };
+    bool isDetached() { return m_detached; };
     float getMaxDryThrust() { return m_max_dry_thrust; };
     float getAfterburner() { return (float)m_afterburner_active; };
     float getAfterburnThrust() const { return m_afterburn_thrust; }
@@ -125,6 +126,8 @@ private:
     float m_rpm_percent; //!< in percent!
     float m_throtle;
     float m_timer;
+    float m_attach_timer = 0.f;
+    bool m_detached = false;
     float m_warmup_start;
     float m_warmup_time;
     int m_sound_ab;

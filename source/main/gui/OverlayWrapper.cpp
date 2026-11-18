@@ -41,6 +41,7 @@
 #include "GameContext.h"
 #include "GfxActor.h"
 #include "GfxScene.h"
+#include "GUIManager.h"
 #include "Language.h"
 #include "RoRVersion.h"
 #include "ScrewProp.h"
@@ -141,7 +142,11 @@ OverlayElement* OverlayWrapper::loadOverlayElement(String name)
 
 Ogre::TextureUnitState* GetTexUnit(Ogre::String material_name) // Internal helper
 {
-    return MaterialManager::getSingleton().getByName(material_name)->getTechnique(0)->getPass(0)->getTextureUnitState(0);
+    Ogre::TextureUnitState* tus = MaterialManager::getSingleton().getByName(material_name)->getTechnique(0)->getPass(0)->getTextureUnitState(0);
+    // OGRE 14 RTSS: the shader gets a texture matrix only if the texture transform is not identity when the shader is generated.
+    // Needles are rotated/scrolled at runtime, so give them a (invisible) non-identity transform up front.
+    tus->setTextureRotate(Ogre::Radian(1e-4f));
+    return tus;
 }
 
 int OverlayWrapper::init()
@@ -158,7 +163,7 @@ int OverlayWrapper::init()
     resizePanel(loadOverlayElement("tracks/pressureneedle"));
     MaterialPtr m = MaterialManager::getSingleton().getByName("tracks/pressureneedle_mat");
     if (m)
-        pressuretexture = m->getTechnique(0)->getPass(0)->getTextureUnitState(0);
+        pressuretexture = GetTexUnit("tracks/pressureneedle_mat");
     else
         pressuretexture = nullptr;
 
@@ -269,12 +274,12 @@ int OverlayWrapper::init()
     resizePanel(loadOverlayElement("tracks/boatsteer"));
     resizePanel(loadOverlayElement("tracks/boatspeedneedle"));
     resizePanel(loadOverlayElement("tracks/boatsteer/fg"));
-    boatspeedtexture = ((MaterialPtr)(MaterialManager::getSingleton().getByName("tracks/boatspeedneedle_mat")))->getTechnique(0)->getPass(0)->getTextureUnitState(0);
-    boatsteertexture = ((MaterialPtr)(MaterialManager::getSingleton().getByName("tracks/boatsteer/fg_mat")))->getTechnique(0)->getPass(0)->getTextureUnitState(0);
+    boatspeedtexture = GetTexUnit("tracks/boatspeedneedle_mat");
+    boatsteertexture = GetTexUnit("tracks/boatsteer/fg_mat");
 
     //prepare needles
-    speedotexture = ((MaterialPtr)(MaterialManager::getSingleton().getByName("tracks/speedoneedle_mat")))->getTechnique(0)->getPass(0)->getTextureUnitState(0);
-    tachotexture  = ((MaterialPtr)(MaterialManager::getSingleton().getByName("tracks/tachoneedle_mat"))) ->getTechnique(0)->getPass(0)->getTextureUnitState(0);
+    speedotexture = GetTexUnit("tracks/speedoneedle_mat");
+    tachotexture  = GetTexUnit("tracks/tachoneedle_mat");
 
     resizePanel(loadOverlayElement("tracks/airspeedneedle"));
     m_aerial_dashboard.airspeedtexture = GetTexUnit("tracks/airspeedneedle_mat");
@@ -381,8 +386,8 @@ void OverlayWrapper::showDashboardOverlays(bool show, ActorPtr actor)
 
         if (mode == AIRPLANE)
         {
-            m_aerial_dashboard.needles_overlay->show();
-            m_aerial_dashboard.dash_overlay->show();
+            // Drawn by DearIMGUI (GUI_AirDashboard) - OGRE 14 RTSS ignores runtime texture matrix changes of overlay materials.
+            App::GetGuiManager()->AirDashboard.SetVisible(true);
         }
         else if (mode == BOAT)
         {
@@ -405,6 +410,7 @@ void OverlayWrapper::showDashboardOverlays(bool show, ActorPtr actor)
     }
     else
     {
+        App::GetGuiManager()->AirDashboard.SetVisible(false);
         m_aerial_dashboard.needles_overlay->hide();
         m_aerial_dashboard.dash_overlay->hide();
 

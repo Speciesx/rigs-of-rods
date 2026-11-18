@@ -40,10 +40,54 @@ Permission is granted to anyone to use this software for any purpose, including 
 #include "RandomTable.h"
 
 #include <limits> //for numeric_limits
+#include <memory>  //for unique_ptr
+#include <cstring> //for memcpy
 
 using namespace Ogre;
 
 namespace Forests {
+
+namespace
+{
+	//Writes the two-triangle index list for 'quadCount' consecutive quads (4 vertices per quad)
+	template <typename IndexT>
+	void fillQuadIndices(IndexT *pI, unsigned int quadCount)
+	{
+		for (unsigned int i = 0; i < quadCount; ++i)
+		{
+			const IndexT offset = static_cast<IndexT>(i * 4);
+
+			*pI++ = static_cast<IndexT>(0 + offset);
+			*pI++ = static_cast<IndexT>(2 + offset);
+			*pI++ = static_cast<IndexT>(1 + offset);
+
+			*pI++ = static_cast<IndexT>(1 + offset);
+			*pI++ = static_cast<IndexT>(2 + offset);
+			*pI++ = static_cast<IndexT>(3 + offset);
+		}
+	}
+
+	//Creates and fills the index buffer for 'quadCount' quads. 16 bit indices are used whenever
+	//they are sufficient (identical to the previous behavior). Only pages with more than 65536
+	//vertices switch to 32 bit indices; with 16 bit indices the vertex index would wrap around.
+	void createQuadIndexBuffer(IndexData *indexData, unsigned int quadCount)
+	{
+		indexData->indexStart = 0;
+		indexData->indexCount = 6 * quadCount;
+
+		const bool use32Bit = (4u * quadCount > 0x10000u);
+		indexData->indexBuffer = HardwareBufferManager::getSingleton().createIndexBuffer(
+			use32Bit ? HardwareIndexBuffer::IT_32BIT : HardwareIndexBuffer::IT_16BIT,
+			indexData->indexCount, HardwareBuffer::HBU_STATIC_WRITE_ONLY);
+
+		void *pI = indexData->indexBuffer->lock(HardwareBuffer::HBL_DISCARD);
+		if (use32Bit)
+			fillQuadIndices(static_cast<uint32*>(pI), quadCount);
+		else
+			fillQuadIndices(static_cast<uint16*>(pI), quadCount);
+		indexData->indexBuffer->unlock();
+	}
+}
 
 unsigned long GrassLoader::GUID = 0;
 
@@ -156,7 +200,8 @@ void GrassLoader::loadPage(PageInfo &page)
 
 		//Precompute grass locations into an array of floats. A plain array is used for speed;
 		//there's no need to use a dynamic sized array since a maximum size is known.
-		float *position = new float[grassCount*4];
+		std::unique_ptr<float[]> positionStorage(new float[grassCount*4]);
+		float *position = positionStorage.get();
 		if (layer->densityMap){
 			if (layer->densityMap->getFilter() == MAPFILTER_NONE)
 				grassCount = layer->_populateGrassList_UnfilteredDM(page, position, grassCount);
@@ -180,21 +225,22 @@ void GrassLoader::loadPage(PageInfo &page)
 					mesh = generateGrass_SPRITE(page, layer, position, grassCount);
 					break;
 			}
-			assert(mesh);
+			//The generateGrass_*() functions return NULL if no mesh could be built for this page
+			if (mesh)
+			{
+				//Add the mesh to PagedGeometry
+				Entity *entity = geom->getCamera()->getSceneManager()->createEntity(getUniqueID(), mesh->getName());
+				entity->setRenderQueueGroup(renderQueue);
+				entity->setCastShadows(false);
+				entity->setVisibilityFlags(RoR::DEPTHMAP_VEGETATION); // alpha cards must not end up as solid quads in the Hydrax depth map
+				addEntity(entity, page.centerPoint, Quaternion::IDENTITY, Vector3::UNIT_SCALE);
 
-			//Add the mesh to PagedGeometry
-			Entity *entity = geom->getCamera()->getSceneManager()->createEntity(getUniqueID(), mesh->getName());
-			entity->setRenderQueueGroup(renderQueue);
-			entity->setCastShadows(false);
-			entity->setVisibilityFlags(RoR::DEPTHMAP_VEGETATION); // alpha cards must not end up as solid quads in the Hydrax depth map
-			addEntity(entity, page.centerPoint, Quaternion::IDENTITY, Vector3::UNIT_SCALE);
-
-			//Store the mesh pointer
-			page.meshList.push_back(mesh);
+				//Store the mesh pointer
+				page.meshList.push_back(mesh);
+			}
 		}
 
-		//Delete the position list
-		delete[] position;
+		//The position list is released automatically (positionStorage)
 	}
 }
 
@@ -252,7 +298,7 @@ Mesh *GrassLoader::generateGrass_QUAD(PageInfo &page, GrassLayer *layer, const f
 
 	Ogre::Real minY = Math::POS_INFINITY, maxY = Math::NEG_INFINITY;
 	const float *posPtr = grassPositions;	//Position array "iterator"
-	for (uint16 i = 0; i < grassCount; ++i)
+	for (unsigned int i = 0; i < grassCount; ++i)
 	{
 		//Get the x and z positions from the position array
 		float x = *posPtr++;
@@ -298,25 +344,25 @@ Mesh *GrassLoader::generateGrass_QUAD(PageInfo &page, GrassLayer *layer, const f
       *pReal++ = float(y1 + scaleY);
       *pReal++ = float(z1 - page.centerPoint.z);   //pos
 
-      *((uint32*)pReal++) = color;                 //color
+      std::memcpy(pReal++, &color, sizeof(uint32));                 //color
       *pReal++ = 0.f; *pReal++ = 0.f;              //uv
 
       *pReal++ = float(x2 - page.centerPoint.x);
       *pReal++ = float(y2 + scaleY);
       *pReal++ = float(z2 - page.centerPoint.z);   //pos
-      *((uint32*)pReal++) = color;                 //color
+      std::memcpy(pReal++, &color, sizeof(uint32));                 //color
       *pReal++ = 1.f; *pReal++ = 0.f;              //uv
 
       *pReal++ = float(x1 - page.centerPoint.x);
       *pReal++ = float(y1);
       *pReal++ = float(z1 - page.centerPoint.z);   //pos
-      *((uint32*)pReal++) = color;                 //color
+      std::memcpy(pReal++, &color, sizeof(uint32));                 //color
       *pReal++ = 0.f; *pReal++ = 1.f;              //uv
 
       *pReal++ = float(x2 - page.centerPoint.x);
       *pReal++ = float(y2);
       *pReal++ = float(z2 - page.centerPoint.z);   //pos
-      *((uint32*)pReal++) = color;                 //color
+      std::memcpy(pReal++, &color, sizeof(uint32));                 //color
       *pReal++ = 1.f; *pReal++ = 1.f;              //uv
 
       //Update bounds
@@ -330,25 +376,7 @@ Mesh *GrassLoader::generateGrass_QUAD(PageInfo &page, GrassLayer *layer, const f
 	subMesh->vertexData->vertexBufferBinding->setBinding(0, vbuf);
 
 	//Populate index buffer
-	subMesh->indexData->indexStart = 0;
-	subMesh->indexData->indexCount = 6 * quadCount;
-	subMesh->indexData->indexBuffer = HardwareBufferManager::getSingleton()
-		.createIndexBuffer(HardwareIndexBuffer::IT_16BIT, subMesh->indexData->indexCount, HardwareBuffer::HBU_STATIC_WRITE_ONLY);
-	uint16* pI = static_cast<uint16*>(subMesh->indexData->indexBuffer->lock(HardwareBuffer::HBL_DISCARD));
-	for (uint16 i = 0; i < quadCount; ++i)
-	{
-		uint16 offset = i * 4;
-
-		*pI++ = 0 + offset;
-		*pI++ = 2 + offset;
-		*pI++ = 1 + offset;
-
-		*pI++ = 1 + offset;
-		*pI++ = 2 + offset;
-		*pI++ = 3 + offset;
-	}
-
-	subMesh->indexData->indexBuffer->unlock();
+	createQuadIndexBuffer(subMesh->indexData, quadCount);
 
 	//Finish up mesh
 	AxisAlignedBox bounds(page.bounds.left - page.centerPoint.x, minY, page.bounds.top - page.centerPoint.z,
@@ -417,7 +445,7 @@ Mesh *GrassLoader::generateGrass_CROSSQUADS(PageInfo &page, GrassLayer *layer, c
 	Ogre::Real minY = Math::POS_INFINITY, maxY = Math::NEG_INFINITY;
 
 	const float *posPtr = grassPositions;	//Position array "iterator"
-	for (uint16 i = 0; i < grassCount; ++i)
+	for (unsigned int i = 0; i < grassCount; ++i)
 	{
 		//Get the x and z positions from the position array
 		Ogre::Real x = *posPtr++;
@@ -463,25 +491,25 @@ Mesh *GrassLoader::generateGrass_CROSSQUADS(PageInfo &page, GrassLayer *layer, c
 		*pReal++ = float(x1 - page.centerPoint.x);
       *pReal++ = float(y1 + scaleY);
       *pReal++ = float(z1 - page.centerPoint.z);   //pos
-		*((uint32*)pReal++) = color;                 //color
+		std::memcpy(pReal++, &color, sizeof(uint32));                 //color
 		*pReal++ = 0.f; *pReal++ = 0.f;              //uv
 
 		*pReal++ = float(x2 - page.centerPoint.x);
       *pReal++ = float(y2 + scaleY);
       *pReal++ = float(z2 - page.centerPoint.z);   //pos
-		*((uint32*)pReal++) = color;                 //color
+		std::memcpy(pReal++, &color, sizeof(uint32));                 //color
 		*pReal++ = 1.f; *pReal++ = 0.f;              //uv
 
 		*pReal++ = float(x1 - page.centerPoint.x);
       *pReal++ = float(y1);
       *pReal++ = float(z1 - page.centerPoint.z);   //pos
-		*((uint32*)pReal++) = color;                 //color
+		std::memcpy(pReal++, &color, sizeof(uint32));                 //color
 		*pReal++ = 0.f; *pReal++ = 1.f;              //uv
 
 		*pReal++ = float(x2 - page.centerPoint.x);
       *pReal++ = float(y2);
       *pReal++ = float(z2 - page.centerPoint.z);   //pos
-		*((uint32*)pReal++) = color;                 //color
+		std::memcpy(pReal++, &color, sizeof(uint32));                 //color
 		*pReal++ = 1.f; *pReal++ = 1.f;              //uv
 
 		//Update bounds
@@ -513,30 +541,30 @@ Mesh *GrassLoader::generateGrass_CROSSQUADS(PageInfo &page, GrassLayer *layer, c
 		*pReal++ = float(x3 - page.centerPoint.x);
       *pReal++ = float(y3 + scaleY);
       *pReal++ = float(z3 - page.centerPoint.z);   //pos
-		*((uint32*)pReal++) = color;                 //color
+		std::memcpy(pReal++, &color, sizeof(uint32));                 //color
 		*pReal++ = 0.f; *pReal++ = 0.f;              //uv
 
 		*pReal++ = float(x4 - page.centerPoint.x);
       *pReal++ = float(y4 + scaleY);
       *pReal++ = float(z4 - page.centerPoint.z);   //pos
-		*((uint32*)pReal++) = color;                 //color
+		std::memcpy(pReal++, &color, sizeof(uint32));                 //color
 		*pReal++ = 1.f; *pReal++ = 0.f;              //uv
 
 		*pReal++ = float(x3 - page.centerPoint.x);
       *pReal++ = float(y3); 
       *pReal++ = float(z3 - page.centerPoint.z);   //pos
-		*((uint32*)pReal++) = color;                 //color
+		std::memcpy(pReal++, &color, sizeof(uint32));                 //color
 		*pReal++ = 0.f; *pReal++ = 1.f;              //uv
 
 		*pReal++ = float(x4 - page.centerPoint.x);
       *pReal++ = float(y4);
       *pReal++ = float(z4 - page.centerPoint.z);   //pos
-		*((uint32*)pReal++) = color;                 //color
+		std::memcpy(pReal++, &color, sizeof(uint32));                 //color
 		*pReal++ = 1.f; *pReal++ = 1.f;              //uv
 
 		//Update bounds
-		if (y3 < minY) minY = y1;
-		if (y4 < minY) minY = y2;
+		if (y3 < minY) minY = y3;
+		if (y4 < minY) minY = y4;
 		if (y3 + scaleY > maxY) maxY = y3 + scaleY;
 		if (y4 + scaleY > maxY) maxY = y4 + scaleY;
 	}
@@ -545,25 +573,7 @@ Mesh *GrassLoader::generateGrass_CROSSQUADS(PageInfo &page, GrassLayer *layer, c
 	subMesh->vertexData->vertexBufferBinding->setBinding(0, vbuf);
 
 	//Populate index buffer
-	subMesh->indexData->indexStart = 0;
-	subMesh->indexData->indexCount = 6 * quadCount;
-	subMesh->indexData->indexBuffer = HardwareBufferManager::getSingleton()
-		.createIndexBuffer(HardwareIndexBuffer::IT_16BIT, subMesh->indexData->indexCount, HardwareBuffer::HBU_STATIC_WRITE_ONLY);
-	uint16* pI = static_cast<uint16*>(subMesh->indexData->indexBuffer->lock(HardwareBuffer::HBL_DISCARD));
-	for (uint16 i = 0; i < quadCount; ++i)
-	{
-		uint16 offset = i * 4;
-
-		*pI++ = 0 + offset;
-		*pI++ = 2 + offset;
-		*pI++ = 1 + offset;
-
-		*pI++ = 1 + offset;
-		*pI++ = 2 + offset;
-		*pI++ = 3 + offset;
-	}
-
-	subMesh->indexData->indexBuffer->unlock();
+	createQuadIndexBuffer(subMesh->indexData, quadCount);
 
 
 	//Finish up mesh
@@ -635,7 +645,7 @@ Mesh *GrassLoader::generateGrass_SPRITE(PageInfo &page, GrassLayer *layer, const
 	Ogre::Real minY = Math::POS_INFINITY, maxY = Math::NEG_INFINITY;
 
 	const float *posPtr = grassPositions;	//Position array "iterator"
-	for (uint16 i = 0; i < grassCount; ++i)
+	for (unsigned int i = 0; i < grassCount; ++i)
 	{
 		//Get the x and z positions from the position array
 		float x = *posPtr++;
@@ -664,22 +674,22 @@ Mesh *GrassLoader::generateGrass_SPRITE(PageInfo &page, GrassLayer *layer, const
 		//Add vertices
       *pReal++ = x1; *pReal++ = y; *pReal++ = z1;                                //center position
       *pReal++ = -halfXScale; *pReal++ = scaleY; *pReal++ = 0.f; *pReal++ = 0.f; //normal (used to store relative corner positions)
-      *((uint32*)pReal++) = color;                                               //color
+      std::memcpy(pReal++, &color, sizeof(uint32));                                               //color
       *pReal++ = uvLeft; *pReal++ = 0.f;                                         //uv
 
       *pReal++ = x1; *pReal++ = y; *pReal++ = z1;                                //center position
       *pReal++ = +halfXScale; *pReal++ = scaleY; *pReal++ = 0.f; *pReal++ = 0.f; //normal (used to store relative corner positions)
-      *((uint32*)pReal++) = color;                                               //color
+      std::memcpy(pReal++, &color, sizeof(uint32));                                               //color
       *pReal++ = uvRight; *pReal++ = 0.f;                                        //uv
 
 		*pReal++ = x1; *pReal++ = y; *pReal++ = z1;                                //center position
 		*pReal++ = -halfXScale; *pReal++ = 0.f; *pReal++ = 0.f; *pReal++ = 0.f;    //normal (used to store relative corner positions)
-		*((uint32*)pReal++) = color;                                               //color
+		std::memcpy(pReal++, &color, sizeof(uint32));                                               //color
 		*pReal++ = uvLeft; *pReal++ = 1.f;                                         //uv
 
 		*pReal++ = x1; *pReal++ = y; *pReal++ = z1;                                //center position
 		*pReal++ = +halfXScale; *pReal++ = 0.f; *pReal++ = 0.f; *pReal++ = 0.f;    //normal (used to store relative corner positions)
-		*((uint32*)pReal++) = color;                                               //color
+		std::memcpy(pReal++, &color, sizeof(uint32));                                               //color
 		*pReal++ = uvRight; *pReal++ = 1.f;                                        //uv
 
 		//Update bounds
@@ -691,25 +701,7 @@ Mesh *GrassLoader::generateGrass_SPRITE(PageInfo &page, GrassLayer *layer, const
 	subMesh->vertexData->vertexBufferBinding->setBinding(0, vbuf);
 
 	//Populate index buffer
-	subMesh->indexData->indexStart = 0;
-	subMesh->indexData->indexCount = 6 * quadCount;
-	subMesh->indexData->indexBuffer = HardwareBufferManager::getSingleton()
-		.createIndexBuffer(HardwareIndexBuffer::IT_16BIT, subMesh->indexData->indexCount, HardwareBuffer::HBU_STATIC_WRITE_ONLY);
-	uint16* pI = static_cast<uint16*>(subMesh->indexData->indexBuffer->lock(HardwareBuffer::HBL_DISCARD));
-	for (uint16 i = 0; i < quadCount; ++i)
-	{
-		uint16 offset = i * 4;
-
-		*pI++ = 0 + offset;
-		*pI++ = 2 + offset;
-		*pI++ = 1 + offset;
-
-		*pI++ = 1 + offset;
-		*pI++ = 2 + offset;
-		*pI++ = 3 + offset;
-	}
-
-	subMesh->indexData->indexBuffer->unlock();
+	createQuadIndexBuffer(subMesh->indexData, quadCount);
 
 	//Finish up mesh
 	AxisAlignedBox bounds(page.bounds.left - page.centerPoint.x, minY, page.bounds.top - page.centerPoint.z,
@@ -867,19 +859,14 @@ unsigned int GrassLayer::_populateGrassList_Uniform(PageInfo page, float *posBuf
 			float x = parent->rTable->getRangeRandom((float)page.bounds.left, (float)page.bounds.right);
 			float z = parent->rTable->getRangeRandom((float)page.bounds.top, (float)page.bounds.bottom);
 
-			//Add to list in within bounds
-			if (!colorMap)
-         {
+			//Add to list in within bounds (all four values of an entry are written together)
+			if (!colorMap || (x >= mapBounds.left && x <= mapBounds.right && z >= mapBounds.top && z <= mapBounds.bottom))
+			{
 				*posPtr++ = x;
 				*posPtr++ = z;
+				*posPtr++ = parent->rTable->getUnitRandom();
+				*posPtr++ = parent->rTable->getRangeRandom(0, (float)Math::TWO_PI);
 			}
-         else if (x >= mapBounds.left && x <= mapBounds.right && z >= mapBounds.top && z <= mapBounds.bottom)
-         {
-				*posPtr++ = x;
-				*posPtr++ = z;
-			}
-			*posPtr++ = parent->rTable->getUnitRandom();
-			*posPtr++ = parent->rTable->getRangeRandom(0, (float)Math::TWO_PI);
 		}
 	}
    else
@@ -1142,6 +1129,8 @@ void GrassLayer::_updateShaders()
 				tmpMat->setLightingEnabled(false);
 				//tmpMat->setReceiveShadows(false);
 
+				const bool d3d11 = Root::getSingleton().getRenderSystem()->getName().find("Direct3D11") != String::npos;
+
 				//Check if the desired shader already exists (if not, compile it)
 				String shaderLanguage;
 				HighLevelGpuProgramPtr vertexShader = Ogre::static_pointer_cast<HighLevelGpuProgram>(HighLevelGpuProgramManager::getSingleton().getByName(vsName));
@@ -1161,36 +1150,70 @@ void GrassLayer::_updateShaders()
 					if(!shaderLanguage.compare("hlsl") || !shaderLanguage.compare("cg"))
 					{
 
-						vertexProgSource =
-							"void main( \n"
-							"	float4 iPosition : POSITION, \n"
-							"	float4 iColor : COLOR, \n"
-							"	float2 iUV       : TEXCOORD0,	\n"
-							"	out float4 oPosition : POSITION, \n"
-							"	out float4 oColor : COLOR, \n"
-							"	out float2 oUV       : TEXCOORD0,	\n";
+						if (d3d11)
+						{
+							// D3D11: uniforms must be globals, the position output must be SV_Position.
+							vertexProgSource =
+								"float4x4 worldViewProj; \n"
+								"float3 camPos; \n"
+								"float fadeRange; \n";
+							if (lighting) vertexProgSource +=
+								"float4 objSpaceLight; \n"
+								"float4 lightDiffuse; \n"
+								"float4 lightAmbient; \n";
+							if (animate) vertexProgSource +=
+								"float time; \n"
+								"float frequency; \n"
+								"float4 direction; \n";
+							if (fadeTechnique == FADETECH_GROW || fadeTechnique == FADETECH_ALPHAGROW) vertexProgSource +=
+								"float grassHeight; \n";
+							vertexProgSource +=
+								"void main( \n"
+								"\tfloat4 iPosition : POSITION, \n"
+								"\tfloat4 iColor : COLOR, \n"
+								"\tfloat2 iUV : TEXCOORD0, \n";
+							if (renderTechnique == GRASSTECH_SPRITE) vertexProgSource +=
+								"\tfloat4 iNormal : NORMAL, \n";
+							vertexProgSource +=
+								"\tout float4 oPosition : SV_Position, \n"
+								"\tout float4 oColor : COLOR, \n"
+								"\tout float2 oUV : TEXCOORD0 ) \n"
+								"{\t\n";
+						}
+						else
+						{
+							vertexProgSource =
+								"void main( \n"
+								"	float4 iPosition : POSITION, \n"
+								"	float4 iColor : COLOR, \n"
+								"	float2 iUV       : TEXCOORD0,	\n"
+								"	out float4 oPosition : POSITION, \n"
+								"	out float4 oColor : COLOR, \n"
+								"	out float2 oUV       : TEXCOORD0,	\n";
 
-						if (lighting) vertexProgSource +=
-							"   uniform float4   objSpaceLight,   \n"
-							"   uniform float4   lightDiffuse,   \n"
-							"   uniform float4   lightAmbient,   \n";
+							if (lighting) vertexProgSource +=
+								"   uniform float4   objSpaceLight,   \n"
+								"   uniform float4   lightDiffuse,   \n"
+								"   uniform float4   lightAmbient,   \n";
 
-						if (animate) vertexProgSource +=
-							"	uniform float time,	\n"
-							"	uniform float frequency,	\n"
-							"	uniform float4 direction,	\n";
+							if (animate) vertexProgSource +=
+								"	uniform float time,	\n"
+								"	uniform float frequency,	\n"
+								"	uniform float4 direction,	\n";
 
-						if (fadeTechnique == FADETECH_GROW || fadeTechnique == FADETECH_ALPHAGROW) vertexProgSource +=
-							"	uniform float grassHeight,	\n";
+							if (fadeTechnique == FADETECH_GROW || fadeTechnique == FADETECH_ALPHAGROW) vertexProgSource +=
+								"	uniform float grassHeight,	\n";
 
-						if (renderTechnique == GRASSTECH_SPRITE || lighting) vertexProgSource +=
-							"   float4 iNormal : NORMAL, \n";
+							if (renderTechnique == GRASSTECH_SPRITE || lighting) vertexProgSource +=
+								"   float4 iNormal : NORMAL, \n";
 
+							vertexProgSource +=
+								"	uniform float4x4 worldViewProj,	\n"
+								"	uniform float3 camPos, \n"
+								"	uniform float fadeRange ) \n"
+								"{	\n";
+						}
 						vertexProgSource +=
-							"	uniform float4x4 worldViewProj,	\n"
-							"	uniform float3 camPos, \n"
-							"	uniform float fadeRange ) \n"
-							"{	\n"
 							"	oColor.rgb = iColor.rgb;   \n"
 							"	float4 position = iPosition;	\n"
 							"	float dist = distance(camPos.xz, position.xz);	\n";
@@ -1375,7 +1398,7 @@ void GrassLayer::_updateShaders()
 
 					if (shaderLanguage == "hlsl")
 					{
-						vertexShader->setParameter("target", "vs_1_1");
+						vertexShader->setParameter("target", d3d11 ? "vs_4_0" : "vs_1_1");
 						vertexShader->setParameter("entry_point", "main");
 					}
 					else if(shaderLanguage == "cg")
@@ -1397,6 +1420,34 @@ void GrassLayer::_updateShaders()
 				//Apply the shader to the material
 				Pass *pass = tmpMat->getTechnique(0)->getPass(0);
 				pass->setVertexProgram(vsName);
+
+				if (d3d11)
+				{
+					// D3D11 has no fixed function pipeline: the pixel stage (texture * colour + alpha test) needs a shader, too.
+					const String psName = "GrassPS_d3d11";
+					if (!HighLevelGpuProgramManager::getSingleton().getByName(psName))
+					{
+						HighLevelGpuProgramPtr fragmentShader = HighLevelGpuProgramManager::getSingleton().createProgram(
+							psName, ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME, "hlsl", GPT_FRAGMENT_PROGRAM);
+						fragmentShader->setSource(
+							"Texture2D diffuseMap : register(t0); \n"
+							"SamplerState diffuseSampler : register(s0); \n"
+							"float alphaRef; \n"
+							"float4 main(float4 pos : SV_Position, float4 color : COLOR, float2 uv : TEXCOORD0) : SV_Target \n"
+							"{ \n"
+							"\tfloat4 c = diffuseMap.Sample(diffuseSampler, uv) * color; \n"
+							"\tclip(c.a - alphaRef); \n"
+							"\treturn c; \n"
+							"}");
+						fragmentShader->setParameter("target", "ps_4_0");
+						fragmentShader->setParameter("entry_point", "main");
+						fragmentShader->load();
+					}
+					pass->setFragmentProgram(psName);
+					const float alphaRef = (pass->getAlphaRejectFunction() == CMPF_ALWAYS_PASS) ? 0.f : pass->getAlphaRejectValue() / 255.f;
+					pass->getFragmentProgramParameters()->setNamedConstant("alphaRef", alphaRef);
+				}
+
 				GpuProgramParametersSharedPtr params = pass->getVertexProgramParameters();
                 params->setNamedAutoConstant("worldViewProj", GpuProgramParameters::ACT_WORLDVIEWPROJ_MATRIX);
 				params->setNamedAutoConstant("camPos", GpuProgramParameters::ACT_CAMERA_POSITION_OBJECT_SPACE);

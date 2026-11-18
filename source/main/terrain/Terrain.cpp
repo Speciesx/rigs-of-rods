@@ -99,6 +99,7 @@ void RoR::Terrain::dispose()
     if (m_hydrax_water != nullptr)
     {
         m_gfx_water.reset(); // TODO: Currently needed - research and get rid of this ~ only_a_ptr, 08/2018
+        m_hydrax_water = nullptr; // owned (and deleted) by m_gfx_water
     }
 
     if (m_object_manager != nullptr)
@@ -354,7 +355,12 @@ void RoR::Terrain::initFogImpl()
     if (m_sight_range >= UNLIMITED_SIGHTRANGE)
         App::GetGfxScene()->GetSceneManager()->setFog(FOG_NONE);
     else
+    {
         App::GetGfxScene()->GetSceneManager()->setFog(FOG_LINEAR, m_def->ambient_color, 0.000f, m_sight_range * 0.65f, m_sight_range*0.9);
+        // With SkyX the haze colour follows the sky (a fixed ambient colour of e.g. 1,1,1 would stay white at night)
+        if (App::gfx_sky_mode->getEnum<GfxSkyMode>() == GfxSkyMode::SKYX && SkyX_manager)
+            SkyX_manager->SetFogFollowsSky(true);
+    }
 }
 
 void RoR::Terrain::initVegetation()

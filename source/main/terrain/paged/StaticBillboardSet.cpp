@@ -31,6 +31,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 #include <OgreRenderSystemCapabilities.h>
 #include <OgreHighLevelGpuProgramManager.h>
 #include <OgreHighLevelGpuProgram.h>
+#include "PagedD3D11.h"
 #include <OgreHardwareBufferManager.h>
 #include <OgreHardwareBuffer.h>
 #include <OgreLogManager.h>
@@ -145,14 +146,14 @@ mFadeInvisibleDist      (0.f)
 
          vertexShader = HighLevelGpuProgramManager::getSingleton().createProgram(
             "Sprite_vp", ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME, shaderLanguage, GPT_VERTEX_PROGRAM);
-         vertexShader->setSource(vertexProg);
+         vertexShader->setSource(PagedD3D11::IsActive() ? PagedD3D11::ConvertVertexSource(vertexProg) : vertexProg);
 
          // Set entry point for vertex program. GLSL can only have one entry point "main".
          if (!s_isGLSL)
          {
             if (shaderLanguage == "hlsl")
             {
-               vertexShader->setParameter("target", "vs_1_1");
+               vertexShader->setParameter("target", PagedD3D11::VsTarget());
                vertexShader->setParameter("entry_point", "Sprite_vp");
             }
             else if(shaderLanguage == "cg")
@@ -253,7 +254,7 @@ mFadeInvisibleDist      (0.f)
          OgreAssert(!vertexShader2, "SpriteFade_vp already exist");
          vertexShader2 = HighLevelGpuProgramManager::getSingleton().createProgram("SpriteFade_vp",
             ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME, shaderLanguage, GPT_VERTEX_PROGRAM);
-         vertexShader2->setSource(vertexProg2);
+         vertexShader2->setSource(PagedD3D11::IsActive() ? PagedD3D11::ConvertVertexSource(vertexProg2) : vertexProg2);
 
          // Set entry point. GLSL can only have one entry point "main".
          if (!s_isGLSL)
@@ -261,7 +262,7 @@ mFadeInvisibleDist      (0.f)
 
             if (shaderLanguage == "hlsl")
             {
-               vertexShader2->setParameter("target", "vs_1_1");
+               vertexShader2->setParameter("target", PagedD3D11::VsTarget());
                vertexShader2->setParameter("entry_point", "SpriteFade_vp");
             }
             else if(shaderLanguage == "cg")
@@ -668,6 +669,8 @@ MaterialPtr StaticBillboardSet::getFadeMaterial(const Ogre::MaterialPtr &protoMa
 
             //Setup vertex program
             pass->setVertexProgram("SpriteFade_vp");
+            if (PagedD3D11::IsActive())
+               PagedD3D11::ApplyFragmentProgram(pass);
             GpuProgramParametersSharedPtr params = pass->getVertexProgramParameters();
 
             params->setNamedAutoConstant("worldViewProj", GpuProgramParameters::ACT_WORLDVIEWPROJ_MATRIX);
@@ -773,6 +776,8 @@ void StaticBillboardSet::updateAll(const Vector3 &cameraDirection)
       {
          static const Ogre::String Sprite_vp = "Sprite_vp";
          p->setVertexProgram(Sprite_vp);
+         if (PagedD3D11::IsActive())
+            PagedD3D11::ApplyFragmentProgram(p);
 
          p->getVertexProgramParameters()->setNamedAutoConstant("worldViewProj", GpuProgramParameters::ACT_WORLDVIEWPROJ_MATRIX);
 

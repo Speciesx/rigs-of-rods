@@ -34,6 +34,7 @@ Contributors:
 #include <MaterialManager.h>
 
 #include <Hydrax.h>
+#include "../D3D11ShaderFix.h"
 
 #define _def_Water_Material_Name  "_Hydrax_Water_Material"
 #define _def_Water_Shader_VP_Name "_Hydrax_Water_VP"
@@ -229,8 +230,7 @@ namespace Hydrax
 		{
 			if (!(*TechIt))
 			{
-				mDepthTechniques.erase(TechIt);
-				// TechIt-- ?
+				// (erase(TechIt) here invalidated the loop iterator - null entries are just skipped)
 				continue;
 			}
 
@@ -291,6 +291,8 @@ namespace Hydrax
 
 		Ogre::String ShaderModesStr[3] = {"hlsl", "cg", "glsl"};
 		Ogre::String Profiles[2];
+		// D3D11 has no shader model 1.x/2.x - use SM3 (mapped to 4.0 in backwards compatibility mode, see below)
+		const bool d3d11 = Ogre::Root::getSingleton().getRenderSystem()->getName().find("Direct3D11") != Ogre::String::npos;
 
 		switch (SM)
 		{
@@ -300,11 +302,11 @@ namespace Hydrax
 
 				if (GPUP == GPUP_VERTEX)
 				{
-				    Profiles[1] = "vs_1_1";
+				    Profiles[1] = d3d11 ? "vs_3_0" : "vs_1_1";
 				}
 				else
 				{
-					Profiles[1] = "ps_2_0";
+					Profiles[1] = d3d11 ? "ps_3_0" : "ps_2_0";
 				}
 			}
 			break;
@@ -357,9 +359,20 @@ namespace Hydrax
 					  		    ShaderModesStr[SM],
 			                    GpuPType);
 
-	    HLGpuProgram->setSource(Data);
+		if (SM == SM_HLSL && Ogre::Root::getSingleton().getRenderSystem()->getName().find("Direct3D11") != Ogre::String::npos)
+		{
+			HLGpuProgram->setSource(RoR::D3D11ShaderFix::FixSignatures(Data)); // VS/PS register layout, see D3D11ShaderFix.h
+		}
+		else
+		{
+			HLGpuProgram->setSource(Data);
+		}
         HLGpuProgram->setParameter("entry_point", EntryPoint);
         HLGpuProgram->setParameter(Profiles[0], Profiles[1]);
+		if (d3d11 && SM == SM_HLSL)
+		{
+			HLGpuProgram->setParameter("enable_backwards_compatibility", "true");
+		}
 		HLGpuProgram->load();
 
 		return true;
@@ -3165,6 +3178,9 @@ namespace Hydrax
 		Ogre::PixelFormatList l;
 		l.push_back(Ogre::PF_A8R8G8B8);
 		TDef->formatList = l;
+		// Keep the texture in the compositor pool, so enabling the compositor (every dive) does not create a new
+		// full-screen render target each time.
+		TDef->pooled = true;
 
 		// Render the original scene
         Ogre::CompositionTargetPass* CTPass = UnderWaterComp_Technique->createTargetPass();
@@ -3210,7 +3226,45 @@ namespace Hydrax
 		SCM_T0_Pass0->setDepthCheckEnabled(DepthCheck);
 		SCM_T0_Pass0->setDepthWriteEnabled(DepthWrite);
 		SCM_T0_Pass0->setCullingMode(Ogre::CULL_NONE);
-		SCM_T0_Pass0->createTextureUnitState()->setColourOperationEx(Ogre::LBX_MODULATE,Ogre::LBS_MANUAL,Ogre::LBS_CURRENT, Color);
+		if (Ogre::Root::getSingleton().getRenderSystem()->getName().find("Direct3D11") != Ogre::String::npos)
+		{
+			// D3D11 has no fixed function pipeline: draw the plain colour with a minimal shader pair.
+			const Ogre::String vpName = "_Hydrax_SimpleColor_VP";
+			const Ogre::String fpName = "_Hydrax_SimpleColor_FP";
+			Ogre::HighLevelGpuProgramManager& hmgr = Ogre::HighLevelGpuProgramManager::getSingleton();
+			if (!hmgr.getByName(vpName))
+			{
+				Ogre::HighLevelGpuProgramPtr vp = hmgr.createProgram(vpName, Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME, "hlsl", Ogre::GPT_VERTEX_PROGRAM);
+				vp->setSource(
+					"float4x4 worldViewProj; \n"
+					"float4 main(float4 pos : POSITION) : SV_Position \n"
+					"{ \n"
+					"	return mul(worldViewProj, pos); \n"
+					"}");
+				vp->setParameter("target", "vs_4_0");
+				vp->setParameter("entry_point", "main");
+				vp->load();
+
+				Ogre::HighLevelGpuProgramPtr fp = hmgr.createProgram(fpName, Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME, "hlsl", Ogre::GPT_FRAGMENT_PROGRAM);
+				fp->setSource(
+					"float4 colour; \n"
+					"float4 main(float4 pos : SV_Position) : SV_Target \n"
+					"{ \n"
+					"	return colour; \n"
+					"}");
+				fp->setParameter("target", "ps_4_0");
+				fp->setParameter("entry_point", "main");
+				fp->load();
+			}
+			SCM_T0_Pass0->setVertexProgram(vpName);
+			SCM_T0_Pass0->setFragmentProgram(fpName);
+			SCM_T0_Pass0->getVertexProgramParameters()->setNamedAutoConstant("worldViewProj", Ogre::GpuProgramParameters::ACT_WORLDVIEWPROJ_MATRIX);
+			SCM_T0_Pass0->getFragmentProgramParameters()->setNamedConstant("colour", Color);
+		}
+		else
+		{
+			SCM_T0_Pass0->createTextureUnitState()->setColourOperationEx(Ogre::LBX_MODULATE,Ogre::LBS_MANUAL,Ogre::LBS_CURRENT, Color);
+		}
 
 		SimpleColorMaterial->setReceiveShadows(false);
 		SimpleColorMaterial->load();
@@ -3670,7 +3724,7 @@ namespace Hydrax
 			{
 				if (!(*TechIt))
 				{
-					mDepthTechniques.erase(TechIt);
+					// (erase(TechIt) here invalidated the loop iterator - null entries are just skipped)
 					continue;
 				}
 
@@ -3730,7 +3784,7 @@ namespace Hydrax
 			{
 				if (!(*TechIt))
 				{
-					mDepthTechniques.erase(TechIt);
+					// (erase(TechIt) here invalidated the loop iterator - null entries are just skipped)
 					continue;
 				}
 
@@ -3792,7 +3846,7 @@ namespace Hydrax
 			{
 				if (!(*TechIt))
 				{
-					mDepthTechniques.erase(TechIt);
+					// (erase(TechIt) here invalidated the loop iterator - null entries are just skipped)
 					continue;
 				}
 

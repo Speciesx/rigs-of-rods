@@ -11,7 +11,6 @@ material levelcrossingmedium: RoR/Managed_Mats/Base
 				texture levelcrossingmedium.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -27,7 +26,6 @@ material sign-slippery: RoR/Managed_Mats/Base
 				texture sign-slippery.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -43,7 +41,6 @@ material sign-rocks: RoR/Managed_Mats/Base
 				texture sign-rocks.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -59,7 +56,6 @@ material sign-autostrasse: RoR/Managed_Mats/Base
 				texture sign-autostasse.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -75,7 +71,6 @@ material sign-maxspeed50: RoR/Managed_Mats/Base
 				texture sign-maxspeed50.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -91,7 +86,6 @@ material sign-bluebuslane: RoR/Managed_Mats/Base
 				texture sign-bluebuslanes.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -107,7 +101,6 @@ material signcircle: RoR/Managed_Mats/Base
 				texture circlediffuse.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -123,7 +116,6 @@ material sign-parkingzoneend: RoR/Managed_Mats/Base
 				texture sign-parkingzoneend.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -139,7 +131,6 @@ material sign-novehicles: RoR/Managed_Mats/Base
 				texture sign-novehicles.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -155,7 +146,6 @@ material sign-nohazmat: RoR/Managed_Mats/Base
 				texture sign-nohazmat.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -171,7 +161,6 @@ material sign-Scurveright: RoR/Managed_Mats/Base
 				texture sign-Scurveright.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -187,7 +176,6 @@ material sign-rightturn: RoR/Managed_Mats/Base
 				texture sign-rightturn.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -203,7 +191,6 @@ material sign-maxspeed110: RoR/Managed_Mats/Base
 				texture sign-maxspeed110.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -219,7 +206,6 @@ material sign-maxspeed80: RoR/Managed_Mats/Base
 				texture sign-maxspeed80.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -235,7 +221,6 @@ material sign-pulloff: RoR/Managed_Mats/Base
 				texture sign-pulloff.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -251,7 +236,6 @@ material levelcrossingnear: RoR/Managed_Mats/Base
 				texture levelcrossingnear.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -267,7 +251,6 @@ material sign-trafficlight: RoR/Managed_Mats/Base
 				texture sign-trafficlight.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -283,7 +266,6 @@ material sign-maxspeed130: RoR/Managed_Mats/Base
 				texture sign-maxspeed130.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -299,7 +281,6 @@ material sign-roadnarrowsright: RoR/Managed_Mats/Base
 				texture sign-roadnarrowsright.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -315,7 +296,6 @@ material sign-roadnarrowsleft: RoR/Managed_Mats/Base
 				texture sign-roadnarrowsleft.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -331,7 +311,6 @@ material sign-blueYright: RoR/Managed_Mats/Base
 				texture sign-blueYright.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -347,7 +326,6 @@ material sign-nocars: RoR/Managed_Mats/Base
 				texture sign-nocars.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -363,7 +341,6 @@ material sign-bump: RoR/Managed_Mats/Base
 				texture sign-bump.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -379,7 +356,6 @@ material sign-maxspeed20: RoR/Managed_Mats/Base
 				texture sign-maxspeed20.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -395,7 +371,6 @@ material sign-hospital: RoR/Managed_Mats/Base
 				texture sign-hospital.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -411,7 +386,6 @@ material sign-leftturn: RoR/Managed_Mats/Base
 				texture sign-leftturn.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -427,7 +401,6 @@ material sign-noparking: RoR/Managed_Mats/Base
 				texture sign-noparking.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -443,7 +416,6 @@ material sign-nopedestrians: RoR/Managed_Mats/Base
 				texture sign-nopedestrians.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -459,7 +431,6 @@ material sign-twowaytraffic: RoR/Managed_Mats/Base
 				texture sign-twowaytraffic.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -475,7 +446,6 @@ material sign-blueleftturn: RoR/Managed_Mats/Base
 				texture sign-blueleftturn.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -491,7 +461,6 @@ material sign-noentry: RoR/Managed_Mats/Base
 				texture sign-noentry.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -507,7 +476,6 @@ material sign-railway: RoR/Managed_Mats/Base
 				texture sign-railway.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -523,7 +491,6 @@ material sign-maxspeed60: RoR/Managed_Mats/Base
 				texture sign-maxspeed60.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -539,7 +506,6 @@ material levelcrossingdistant: RoR/Managed_Mats/Base
 				texture levelcrossingdistant.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -555,7 +521,6 @@ material sign-parkingzones: RoR/Managed_Mats/Base
 				texture sign-parkingzonestart.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -571,7 +536,6 @@ material sign-autostrasseend: RoR/Managed_Mats/Base
 				texture sign-autostasseend.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -587,7 +551,6 @@ material sign-maxspeed40: RoR/Managed_Mats/Base
 				texture sign-maxspeed40.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -603,7 +566,6 @@ material sign-crosswinds: RoR/Managed_Mats/Base
 				texture sign-crosswinds.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -619,7 +581,6 @@ material sign-blueYleft: RoR/Managed_Mats/Base
 				texture sign-blueYleft.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -635,7 +596,6 @@ material sign-protectedrailway: RoR/Managed_Mats/Base
 				texture sign-protectedrailway.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -651,7 +611,6 @@ material sign-derestriction: RoR/Managed_Mats/Base
 				texture sign-derestriction.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -667,7 +626,6 @@ material sign-rightpriority: RoR/Managed_Mats/Base
 				texture sign-leftpriority.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -683,7 +641,6 @@ material sign-roadnarrows: RoR/Managed_Mats/Base
 				texture sign-roadnarrows.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -699,7 +656,6 @@ material sign-Scurveleft: RoR/Managed_Mats/Base
 				texture sign-Scurveleft.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -715,7 +671,6 @@ material sign-autobahn: RoR/Managed_Mats/Base
 				texture sign-autobahn.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -731,7 +686,6 @@ material sign-autobahnend: RoR/Managed_Mats/Base
 				texture sign-autobahnend.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -747,7 +701,6 @@ material sign-menatwork: RoR/Managed_Mats/Base
 				texture sign-menatwork.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -763,7 +716,6 @@ material sign-stop: RoR/Managed_Mats/Base
 				texture sign-stop.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -779,7 +731,6 @@ material sign-warning: RoR/Managed_Mats/Base
 				texture sign-warning.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -795,7 +746,6 @@ material sign-priorityintersec: RoR/Managed_Mats/Base
 				texture sign-priorityintersectiondds.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -811,7 +761,6 @@ material sign-maxspeed100: RoR/Managed_Mats/Base
 				texture sign-maxspeed100.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -827,7 +776,6 @@ material sign-maxspeed120: RoR/Managed_Mats/Base
 				texture sign-maxspeed120.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -843,7 +791,6 @@ material sign-maxspeed90: RoR/Managed_Mats/Base
 				texture sign-maxspeed90.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -859,7 +806,6 @@ material sign-roundabout: RoR/Managed_Mats/Base
 				texture sign-roundabout.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -875,7 +821,6 @@ material sign-descent10: RoR/Managed_Mats/Base
 				texture sign-descent10.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -891,7 +836,6 @@ material sign-blueroundabout: RoR/Managed_Mats/Base
 				texture sign-blueroundabout.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -907,7 +851,6 @@ material sign-tunnel: RoR/Managed_Mats/Base
 				texture sign-tunnel.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -923,7 +866,6 @@ material sign-nostopping: RoR/Managed_Mats/Base
 				texture sign-nostopping.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -939,7 +881,6 @@ material sign-deer: RoR/Managed_Mats/Base
 				texture sign-deer.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -955,7 +896,6 @@ material sign-bluerightturn: RoR/Managed_Mats/Base
 				texture sign-bluerightturn.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -971,7 +911,6 @@ material sign-parking: RoR/Managed_Mats/Base
 				texture sign-parking.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -987,7 +926,6 @@ material sign-crossing: RoR/Managed_Mats/Base
 				texture sign-crossing.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -1003,7 +941,6 @@ material sign-maxspeed30: RoR/Managed_Mats/Base
 				texture sign-maxspeed30.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -1019,7 +956,6 @@ material sign-fall: RoR/Managed_Mats/Base
 				texture sign-fall.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -1035,7 +971,6 @@ material sign-crosswalk: RoR/Managed_Mats/Base
 				texture sign-crosswalk.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -1051,7 +986,6 @@ material sign-leftpriority: RoR/Managed_Mats/Base
 				texture sign-rightpriority.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -1067,7 +1001,6 @@ material sign-maxspeed10: RoR/Managed_Mats/Base
 				texture sign-maxspeed10.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -1083,7 +1016,6 @@ material sign-bluearrow: RoR/Managed_Mats/Base
 				texture sign-bluearrow.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -1099,7 +1031,6 @@ material sign-nouturn: RoR/Managed_Mats/Base
 				texture sign-nouturn.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -1115,7 +1046,6 @@ material sign-maxspeed70: RoR/Managed_Mats/Base
 				texture sign-maxspeed70.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -1131,7 +1061,6 @@ material sign-notrucks: RoR/Managed_Mats/Base
 				texture sign-notrucks.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -1147,7 +1076,6 @@ material stopsign: RoR/Managed_Mats/Base
 				texture stopdiffuse.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -1163,7 +1091,6 @@ material signsquare: RoR/Managed_Mats/Base
 				texture squarediffuse.dds	
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -1179,7 +1106,6 @@ material sign-yield: RoR/Managed_Mats/Base
 				texture sign-yield.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -1195,7 +1121,6 @@ material signtriangle: RoR/Managed_Mats/Base
 				texture trianglediffuse.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}
@@ -1211,7 +1136,6 @@ material sign-redstripes1: RoR/Managed_Mats/Base
 				texture sign-redstripes1.dds
 				tex_address_mode wrap
 				filtering trilinear
-				colour_op alpha_blend
 			}
 		}
 	}

@@ -174,9 +174,11 @@ int main(int argc, char *argv[])
         if (!App::diag_warning_texture->getBool())
         {
             // We overwrite the default warning texture (yellow stripes) with something unobtrusive
-            Ogre::uchar data[3] = {0};
-            Ogre::PixelBox pixels(1, 1, 1, Ogre::PF_BYTE_RGB, &data);
-            Ogre::TextureManager::getSingleton()._getWarningTexture()->getBuffer()->blitFromMemory(pixels);
+            // Source box must match the texture size (D3D11 cannot blit mismatched sizes).
+            Ogre::TexturePtr warn_tex = Ogre::TextureManager::getSingleton()._getWarningTexture();
+            std::vector<Ogre::uchar> data(warn_tex->getWidth() * warn_tex->getHeight() * 3, 0);
+            Ogre::PixelBox pixels(warn_tex->getWidth(), warn_tex->getHeight(), 1, Ogre::PF_BYTE_RGB, data.data());
+            warn_tex->getBuffer()->blitFromMemory(pixels);
         }
 
         App::GetContentManager()->AddResourcePack(ContentManager::ResourcePack::FLAGS);
@@ -214,6 +216,15 @@ int main(int argc, char *argv[])
 
         auto* schemeNotFoundHandler = new OgreBites::SGTechniqueResolverListener(mShaderGenerator);
         Ogre::MaterialManager::getSingleton().addListener(schemeNotFoundHandler);
+
+        // Render systems without fixed function (D3D11, Vulkan): OGRE already gives every viewport the RTSS scheme.
+        // Hydrax RTT viewports use their own schemes though - register them with RTSS too, so materials without
+        // shaders (e.g. '_Hydrax_Simple_Red_Material') get generated shaders instead of falling back to fixed function.
+        if (!Ogre::Root::getSingleton().getRenderSystem()->getCapabilities()->hasCapability(Ogre::RSC_FIXED_FUNCTION))
+        {
+            mShaderGenerator->createScheme("HydraxDepth");
+            mShaderGenerator->createScheme("HydraxGodRaysDepth");
+        }
 
         App::CreateGuiManager(); // Needs scene manager
 

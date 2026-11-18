@@ -243,12 +243,20 @@ namespace Hydrax{namespace Module
 		if (mVerticesChoppyBuffer)
 		{
 			delete [] mVerticesChoppyBuffer;
+			mVerticesChoppyBuffer = 0;
 		}
 
 		if (mTmpRndrngCamera)
 		{
+			// The cameras were attached to their own scene nodes in create(): destroy those too
+			Ogre::SceneNode* sn1 = mTmpRndrngCamera->getParentSceneNode();
+			Ogre::SceneNode* sn2 = mProjectingCamera->getParentSceneNode();
 			delete mTmpRndrngCamera;
 			delete mProjectingCamera;
+			mTmpRndrngCamera = 0;
+			mProjectingCamera = 0;
+			if (sn1) { sn1->getCreator()->destroySceneNode(sn1); }
+			if (sn2) { sn2->getCreator()->destroySceneNode(sn2); }
 		}
 
 		mLastPosition = Ogre::Vector3(0,0,0);
@@ -639,6 +647,7 @@ namespace Hydrax{namespace Module
 			Underwater = -1;
 		}
 
+		const float CHOPPY_MAX_CELL = 4.f; // metres
 		float Dis1,  Dis2;//,
 		   // Dis1_, Dis2_;
 
@@ -663,6 +672,9 @@ namespace Hydrax{namespace Module
 					               mVerticesChoppyBuffer[v*mOptions.Complexity + 1].z) -
 					 Ogre::Vector2(mVerticesChoppyBuffer[(v+1)*mOptions.Complexity + 1].x,
 				                   mVerticesChoppyBuffer[(v+1)*mOptions.Complexity + 1].z)).length();
+			// The cells of the projected grid grow to kilometres towards the horizon; unclamped, the choppy shift of the
+			// far rows would swing by hundreds of metres every frame (trembling water edge)
+			Dis1 = std::min(Dis1, CHOPPY_MAX_CELL);
 
 			/*Dis1_ = (Ogre::Vector2(mVerticesChoppyBuffer[v*mOptions.Complexity + 1].x,
                                    mVerticesChoppyBuffer[v*mOptions.Complexity + 1].z) -
@@ -677,6 +689,7 @@ namespace Hydrax{namespace Module
 					                  mVerticesChoppyBuffer[v*mOptions.Complexity + u].z) -
 					    Ogre::Vector2(mVerticesChoppyBuffer[v*mOptions.Complexity + u+1].x,
 					                  mVerticesChoppyBuffer[v*mOptions.Complexity + u+1].z)).length();
+				Dis2 = std::min(Dis2, CHOPPY_MAX_CELL);
 /*
 				Dis2_ = (Ogre::Vector2(mVerticesChoppyBuffer[v*mOptions.Complexity + u].x,
 					                   mVerticesChoppyBuffer[v*mOptions.Complexity + u].z) -
