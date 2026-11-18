@@ -1200,3 +1200,29 @@ TerrainEditorObjectID_t TerrainObjectManager::FindEditorObjectByInstanceName(std
     }
 }
 
+void TerrainObjectManager::SetPagedGeometryAttached(bool attached)
+{
+    // Detaching the grouping nodes takes trees/grass out of the scene graph without touching the visibility
+    // the paging system has set on the individual pages.
+    if (!attached)
+    {
+        if (!m_paged_detached.empty())
+            return;
+        for (Forests::PagedGeometry* geom : m_paged_geometry)
+        {
+            Ogre::SceneNode* node = geom->getSceneNode();
+            Ogre::SceneNode* parent = node ? node->getParentSceneNode() : nullptr;
+            if (parent)
+            {
+                parent->removeChild(node);
+                m_paged_detached.push_back(std::make_pair(node, parent));
+            }
+        }
+    }
+    else
+    {
+        for (auto& np : m_paged_detached)
+            np.second->addChild(np.first);
+        m_paged_detached.clear();
+    }
+}

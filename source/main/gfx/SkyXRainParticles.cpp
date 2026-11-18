@@ -88,6 +88,9 @@ void EnsureMaterial(const char* name, const char* tex_name)
     mat->setReceiveShadows(false);
     Ogre::Pass* pass = mat->getTechnique(0)->getPass(0);
     pass->setLightingEnabled(false);
+    // The drop/splash brightness (dark at night) is set as billboard (vertex) colour. Without tracking, the RTSS
+    // (D3D11, GL3+, Vulkan) ignores the vertex colour of an unlit pass and the rain stays white.
+    pass->setVertexColourTracking(Ogre::TVC_DIFFUSE);
     pass->setSceneBlending(Ogre::SBT_TRANSPARENT_ALPHA);
     pass->setDepthWriteEnabled(false);
     pass->setCullingMode(Ogre::CULL_NONE);

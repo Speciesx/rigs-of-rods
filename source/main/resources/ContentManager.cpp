@@ -20,6 +20,7 @@
 */
 
 #include "ContentManager.h"
+#include "MeshVertexColourFix.h"
 
 #include "Application.h"
 #include "ErrorUtils.h"
@@ -172,6 +173,7 @@ void ContentManager::InitContentManager()
     }
 
     Ogre::ScriptCompilerManager::getSingleton().setListener(this);
+    MeshVertexColourFix::Install(); // RTSS: materials tracking vertex colours on meshes without them
 
     // Initialize "managed materials" first
     //   These are base materials referenced by user content

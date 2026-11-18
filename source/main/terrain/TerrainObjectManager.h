@@ -66,6 +66,7 @@ public:
     void           moveObjectVisuals(const Ogre::String& instancename, const Ogre::Vector3& pos);
     void           destroyObject(const Ogre::String& instancename);
     void           LoadTelepoints();
+    void           SetPagedGeometryAttached(bool attached); //!< Survey map: render the terrain without trees/grass
     void           SpawnSinglePredefinedActor(TerrainEditorObjectPtr const& object);
     bool           GetEditorObjectFlagRotYXZ(TerrainEditorObjectPtr const& object);
     void           LoadPredefinedActors();
@@ -146,6 +147,7 @@ protected:
 
 
     std::vector<Forests::PagedGeometry*> m_paged_geometry;
+    std::vector<std::pair<Ogre::SceneNode*, Ogre::SceneNode*>> m_paged_detached; //!< (node, parent) while detached
 
 };
 

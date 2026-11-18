@@ -26,6 +26,7 @@
 #include "GfxScene.h"
 #include "IGfxWater.h"
 #include "Terrain.h"
+#include "TerrainObjectManager.h"
 
 using namespace Ogre;
 using namespace RoR;
@@ -55,7 +56,10 @@ bool SurveyMapTextureCreator::init(int res, int fsaa)
 {
     mTexture = Ogre::TextureManager::getSingleton().createManual(mTextureName,
         Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME, Ogre::TEX_TYPE_2D, res, res,
-        Ogre::TU_RENDERTARGET, Ogre::PF_R8G8B8, Ogre::TU_RENDERTARGET, 0, false, fsaa);
+        /*numMipmaps:*/0, Ogre::PF_R8G8B8, Ogre::TU_RENDERTARGET, 0, false, /*fsaa:*/0); // was 'TU_RENDERTARGET' (= 32 mipmaps): D3D11 rejects mipmapped MSAA render targets (E_INVALIDARG)
+    // No FSAA: the texture is read back with convertToImage(), and a multisampled texture reads back black on D3D11.
+    // The 4096x4096 map is a static top-down image, anti-aliasing adds next to nothing there.
+    (void)fsaa;
 
     if (!mTexture)
         return false;
@@ -71,7 +75,9 @@ bool SurveyMapTextureCreator::init(int res, int fsaa)
     mCamera = App::GetGfxScene()->GetSceneManager()->createCamera("MapRttCam-" + TOSTRING(counter));
     mCamera->setProjectionType(PT_ORTHOGRAPHIC);
     mCamera->setNearClipDistance(1.0f);
-    mCamera->setFarClipDistance(0);
+    // Finite far plane: an orthographic camera can't have an infinite one (OGRE only avoids the division by zero
+    // then), the camera sits mTerrainHeight above sea level looking straight down.
+    mCamera->setFarClipDistance(mTerrainHeight + 1000.0f);
 
     Ogre::SceneNode* mCamera_snode = App::GetGfxScene()->GetSceneManager()->getRootSceneNode()->createChildSceneNode();
     mCamera_snode->attachObject(mCamera);
@@ -100,6 +106,10 @@ void SurveyMapTextureCreator::update(Vector2 center, Vector2 size)
 
 void SurveyMapTextureCreator::preRenderTargetUpdate(const RenderTargetEvent &evt)
 {
+    // Trees/grass (PagedGeometry) face the camera - seen from straight above they are stretched into long streaks
+    if (App::GetGameContext()->GetTerrain()->getObjectManager())
+        App::GetGameContext()->GetTerrain()->getObjectManager()->SetPagedGeometryAttached(false);
+
     auto water = App::GetGameContext()->GetTerrain()->getGfxWater();
     if (water)
     {
@@ -112,6 +122,9 @@ void SurveyMapTextureCreator::preRenderTargetUpdate(const RenderTargetEvent &evt
 
 void SurveyMapTextureCreator::postRenderTargetUpdate(const RenderTargetEvent &evt)
 {
+    if (App::GetGameContext()->GetTerrain()->getObjectManager())
+        App::GetGameContext()->GetTerrain()->getObjectManager()->SetPagedGeometryAttached(true);
+
     auto water = App::GetGameContext()->GetTerrain()->getGfxWater();
     if (water)
     {
@@ -121,7 +134,13 @@ void SurveyMapTextureCreator::postRenderTargetUpdate(const RenderTargetEvent &ev
 
 Ogre::TexturePtr SurveyMapTextureCreator::convertTextureToStatic(const std::string& texName, const std::string& rgName)
 {
-    Ogre::Image img;
-    mTexture->convertToImage(img);
-    return Ogre::TextureManager::getSingleton().loadImage(texName, rgName, img);
+    // Read back via the render target: Texture::convertToImage() returns only zeros for a D3D11 render texture
+    // (the map came out black although 1.7M triangles were drawn). copyContentsToMemory() works on all render systems.
+    Ogre::Image img(Ogre::PF_BYTE_RGBA, mTexture->getWidth(), mTexture->getHeight());
+    mRttTex->copyContentsToMemory(Ogre::Box(0, 0, mTexture->getWidth(), mTexture->getHeight()), img.getPixelBox(), Ogre::RenderTarget::FB_AUTO);
+
+    // The map is opaque: drop the alpha channel (an X8R8G8B8 target reads back with alpha 0 = invisible map)
+    Ogre::Image rgb(Ogre::PF_BYTE_RGB, img.getWidth(), img.getHeight());
+    Ogre::PixelUtil::bulkPixelConversion(img.getPixelBox(), rgb.getPixelBox());
+    return Ogre::TextureManager::getSingleton().loadImage(texName, rgName, rgb);
 }

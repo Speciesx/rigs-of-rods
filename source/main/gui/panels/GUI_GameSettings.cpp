@@ -537,9 +537,16 @@ void GameSettings::DrawControlSettings()
 
 void GameSettings::SetVisible(bool v)
 {
+    const bool was_visible = m_is_visible;
     m_is_visible = v;
     if (!v && App::app_state->getEnum<AppState>() == RoR::AppState::MAIN_MENU)
     {
+        App::GetGuiManager()->GameMainMenu.SetVisible(true);
+    }
+    else if (!v && was_visible && App::app_state->getEnum<AppState>() == RoR::AppState::SIMULATION
+             && App::sim_state->getEnum<RoR::SimState>() == RoR::SimState::PAUSED)
+    {
+        // Opened from the pause menu: go back to it
         App::GetGuiManager()->GameMainMenu.SetVisible(true);
     }
 

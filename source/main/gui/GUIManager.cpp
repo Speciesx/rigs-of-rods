@@ -477,6 +477,12 @@ void GUIManager::DrawCommonGui()
     {
         this->RepositorySelector.Draw();
     }
+
+    // Also reachable from the pause menu
+    if (this->GameSettings.IsVisible())
+    {
+        this->GameSettings.Draw();
+    }
 }
 
 void GUIManager::DrawMainMenuGui()
@@ -491,11 +497,6 @@ void GUIManager::DrawMainMenuGui()
     if (this->GameMainMenu.IsVisible())
     {
         this->GameMainMenu.Draw();
-    }
-
-    if (this->GameSettings.IsVisible())
-    {
-        this->GameSettings.Draw();
     }
 
     if (this->MessageBoxDialog.IsVisible())
