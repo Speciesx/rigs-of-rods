@@ -196,12 +196,6 @@ void GfxScene::UpdateScene(float dt)
         RoR::App::GetOverlayWrapper()->UpdateRacingGui(this);
     }
 
-    // GUI - vehicle pressure
-    if (m_simbuf.simbuf_player_actor)
-    {
-        App::GetOverlayWrapper()->UpdatePressureOverlay(m_simbuf.simbuf_player_actor->GetGfxActor());
-    }
-
     // HUD - network labels (always update)
     for (GfxActor* gfx_actor: m_all_gfx_actors)
     {

@@ -17,7 +17,7 @@ uniform float grassHeight;
 #endif
 
 uniform mat4 worldViewProj;
-uniform vec3 camPos;
+uniform vec4 camPos; // vec4: D3D11 would pack the next float into .w, which OGRE overwrites
 uniform float fadeRange;
 
 MAIN_PARAMETERS

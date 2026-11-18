@@ -17,6 +17,8 @@ Permission is granted to anyone to use this software for any purpose, including 
 #include <OgreRenderSystem.h>
 #include <OgreString.h>
 #include <OgreStringConverter.h>
+#include <OgreImage.h>
+#include <OgreLogManager.h>
 
 #include "PropertyMaps.h"
 #include "PagedGeometry.h"
@@ -24,6 +26,28 @@ Permission is granted to anyone to use this software for any purpose, including 
 using namespace Ogre;
 
 namespace Forests {
+
+/// Reads the pixels of a map texture into 'dst' (converting the format).
+/// Reads the image file instead of the GPU texture: GPU read-back (blitToMemory) is not reliable on
+/// all render systems (Direct3D11 returns zeros -> no grass / transparent grass).
+static void ReadMapPixels(const TexturePtr& map, const HardwarePixelBufferSharedPtr& buff, const PixelBox& dst)
+{
+	try
+	{
+		Image img;
+		img.load(map->getName(), map->getGroup());
+		if (img.getWidth() != dst.getWidth() || img.getHeight() != dst.getHeight())
+			img.resize((ushort)dst.getWidth(), (ushort)dst.getHeight());
+		PixelUtil::bulkPixelConversion(img.getPixelBox(), dst);
+		LogManager::getSingleton().logMessage("[RoR|PagedGeometry] map '" + map->getName() + "' read from image file");
+		return;
+	}
+	catch (Ogre::Exception& e)
+	{
+		LogManager::getSingleton().logMessage("[RoR|PagedGeometry] map '" + map->getName() + "' image read failed, using GPU read-back: " + e.getDescription());
+	}
+	buff->blitToMemory(dst);
+}
 
 std::map<String, DensityMap*> DensityMap::selfList;
 
@@ -89,13 +113,13 @@ DensityMap::DensityMap(TexturePtr map, MapChannel channel)
 
 	if (channel == CHANNEL_COLOR){
 		//Copy to the greyscale density map directly if no channel extraction is necessary
-		buff->blitToMemory(*pixels);
+		ReadMapPixels(map, buff, *pixels);
 	} else {
 		//If channel extraction is necessary, first convert to a PF_R8G8B8A8 format PixelBox
 		//This is necessary for the code below to properly extract the desired channel
 		PixelBox tmpPixels(Box(0, 0, buff->getWidth(), buff->getHeight()), PF_R8G8B8A8);
 		tmpPixels.data = new uint8[tmpPixels.getConsecutiveSize()];
-		buff->blitToMemory(tmpPixels);
+		ReadMapPixels(map, buff, tmpPixels);
 
 		//Pick out a channel from the pixel buffer
 		size_t channelOffset;
@@ -288,13 +312,13 @@ ColorMap::ColorMap(TexturePtr map, MapChannel channel)
 
 	if (channel == CHANNEL_COLOR){
 		//Copy to the color map directly if no channel extraction is necessary
-		buff->blitToMemory(*pixels);
+		ReadMapPixels(map, buff, *pixels);
 	} else {
 		//If channel extraction is necessary, first convert to a PF_R8G8B8A8 format PixelBox
 		//This is necessary for the code below to properly extract the desired channel
 		PixelBox tmpPixels(Box(0, 0, buff->getWidth(), buff->getHeight()), PF_R8G8B8A8);
 		tmpPixels.data = new uint8[tmpPixels.getConsecutiveSize()];
-		buff->blitToMemory(tmpPixels);
+		ReadMapPixels(map, buff, tmpPixels);
 
 		//Pick out a channel from the pixel buffer
 		size_t channelOffset;

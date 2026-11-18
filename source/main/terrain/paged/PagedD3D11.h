@@ -37,6 +37,16 @@ inline bool IsActive()
     return rs && rs->getName().find("Direct3D11") != Ogre::String::npos;
 }
 
+/// Render systems whose default shadow caster ignores the alpha test of PagedGeometry foliage (solid leaf quads).
+inline bool NeedsAlphaShadowCaster()
+{
+    Ogre::RenderSystem* rs = Ogre::Root::getSingleton().getRenderSystem();
+    if (!rs)
+        return false;
+    const Ogre::String& n = rs->getName();
+    return n.find("Direct3D11") != Ogre::String::npos || n.find("OpenGL") != Ogre::String::npos;
+}
+
 inline const char* VsTarget() { return IsActive() ? "vs_4_0" : "vs_1_1"; }
 
 inline Ogre::String Trim(const Ogre::String& s)
@@ -73,7 +83,12 @@ inline Ogre::String ConvertVertexSource(const Ogre::String& src)
             continue;
         if (p.compare(0, 8, "uniform ") == 0)
         {
-            globals += Trim(p.substr(8)) + ";\n";
+            Ogre::String decl = Trim(p.substr(8));
+            // OGRE writes vector auto constants (camera_position_object_space, ...) as 4 floats. D3D11 packs a
+            // following scalar into the free .w of a float3 -> it gets overwritten (e.g. fadeGap := 1).
+            if (decl.compare(0, 7, "float3 ") == 0)
+                decl.replace(0, 6, "float4");
+            globals += decl + ";\n";
         }
         else
         {
@@ -185,10 +200,38 @@ inline void ApplyAlphaShadowCaster(Ogre::Technique* tech)
     if (src->getAlphaRejectFunction() == CMPF_ALWAYS_PASS || src->getNumTextureUnitStates() == 0)
         return;
 
-    const String vsName = "Paged_ShadowCaster_VS_d3d11";
-    const String psName = "Paged_ShadowCaster_PS_d3d11";
+    const bool glsl = !IsActive(); // OpenGL: legacy-style GLSL, like the BatchPage vertex shaders
+    const String vsName = glsl ? "Paged_ShadowCaster_VS_glsl" : "Paged_ShadowCaster_VS_d3d11";
+    const String psName = glsl ? "Paged_ShadowCaster_PS_glsl" : "Paged_ShadowCaster_PS_d3d11";
     HighLevelGpuProgramManager& hmgr = HighLevelGpuProgramManager::getSingleton();
-    if (!hmgr.getByName(vsName))
+    if (glsl && !hmgr.getByName(vsName))
+    {
+        HighLevelGpuProgramPtr vs = hmgr.createProgram(vsName, ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME, "glsl", GPT_VERTEX_PROGRAM);
+        vs->setSource(
+            "#version 120 \n"
+            "uniform mat4 worldViewProj; \n"
+            "varying vec2 uv; \n"
+            "void main() \n"
+            "{ \n"
+            "\tgl_Position = worldViewProj * gl_Vertex; \n"
+            "\tuv = gl_MultiTexCoord0.xy; \n"
+            "}");
+        vs->load();
+
+        HighLevelGpuProgramPtr ps = hmgr.createProgram(psName, ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME, "glsl", GPT_FRAGMENT_PROGRAM);
+        ps->setSource(
+            "#version 120 \n"
+            "uniform sampler2D diffuseMap; \n"
+            "uniform float alphaRef; \n"
+            "varying vec2 uv; \n"
+            "void main() \n"
+            "{ \n"
+            "\tif (texture2D(diffuseMap, uv).a < alphaRef) discard; \n"
+            "\tgl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); \n"
+            "}");
+        ps->load();
+    }
+    else if (!glsl && !hmgr.getByName(vsName))
     {
         HighLevelGpuProgramPtr vs = hmgr.createProgram(vsName, ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME, "hlsl", GPT_VERTEX_PROGRAM);
         vs->setSource(
@@ -233,6 +276,8 @@ inline void ApplyAlphaShadowCaster(Ogre::Technique* tech)
         p->setFragmentProgram(psName);
         p->getVertexProgramParameters()->setNamedAutoConstant("worldViewProj", GpuProgramParameters::ACT_WORLDVIEWPROJ_MATRIX);
         p->getFragmentProgramParameters()->setNamedConstant("alphaRef", src->getAlphaRejectValue() / 255.f);
+        if (glsl)
+            p->getFragmentProgramParameters()->setNamedConstant("diffuseMap", 0);
     }
     // Must be loaded (compiled) - the shadow renderer uses its best technique directly, an unloaded material has none.
     caster->load();

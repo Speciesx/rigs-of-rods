@@ -9,7 +9,7 @@ uniform vec4 lightAmbient;
 #endif
 
 #ifdef FADE
-uniform vec3 camPos;
+uniform vec4 camPos; // vec4: D3D11 would pack the next float into .w, which OGRE overwrites
 uniform float fadeGap;
 uniform float invisibleDist;
 #endif

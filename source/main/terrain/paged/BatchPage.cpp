@@ -538,7 +538,7 @@ void BatchPage::_updateShaders()
 					}
 				}
 
-				if (PagedD3D11::IsActive())
+				if (PagedD3D11::NeedsAlphaShadowCaster())
 					PagedD3D11::ApplyAlphaShadowCaster(tech);
 			}
 

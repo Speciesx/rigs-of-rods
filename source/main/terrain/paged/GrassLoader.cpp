@@ -42,6 +42,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 #include <limits> //for numeric_limits
 #include <memory>  //for unique_ptr
 #include <cstring> //for memcpy
+#include <cctype>  //for isalnum
 
 using namespace Ogre;
 
@@ -1155,18 +1156,18 @@ void GrassLayer::_updateShaders()
 							// D3D11: uniforms must be globals, the position output must be SV_Position.
 							vertexProgSource =
 								"float4x4 worldViewProj; \n"
-								"float3 camPos; \n"
-								"float fadeRange; \n";
+								"float4 camPos; \n"
+								"float4 fadeRange; \n";
 							if (lighting) vertexProgSource +=
 								"float4 objSpaceLight; \n"
 								"float4 lightDiffuse; \n"
 								"float4 lightAmbient; \n";
 							if (animate) vertexProgSource +=
-								"float time; \n"
-								"float frequency; \n"
+								"float4 time; \n"
+								"float4 frequency; \n"
 								"float4 direction; \n";
 							if (fadeTechnique == FADETECH_GROW || fadeTechnique == FADETECH_ALPHAGROW) vertexProgSource +=
-								"float grassHeight; \n";
+								"float4 grassHeight; \n";
 							vertexProgSource +=
 								"void main( \n"
 								"\tfloat4 iPosition : POSITION, \n"
@@ -1393,6 +1394,35 @@ void GrassLayer::_updateShaders()
 						vsName,
 						ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME,
 						shaderLanguage, GPT_VERTEX_PROGRAM);
+
+					if (d3d11)
+					{
+						// D3D11 packs scalars into the free components of the previous register, but OGRE writes
+						// float3/float auto constants as whole registers (camPos.w = 1 overwrote fadeRange -> all grass faded out).
+						// All uniforms are float4 (own register); the body reads the scalars via '.x'.
+						const size_t bodyStart = vertexProgSource.find("void main(");
+						const char* scalars[] = { "fadeRange", "time", "frequency", "grassHeight" };
+						for (const char* name : scalars)
+						{
+							const String word(name);
+							for (size_t at = vertexProgSource.find(word, bodyStart); at != String::npos; at = vertexProgSource.find(word, at))
+							{
+								const char prev = vertexProgSource[at - 1];
+								const char next = (at + word.size() < vertexProgSource.size()) ? vertexProgSource[at + word.size()] : ' ';
+								const bool isWord = !(isalnum((unsigned char)prev) || prev == '_' || prev == '.')
+									&& !(isalnum((unsigned char)next) || next == '_' || next == '.');
+								if (isWord)
+								{
+									vertexProgSource.insert(at + word.size(), ".x");
+									at += word.size() + 2;
+								}
+								else
+								{
+									at += word.size();
+								}
+							}
+						}
+					}
 
 					vertexShader->setSource(vertexProgSource);
 

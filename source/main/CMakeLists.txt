@@ -120,6 +120,7 @@ set(SOURCE_FILES
         gui/panels/GUI_ConsoleView.{h,cpp}
         gui/panels/GUI_ConsoleWindow.{h,cpp}
         gui/panels/GUI_DirectionArrow.{h,cpp}
+        gui/panels/GUI_TyrePressure.{h,cpp}
         gui/panels/GUI_LoadingWindow.{h,cpp}
         gui/panels/GUI_FlexbodyDebug.{h,cpp}
         gui/panels/GUI_FrictionSettings.{h,cpp}

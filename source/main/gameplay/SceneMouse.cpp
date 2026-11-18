@@ -59,14 +59,16 @@ void SceneMouse::InitializeVisuals()
         pickLineMaterial = MaterialManager::getSingleton().create("PickLineMaterial", ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
     }
     pickLineMaterial->setReceiveShadows(false);
-    pickLineMaterial->getTechnique(0)->setLightingEnabled(true);
-    pickLineMaterial->getTechnique(0)->getPass(0)->setDiffuse(0, 0, 1, 0);
-    pickLineMaterial->getTechnique(0)->getPass(0)->setAmbient(0, 0, 1);
-    pickLineMaterial->getTechnique(0)->getPass(0)->setSelfIllumination(0, 0, 1);
+    // Unlit, coloured per vertex: a line has no normals, and the RTSS shader of a lit pass reads NORMAL0
+    // (D3D11: "consumes semantic NORMAL0 but no such VertexElement provided" - fatal error when grabbing a vehicle).
+    pickLineMaterial->getTechnique(0)->setLightingEnabled(false);
+    pickLineMaterial->getTechnique(0)->getPass(0)->setVertexColourTracking(TVC_DIFFUSE);
 
     pickLine->begin("PickLineMaterial", RenderOperation::OT_LINE_LIST);
     pickLine->position(0, 0, 0);
+    pickLine->colour(0, 0, 1);
     pickLine->position(0, 0, 0);
+    pickLine->colour(0, 0, 1);
     pickLine->end();
     pickLineNode->attachObject(pickLine);
     pickLineNode->setVisible(false);
@@ -221,7 +223,9 @@ void SceneMouse::UpdateVisuals()
         // update visual line
         pickLine->beginUpdate(0);
         pickLine->position(grab_truck->GetGfxActor()->GetSimNodeBuffer()[minnode].AbsPosition);
+        pickLine->colour(0, 0, 1);
         pickLine->position(lastgrabpos);
+        pickLine->colour(0, 0, 1);
         pickLine->end();
     }
 }
