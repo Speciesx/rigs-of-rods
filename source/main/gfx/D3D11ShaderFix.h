@@ -168,6 +168,60 @@ inline std::string PadFloat3Uniforms(const std::string& list)
     return res;
 }
 
+/// Sort key of an interpolated value: position first, then TEXCOORDn, then COLORn, then anything else.
+/// COLOR comes after the texcoords because pixel shaders often skip it (nicemetal: `SimpleMetal_PS` reads no
+/// COLOR from `NiceMetal_VS`) - D3D11 accepts a PS that leaves out trailing VS outputs, not ones in the middle.
+inline int VaryingOrder(const std::string& sem)
+{
+    if (IsPositionSemantic(sem)) return 0;
+    size_t d = sem.size();
+    while (d > 0 && sem[d - 1] >= '0' && sem[d - 1] <= '9') d--;
+    const int idx = (d < sem.size()) ? std::atoi(sem.c_str() + d) : 0;
+    const std::string base = sem.substr(0, d);
+    if (base == "TEXCOORD") return 100 + idx;
+    if (base == "COLOR") return 300 + idx;
+    return 1000;
+}
+
+/// D3D11 links VS outputs to PS inputs by register, which the compiler assigns in declaration order - unlike D3D9,
+/// which matched them by semantic. Cg/D3D9 sources declare them in any order (nicemetal: VS `COLOR, TEXCOORD0..4`,
+/// PS `TEXCOORD0, COLOR, TEXCOORD1..4` -> the PS read the wrong values: textures as flat, flickering colours).
+/// Puts the VS outputs (`outputs` = true) or the PS inputs into one canonical order. The parameters keep their
+/// slots in the list, only the interpolated ones are permuted among themselves.
+inline void SortVaryings(std::vector<std::string>& params, bool outputs)
+{
+    std::vector<int> slots;
+    std::vector<std::pair<int, std::string>> items;
+    for (int i = 0; i < (int)params.size(); ++i)
+    {
+        const std::string p = Clean(params[i]);
+        if (p.empty() || StartsWithWord(p, "uniform")) continue;
+        if (StartsWithWord(p, "out") != outputs) continue;
+        const std::string sem = Semantic(p);
+        if (sem.empty()) continue; // struct parameter: its members are ordered by the struct
+        slots.push_back(i);
+        items.push_back({ VaryingOrder(sem), params[i] });
+    }
+    std::stable_sort(items.begin(), items.end(), [](const std::pair<int, std::string>& a, const std::pair<int, std::string>& b) { return a.first < b.first; });
+    for (size_t k = 0; k < slots.size(); ++k)
+    {
+        std::string text = items[k].second;
+        // a moved parameter must start on its own line: the slot may follow a `// comment` (whose commas
+        // split the list into pieces), which would otherwise swallow it
+        const size_t first = text.find_first_not_of(" \t");
+        if (params[slots[k]] != text && (first == std::string::npos || (text[first] != '\n' && text[first] != '\r')))
+            text = "\n\t" + text;
+        params[slots[k]] = text;
+    }
+}
+
+inline std::string JoinParams(const std::vector<std::string>& params)
+{
+    std::string res;
+    for (size_t i = 0; i < params.size(); ++i) res += (i ? "," : "") + params[i];
+    return res;
+}
+
 inline std::string FixFunctionParams(const std::string& list, bool returnsColor)
 {
     // split by top-level commas
@@ -206,24 +260,20 @@ inline std::string FixFunctionParams(const std::string& list, bool returnsColor)
 
     if (outPos >= 0)
     {
-        // Vertex shader: POSITION must be the first output
-        if (outPos == firstOut) return list;
-        std::vector<std::string> reordered;
-        for (int i = 0; i < (int)params.size(); ++i)
-        {
-            if (i == firstOut) reordered.push_back(params[outPos]);
-            if (i != outPos) reordered.push_back(params[i]);
-        }
-        std::string res;
-        for (size_t i = 0; i < reordered.size(); ++i) res += (i ? "," : "") + reordered[i];
-        return res;
+        // Vertex shader: POSITION must be the first output, the others in canonical order
+        SortVaryings(params, true);
+        return JoinParams(params);
     }
 
-    if (outColor && !inPos)
+    if (outColor)
     {
-        // Pixel shader: declare the position as first input
+        // Pixel shader: inputs in canonical order, the position declared as first input
+        SortVaryings(params, false);
+        const std::string sorted = JoinParams(params);
+        if (inPos)
+            return sorted;
         const bool empty = Clean(list).empty() || Clean(list) == "void";
-        return std::string("\n\tfloat4 d3d11_SvPosition : SV_Position") + (empty ? std::string() : "," + list);
+        return std::string("\n\tfloat4 d3d11_SvPosition : SV_Position") + (empty ? std::string() : "," + sorted);
     }
 
     return list;
@@ -339,46 +389,126 @@ inline std::string ConvertSamplers(const std::string& src)
         usedRegs.push_back(next);
     }
 
-    // 3. rewrite: declarations, calls, globals on top
+    // 3. rewrite. A parameter sampler only lives in its own function: Cg/D3D9 sources reuse the same name
+    //    with another register in another entry point (nicemetal: `Specular_Map` is s1 in main_nicemetal_fp,
+    //    s0 in reflect_nicemetal_fp). Such names get one global per register (NAME_rN), and calls are only
+    //    rewritten inside the function that declares the parameter.
+    struct Edit { size_t begin, end; std::string text; };
+    std::vector<Edit> edits;
+    auto bodyOf = [&src](const Decl& d, size_t& b, size_t& e)
+    {
+        b = src.find('{', d.end);
+        e = src.size();
+        if (b == std::string::npos) { b = src.size(); return; }
+        int depth = 0;
+        for (size_t i = b; i < src.size(); ++i)
+        {
+            if (src[i] == '{') depth++;
+            else if (src[i] == '}' && --depth == 0) { e = i + 1; break; }
+        }
+    };
+    auto globalName = [&ordered](const Decl& d)
+    {
+        for (const Decl& o : ordered)
+            if (o.name == d.name && (o.reg != d.reg || o.type != d.type))
+                return d.name + "_r" + std::to_string(d.reg);
+        return d.name;
+    };
+    auto inDecl = [&decls](size_t p)
+    {
+        for (const Decl& o : decls) if (p >= o.begin && p < o.end) return true;
+        return false;
+    };
+
     std::string globals = "// D3D11: explicit texture/sampler registers (RoR D3D11ShaderFix)\n";
     std::vector<std::string> declared;
-    std::string out = src;
-    // replace from back to front so offsets stay valid
-    std::vector<Decl> back = ordered;
-    std::sort(back.begin(), back.end(), [](const Decl& x, const Decl& y) { return x.begin > y.begin; });
-    for (const Decl& d : back)
-    {
-        const std::string repl = d.param ? ("uniform float " + d.name + "__d3d11_unused") : std::string();
-        out.replace(d.begin, d.end - d.begin, repl);
-    }
     for (const Decl& d : ordered)
     {
-        if (std::find(declared.begin(), declared.end(), d.name) != declared.end()) continue;
-        declared.push_back(d.name);
+        const std::string g = globalName(d);
         // 1D lookups: OGRE loads such textures (e.g. Hydrax 'Fresnel.bmp') as 2D, so sample a 2D texture at v=0.5
         const bool is1D = (d.type == "sampler1D");
-        const std::string texType = d.type == "sampler3D" ? "Texture3D" : d.type == "samplerCUBE" ? "TextureCube" : "Texture2D";
-        const std::string r = std::to_string(d.reg);
-        globals += texType + " " + d.name + "__t : register(t" + r + ");\n";
-        globals += "SamplerState " + d.name + "__s : register(s" + r + ");\n";
-        if (is1D)
-            globals += "float4 " + d.name + "__tex1D(float c) { return " + d.name + "__t.Sample(" + d.name + "__s, float2(c, 0.5)); }\n";
-
-        // calls: texXX(NAME, coord) -> NAME__t.Sample(NAME__s, coord)
-        for (size_t p = FindWord(out, d.name, 0); p != std::string::npos; p = FindWord(out, d.name, p + 1))
+        if (std::find(declared.begin(), declared.end(), g) == declared.end())
         {
-            size_t q = out.find_last_not_of(" \t\r\n", p - 1);
-            if (q == std::string::npos || out[q] != '(') continue;
-            size_t a = out.find_last_not_of(" \t\r\n", q - 1);
+            declared.push_back(g);
+            const std::string texType = d.type == "sampler3D" ? "Texture3D" : d.type == "samplerCUBE" ? "TextureCube" : "Texture2D";
+            const std::string r = std::to_string(d.reg);
+            globals += texType + " " + g + "__t : register(t" + r + ");\n";
+            globals += "SamplerState " + g + "__s : register(s" + r + ");\n";
+            if (is1D)
+                globals += "float4 " + g + "__tex1D(float c) { return " + g + "__t.Sample(" + g + "__s, float2(c, 0.5)); }\n";
+        }
+
+        // the declaration itself
+        edits.push_back({ d.begin, d.end, d.param ? ("uniform float " + d.name + "__d3d11_unused") : std::string() });
+
+        // calls: texXX(NAME, coord) -> G__t.Sample(G__s, coord), in the owning function (parameter) or anywhere
+        // outside functions that declare a parameter of the same name (global sampler)
+        size_t from = 0, to = src.size();
+        if (d.param)
+            bodyOf(d, from, to);
+        for (size_t p = FindWord(src, d.name, from); p != std::string::npos && p < to; p = FindWord(src, d.name, p + 1))
+        {
+            if (inDecl(p))
+                continue;
+            if (!d.param)
+            {
+                bool shadowed = false;
+                for (const Decl& o : ordered)
+                {
+                    if (!o.param || o.name != d.name) continue;
+                    size_t b, e;
+                    bodyOf(o, b, e);
+                    if (p >= b && p < e) { shadowed = true; break; }
+                }
+                if (shadowed) continue;
+            }
+            const size_t q = src.find_last_not_of(" \t\r\n", p - 1);
+            if (q == std::string::npos || src[q] != '(') continue;
+            const size_t a = src.find_last_not_of(" \t\r\n", q - 1);
             size_t f = a;
-            while (f > 0 && IsIdentChar(out[f - 1])) f--;
-            const size_t comma = out.find(',', p);
-            const std::string call = is1D ? (d.name + "__tex1D(") : (d.name + "__t.Sample(" + d.name + "__s,");
-            out.replace(f, comma + 1 - f, call);
-            p = f + call.size() - 1;
+            while (f > 0 && IsIdentChar(src[f - 1])) f--;
+            const size_t comma = src.find(',', p);
+            edits.push_back({ f, comma + 1, is1D ? (g + "__tex1D(") : (g + "__t.Sample(" + g + "__s,") });
         }
     }
+
+    // apply back to front so offsets stay valid
+    std::sort(edits.begin(), edits.end(), [](const Edit& x, const Edit& y) { return x.begin > y.begin; });
+    std::string out = src;
+    for (const Edit& e : edits)
+        out.replace(e.begin, e.end - e.begin, e.text);
     return globals + out;
+}
+
+/// Cg -> HLSL: the Cg sources of RoR and of mods are D3D9-style HLSL with a few Cg-only words.
+/// - `fixed`, `fixed2`.. types do not exist in HLSL -> `half`
+/// - `: TEXUNITn` sampler semantic -> `: register(sn)` (handled further by ConvertSamplers())
+inline std::string CgToHlsl(const std::string& src)
+{
+    std::string out =
+        "#define fixed half\n#define fixed2 half2\n#define fixed3 half3\n#define fixed4 half4\n"
+        "#define fixed3x3 half3x3\n#define fixed4x4 half4x4\n";
+    out.reserve(src.size() + out.size() + 64);
+    const std::string word = "TEXUNIT";
+    size_t pos = 0;
+    // TEXUNITn is one token (FindWord() needs the whole word), so match the prefix by hand
+    for (size_t at = src.find(word); at != std::string::npos; at = src.find(word, at))
+    {
+        const bool startOk = (at == 0) || !IsIdentChar(src[at - 1]);
+        size_t end = at + word.size();
+        while (end < src.size() && src[end] >= '0' && src[end] <= '9')
+            ++end;
+        const bool endOk = (end > at + word.size()) && (end == src.size() || !IsIdentChar(src[end]));
+        if (startOk && endOk)
+        {
+            out += src.substr(pos, at - pos);
+            out += "register(s" + src.substr(at + word.size(), end - at - word.size()) + ")";
+            pos = end;
+        }
+        at = end;
+    }
+    out += src.substr(pos);
+    return out;
 }
 
 /// Applies the fix to every function definition in the source.

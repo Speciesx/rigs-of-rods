@@ -372,15 +372,50 @@ static void UpgradeLegacyShaderTargets(Ogre::ConcreteNodeList& nodes)
     // `target vs_1_1` => node 'target' with child 'vs_1_1'.
     for (auto it = nodes.begin(); it != nodes.end(); ++it)
     {
+        // Cg programs (`profiles vs_1_1 arbvp1`) are compiled as HLSL on D3D11 (see handleEvent()): turn the
+        // Cg profile list into an HLSL `target` - the D3D profile if listed, else derived from the GL profile.
+        if ((*it)->token == "profiles" && !(*it)->children.empty())
+        {
+            Ogre::String chosen;
+            for (auto& value : (*it)->children)
+            {
+                const Ogre::String& p = value->token;
+                if (p.compare(0, 3, "vs_") == 0 || p.compare(0, 3, "ps_") == 0)
+                {
+                    chosen = p;
+                    break;
+                }
+            }
+            if (chosen.empty())
+            {
+                for (auto& value : (*it)->children)
+                {
+                    const Ogre::String& p = value->token;
+                    if (p.find("vp") != Ogre::String::npos || p == "glslv")
+                        chosen = "vs_3_0";
+                    else if (p.find("fp") != Ogre::String::npos || p == "glslf")
+                        chosen = "ps_3_0";
+                    if (!chosen.empty())
+                        break;
+                }
+            }
+            if (!chosen.empty())
+            {
+                (*it)->token = "target";
+                (*it)->children.front()->token = chosen;
+                (*it)->children.erase(std::next((*it)->children.begin()), (*it)->children.end());
+            }
+        }
+
         if ((*it)->token == "target")
         {
             for (auto& value : (*it)->children)
             {
                 Ogre::String& t = value->token;
                 const Ogre::String old_target = t;
-                if (t == "vs_1_1" || t == "vs_2_0" || t == "vs_2_a")
+                if (t == "vs_1_1" || t == "vs_2_0" || t == "vs_2_a" || t == "vs_2_x")
                     t = "vs_3_0";
-                else if (t == "ps_1_1" || t == "ps_1_2" || t == "ps_1_3" || t == "ps_1_4" || t == "ps_2_0" || t == "ps_2_a" || t == "ps_2_b")
+                else if (t == "ps_1_1" || t == "ps_1_2" || t == "ps_1_3" || t == "ps_1_4" || t == "ps_2_0" || t == "ps_2_a" || t == "ps_2_b" || t == "ps_2_x")
                     t = "ps_3_0";
                 if (t != old_target)
                 {
@@ -432,13 +467,17 @@ bool ContentManager::handleEvent(ScriptCompiler *compiler, ScriptCompilerEvent *
     else if (evt->mType == CreateGpuProgramScriptCompilerEvent::eventType && IsD3D11Active())
     {
         // D3D11: scripts contain D3D9-style HLSL (`POSITION` outputs, `tex2D`, ...). Compile it in backwards compatibility mode.
+        // Cg: D3D11 has no Cg profiles - the Cg sources are D3D9-style HLSL, compile them as HLSL as well
+        // (same program name, so materials and mods keep working unchanged). See D3D11ShaderFix::CgToHlsl().
         auto* progEvent = static_cast<CreateGpuProgramScriptCompilerEvent*>(evt);
-        if (progEvent->mSyntax != "hlsl")
+        const bool isCg = (progEvent->mSyntax == "cg");
+        if (progEvent->mSyntax != "hlsl" && !isCg)
             return false;
-        RoR::LogFormat("[RoR|D3D11] compiling HLSL program '%s' in backwards compatibility mode", progEvent->mName.c_str());
+        RoR::LogFormat("[RoR|D3D11] compiling %s program '%s' as HLSL in backwards compatibility mode",
+            isCg ? "Cg" : "HLSL", progEvent->mName.c_str());
 
         HighLevelGpuProgramPtr prog = HighLevelGpuProgramManager::getSingleton().createProgram(
-            progEvent->mName, progEvent->mResourceGroup, progEvent->mSyntax, progEvent->mProgramType);
+            progEvent->mName, progEvent->mResourceGroup, "hlsl", progEvent->mProgramType);
         if (prog) // Null if duplicate, see `resourceCollision()`
         {
             if (!progEvent->mSource.empty())
@@ -448,7 +487,10 @@ bool ContentManager::handleEvent(ScriptCompiler *compiler, ScriptCompilerEvent *
                 try
                 {
                     DataStreamPtr stream = ResourceGroupManager::getSingleton().openResource(progEvent->mSource, progEvent->mResourceGroup);
-                    prog->setSource(RoR::D3D11ShaderFix::FixSignatures(stream->getAsString()));
+                    Ogre::String text = stream->getAsString();
+                    if (isCg)
+                        text = RoR::D3D11ShaderFix::CgToHlsl(text);
+                    prog->setSource(RoR::D3D11ShaderFix::FixSignatures(text));
                 }
                 catch (Ogre::Exception&)
                 {

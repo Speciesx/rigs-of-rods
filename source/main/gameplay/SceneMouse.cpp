@@ -70,6 +70,8 @@ void SceneMouse::InitializeVisuals()
     pickLine->position(0, 0, 0);
     pickLine->colour(0, 0, 1);
     pickLine->end();
+    // A line has no texture coordinates: as a shadow caster it crashes D3D11 (caster shader reads TEXCOORD0).
+    pickLine->setCastShadows(false);
     pickLineNode->attachObject(pickLine);
     pickLineNode->setVisible(false);
 }

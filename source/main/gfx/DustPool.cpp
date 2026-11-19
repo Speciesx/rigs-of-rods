@@ -298,6 +298,9 @@ void DustPool::update()
         else if (types[i] == DUST_DRIP)
         {
             emit->setEmissionRate(rates[i]);
+            // Drips stop on the water surface (the deflector plane of the script sits at y=0 - they used to sink
+            // to the sea floor and show up as a bright column under the boat).
+            SetDeflectorHeight(pss[i], (water != nullptr) ? water->CalcWavesHeight(positions[i]) : 0.f);
         }
         else if (types[i] == DUST_SPLASH)
         {

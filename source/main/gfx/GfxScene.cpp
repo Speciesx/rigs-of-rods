@@ -38,6 +38,7 @@
 #include "Terrain.h"
 #include "TerrainObjectManager.h"
 #include "Utils.h"
+#include "VertexInputFix.h"
 
 #include "imgui_internal.h"
 
@@ -86,6 +87,7 @@ void GfxScene::Init()
 {
     ROR_ASSERT(!m_scene_manager);
     m_scene_manager = App::GetAppContext()->GetOgreRoot()->createSceneManager();
+    RoR::VertexInputFix::Install(m_scene_manager); // D3D11: constant streams for vertex inputs the geometry lacks
     m_gfx_freebeams_grouping_node = m_scene_manager->getRootSceneNode()->createChildSceneNode("FreeBeam Visuals");
 
     m_skidmark_conf.LoadDefaultSkidmarkDefs();

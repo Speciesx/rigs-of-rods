@@ -65,10 +65,60 @@
 #include <fstream>
 #include <OgreRTShaderSystem.h>
 #include <OgreSGTechniqueResolverListener.h>
+#include <OgreGpuProgramManager.h>
 
 #ifdef USE_CURL
 #include <curl/curl.h>
 #endif //USE_CURL
+
+// Shader microcode cache: compiled GPU programs (HLSL, Cg compiled as HLSL on D3D11, ...) are stored on exit
+// and reused on the next start, so they are not compiled again. OGRE identifies the entries by a hash of the
+// program source, changed shaders are recompiled. One file per render system (the microcode differs).
+static std::string GetShaderMicrocodeCachePath()
+{
+    std::string rs = RoR::App::GetAppContext()->GetOgreRoot()->getRenderSystem()->getName();
+    for (char& c : rs)
+    {
+        if (!isalnum((unsigned char)c))
+            c = '_';
+    }
+    return RoR::PathCombine(RoR::App::sys_cache_dir->getStr(), "shader_microcode_" + rs + ".cache");
+}
+
+static void LoadShaderMicrocodeCache()
+{
+    Ogre::GpuProgramManager::getSingleton().setSaveMicrocodesToCache(true);
+    const std::string path = GetShaderMicrocodeCachePath();
+    std::ifstream probe(path, std::ios::binary);
+    if (!probe.good())
+        return;
+    probe.close();
+    try
+    {
+        Ogre::GpuProgramManager::getSingleton().loadMicrocodeCache(Ogre::Root::openFileStream(path));
+        LOG("[RoR] Loaded shader microcode cache: " + path);
+    }
+    catch (Ogre::Exception& e)
+    {
+        LOG("[RoR] Could not load shader microcode cache (it will be rebuilt): " + e.getDescription());
+    }
+}
+
+static void SaveShaderMicrocodeCache()
+{
+    if (!Ogre::GpuProgramManager::getSingleton().isCacheDirty())
+        return;
+    const std::string path = GetShaderMicrocodeCachePath();
+    try
+    {
+        Ogre::GpuProgramManager::getSingleton().saveMicrocodeCache(Ogre::Root::createFileStream(path, Ogre::RGN_DEFAULT, /*overwrite=*/true));
+        LOG("[RoR] Saved shader microcode cache: " + path);
+    }
+    catch (Ogre::Exception& e)
+    {
+        LOG("[RoR] Could not save shader microcode cache: " + e.getDescription());
+    }
+}
 
 #ifdef __cplusplus
 extern "C" {
@@ -161,9 +211,12 @@ int main(int argc, char *argv[])
         int fsaa = 2 * (Ogre::StringConverter::parseInt(ropts["FSAA"].currentValue, 0) / 4);
         int res = std::pow(2, std::floor(std::log2(resolution)));
 
+        // D3D11 has no multisampled cube maps and no 24 bit formats: an MSAA cube render target there is not
+        // resolved into the texture the shaders sample (NiceMetal reflections showed flat grey).
+        const bool d3d11 = App::GetAppContext()->GetOgreRoot()->getRenderSystem()->getName().find("Direct3D11") != Ogre::String::npos;
         Ogre::TextureManager::getSingleton().createManual ("EnvironmentTexture",
             Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME, Ogre::TEX_TYPE_CUBE_MAP, res / 4, res / 4, 0,
-            Ogre::PF_R8G8B8, Ogre::TU_RENDERTARGET, 0, false, fsaa);
+            d3d11 ? Ogre::PF_X8R8G8B8 : Ogre::PF_R8G8B8, Ogre::TU_RENDERTARGET, 0, false, d3d11 ? 0 : fsaa);
         Ogre::TextureManager::getSingleton ().createManual ("Refraction",
             Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME, Ogre::TEX_TYPE_2D, res / 2, res / 2, 0,
             Ogre::PF_R8G8B8, Ogre::TU_RENDERTARGET, 0, false, fsaa);
@@ -180,6 +233,8 @@ int main(int argc, char *argv[])
             Ogre::PixelBox pixels(warn_tex->getWidth(), warn_tex->getHeight(), 1, Ogre::PF_BYTE_RGB, data.data());
             warn_tex->getBuffer()->blitFromMemory(pixels);
         }
+
+        LoadShaderMicrocodeCache(); // before any GPU program gets compiled
 
         App::GetContentManager()->AddResourcePack(ContentManager::ResourcePack::FLAGS);
         App::GetContentManager()->AddResourcePack(ContentManager::ResourcePack::FONTS);
@@ -391,6 +446,7 @@ int main(int argc, char *argv[])
                             App::GetGameContext()->SaveScene("autosave.sav");
                         }
                         App::GetConsole()->saveConfig(); // RoR.cfg
+                        SaveShaderMicrocodeCache();
                         App::GetDiscordRpc()->Shutdown();
     #ifdef USE_SOCKETW
                         if (App::mp_state->getEnum<MpState>() == MpState::CONNECTED)

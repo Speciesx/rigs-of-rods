@@ -32,8 +32,47 @@
 #include <OgreMeshLodGenerator.h>
 #include <OgreLodConfig.h>
 
+#ifdef _MSC_VER
+#include <excpt.h>
+#endif
+
 using namespace Ogre;
 using namespace RoR;
+
+// OGRE 14's MeshLodGenerator crashes with an access violation on some meshes - not reproducibly (the GraveDigger
+// '35halo.mesh' passed once and crashed the next time). On MSVC, catch exactly that with SEH and drop the LODs
+// instead of taking the game down.
+// The OGRE calls create temporaries with destructors (default shared_ptr arguments), which __try does not allow
+// in the same function (C2712) - so they live in plain functions, called through a pointer by the SEH wrapper.
+static void DoGenerateLodLevels(void* config)
+{
+    Ogre::MeshLodGenerator::getSingleton().generateLodLevels(*static_cast<Ogre::LodConfig*>(config));
+}
+
+static void DoGenerateAutoLodLevels(void* mesh)
+{
+    Ogre::MeshLodGenerator::getSingleton().generateAutoconfiguredLodLevels(*static_cast<Ogre::MeshPtr*>(mesh));
+}
+
+#ifdef _MSC_VER
+static bool RunLodGeneratorGuarded(void (*fn)(void*), void* arg)
+{
+    __try
+    {
+        fn(arg);
+        return true;
+    }
+    __except (GetExceptionCode() == 0xC0000005 /*EXCEPTION_ACCESS_VIOLATION*/ ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
+    {
+        return false;
+    }
+}
+#else
+static bool RunLodGeneratorGuarded(void (*fn)(void*), void* arg) { fn(arg); return true; }
+#endif
+
+static bool GenerateLodLevelsGuarded(Ogre::LodConfig* config) { return RunLodGeneratorGuarded(&DoGenerateLodLevels, config); }
+static bool GenerateAutoLodLevelsGuarded(Ogre::MeshPtr* mesh) { return RunLodGeneratorGuarded(&DoGenerateAutoLodLevels, mesh); }
 
 MeshObject::MeshObject(Ogre::String meshName, Ogre::String entityRG, Ogre::String entityName, Ogre::SceneNode *m_scene_node)
     : m_scene_node(m_scene_node), m_entity(nullptr), m_cast_shadows(true)
@@ -164,13 +203,31 @@ void MeshObject::createEntity(Ogre::String meshName, Ogre::String entityRG, Ogre
             if (m_mesh->getNumSubMeshes() == 0 || (m_mesh->sharedVertexData != nullptr && m_mesh->sharedVertexData->vertexCount == 0))
                 lod_safe = false;
 
-            if (lod_safe && (lod_available || App::gfx_auto_lod->getBool()))
+            // Automatic LODs only where they pay off: skip small meshes (dashboard needles, lights - the generator
+            // crashed on the Tatra T813 't813_dash_light.mesh'). Fewer than 1000 vertices gain nothing from LODs.
+            size_t total_verts = 0;
+            auto inspect = [&](const Ogre::VertexData* vd)
+            {
+                if (!vd) return;
+                total_verts += vd->vertexCount;
+            };
+            inspect(m_mesh->sharedVertexData);
+            for (unsigned short si = 0; si < m_mesh->getNumSubMeshes(); ++si)
+            {
+                if (!m_mesh->getSubMesh(si)->useSharedVertices)
+                    inspect(m_mesh->getSubMesh(si)->vertexData);
+            }
+            const bool auto_lod_worth = (total_verts >= 1000);
+
+            if (lod_safe && (lod_available || (App::gfx_auto_lod->getBool() && auto_lod_worth)))
             {
                 LOG(fmt::format("[RoR|LOD] generating LOD levels for mesh '{}' (group '{}', manual LODs: {})", meshName, entityRG, lod_available));
-                if (lod_available)
-                    Ogre::MeshLodGenerator::getSingleton().generateLodLevels(config);
-                else
-                    Ogre::MeshLodGenerator::getSingleton().generateAutoconfiguredLodLevels(m_mesh);
+                const bool ok = lod_available ? GenerateLodLevelsGuarded(&config) : GenerateAutoLodLevelsGuarded(&m_mesh);
+                if (!ok)
+                {
+                    m_mesh->removeLodLevels();
+                    LOG(fmt::format("[RoR|LOD] LOD generator crashed on mesh '{}' - continuing without LODs", meshName));
+                }
             }
             else if (!lod_safe)
             {

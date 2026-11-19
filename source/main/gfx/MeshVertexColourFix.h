@@ -23,8 +23,13 @@
 // RTSS shaders (D3D11, GL3+, Vulkan) read COLOR0 and D3D11 throws "consumes semantic COLOR0 but no
 // such VertexElement provided" - a fatal error while loading the vehicle.
 // Fix: when a mesh has been loaded, give such submeshes a copy of the material without vertex colour tracking.
+//
+// Same for texture coordinates: meshes without UVs crash D3D11 as soon as a shader reads TEXCOORD0 - e.g. the
+// texture shadow caster, which keeps the texture of alpha-blended/alpha-tested passes ("consumes semantic
+// TEXCOORD0 but no such VertexElement provided"). Fix: such vertex data gets a zero UV channel.
 
 #include <Ogre.h>
+#include <vector>
 
 namespace RoR {
 
@@ -46,6 +51,14 @@ public:
 
     void processMeshCompleted(Ogre::Mesh* mesh) override
     {
+        if (mesh->sharedVertexData)
+            AddZeroTexCoords(mesh, mesh->sharedVertexData);
+        for (Ogre::SubMesh* sub : mesh->getSubMeshes())
+        {
+            if (!sub->useSharedVertices && sub->vertexData)
+                AddZeroTexCoords(mesh, sub->vertexData);
+        }
+
         for (Ogre::SubMesh* sub : mesh->getSubMeshes())
         {
             const Ogre::VertexData* vd = sub->useSharedVertices ? mesh->sharedVertexData : sub->vertexData;
@@ -75,6 +88,30 @@ public:
     }
 
 private:
+    static void AddZeroTexCoords(Ogre::Mesh* mesh, Ogre::VertexData* vd)
+    {
+        Ogre::VertexDeclaration* decl = vd->vertexDeclaration;
+        if (decl->findElementBySemantic(Ogre::VES_TEXTURE_COORDINATES) != nullptr)
+            return;
+        const Ogre::VertexElement* pos = decl->findElementBySemantic(Ogre::VES_POSITION);
+        if (pos == nullptr || !vd->vertexBufferBinding->isBufferBound(pos->getSource()))
+            return;
+        const size_t numVerts = vd->vertexBufferBinding->getBuffer(pos->getSource())->getNumVertices();
+        if (numVerts == 0)
+            return;
+
+        const unsigned short source = vd->vertexBufferBinding->getNextIndex();
+        Ogre::HardwareVertexBufferSharedPtr buf = Ogre::HardwareBufferManager::getSingleton().createVertexBuffer(
+            Ogre::VertexElement::getTypeSize(Ogre::VET_FLOAT2), numVerts, Ogre::HardwareBuffer::HBU_STATIC_WRITE_ONLY);
+        std::vector<float> zeros(numVerts * 2, 0.f);
+        buf->writeData(0, buf->getSizeInBytes(), zeros.data(), true);
+        decl->addElement(source, 0, Ogre::VET_FLOAT2, Ogre::VES_TEXTURE_COORDINATES, 0);
+        vd->vertexBufferBinding->setBinding(source, buf);
+
+        Ogre::LogManager::getSingleton().logMessage("[RoR|TexCoords] mesh '" + mesh->getName()
+            + "' has no texture coordinates - added a zero UV channel (" + Ogre::StringConverter::toString(numVerts) + " vertices)");
+    }
+
     static bool TracksVertexColour(const Ogre::MaterialPtr& mat)
     {
         for (Ogre::Technique* tech : mat->getTechniques())
