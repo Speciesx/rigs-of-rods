@@ -52,6 +52,7 @@
 #include "GUI_VehicleInfoTPanel.h"
 #include "GUI_SimPerfStats.h"
 #include "GUI_TyrePressure.h"
+#include "GUI_TrainPanel.h"
 #include "GUI_SurveyMap.h"
 #include "GUI_TextureToolWindow.h"
 #include "GUI_GameControls.h"
@@ -126,6 +127,7 @@ public:
     GUI::AirDashboard           AirDashboard;
     GUI::SimPerfStats           SimPerfStats;
     GUI::TyrePressure           TyrePressure;
+    GUI::TrainPanel             TrainPanel;
     GUI::MessageBoxDialog       MessageBoxDialog;
     GUI::MultiplayerSelector    MultiplayerSelector;
     GUI::MainSelector           MainSelector;

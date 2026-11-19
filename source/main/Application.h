@@ -501,6 +501,7 @@ enum CacheCategoryId
 
     CID_Projects = 8000, //!< For truck files under 'projects/' directory, to allow listing from editors.
     CID_Tuneups = 8001, //!< For unsorted tuneup files.
+    CID_Trains = 8002, //!< Virtual category: every `.train` file is listed here, regardless of its `fileinfo` category.
 
     CID_Max = 9000, //!< SPECIAL VALUE - Maximum allowed to be present in any mod files.
     CID_Unsorted = 9990,

@@ -250,6 +250,7 @@ void GUIManager::DrawSimGuiBuffered(GfxActor* player_gfx_actor)
     if (!this->GameMainMenu.IsVisible() && !App::ui_hide_gui->getBool())
     {
         this->TyrePressure.Draw(player_gfx_actor);
+        this->TrainPanel.Draw(player_gfx_actor);
     }
 
     this->DirectionArrow.Update(player_gfx_actor);

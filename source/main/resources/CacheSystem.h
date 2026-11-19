@@ -447,6 +447,7 @@ private:
 
             {CID_Projects, _LC("ModCategory", "Projects")},
             {CID_Tuneups, _LC("ModCategory", "Tuneups")},
+            {CID_Trains, _LC("ModCategory", "Trains")},
 
             // do not use category numbers above 9000!
             {CID_Unsorted, _LC("ModCategory", "Unsorted")},

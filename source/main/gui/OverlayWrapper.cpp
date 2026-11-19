@@ -371,6 +371,10 @@ void OverlayWrapper::ToggleDashboardOverlays(ActorPtr actor)
 
 void OverlayWrapper::showDashboardOverlays(bool show, ActorPtr actor)
 {
+    // Locomotives use the train panel (GUI_TrainPanel) instead of the truck dashboard
+    if (GUI::TrainPanel::IsTrain(actor))
+        show = false;
+
     m_dashboard_visible = show;
 
     // check if we use the new style dashboards

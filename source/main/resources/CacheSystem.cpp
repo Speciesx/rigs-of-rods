@@ -2366,8 +2366,9 @@ size_t CacheSystem::Query(CacheQuery& query)
             continue;
         }
 
-        // Category usage stats
-        query.cqy_res_category_usage[entry->categoryid]++;
+        // Category usage stats; `.train` files get their own (virtual) category
+        const int entry_cid = (entry->fext == "train") ? (int)CacheCategoryId::CID_Trains : entry->categoryid;
+        query.cqy_res_category_usage[entry_cid]++;
 
         query.cqy_res_category_usage[CacheCategoryId::CID_All]++;
 
@@ -2376,7 +2377,7 @@ size_t CacheSystem::Query(CacheQuery& query)
             query.cqy_res_category_usage[CacheCategoryId::CID_Fresh]++;
 
         // Filter by category
-        if ((query.cqy_filter_category_id <= CacheCategoryId::CID_Max && query.cqy_filter_category_id != entry->categoryid) ||
+        if ((query.cqy_filter_category_id <= CacheCategoryId::CID_Max && query.cqy_filter_category_id != entry_cid) ||
             (query.cqy_filter_category_id == CID_Fresh && !is_fresh))
         {
             continue;

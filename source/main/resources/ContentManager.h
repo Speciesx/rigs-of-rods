@@ -34,6 +34,7 @@ namespace RoR {
 
 class ContentManager:
     public Ogre::ResourceLoadingListener, // Ogre::ResourceGroupManager::getSingleton().setLoadingListener()
+    public Ogre::ResourceGroupListener,   // Ogre::ResourceGroupManager::getSingleton().addResourceGroupListener()
     public Ogre::ScriptCompilerListener   // Ogre::ScriptCompilerManager::getSingleton().setListener()
 {
 public:
@@ -92,6 +93,9 @@ private:
     Ogre::DataStreamPtr resourceLoading(const Ogre::String& name, const Ogre::String& group, Ogre::Resource* resource) override;
     void resourceStreamOpened(const Ogre::String& name, const Ogre::String& group, Ogre::Resource* resource, Ogre::DataStreamPtr& dataStream) override;
     bool resourceCollision(Ogre::Resource* resource, Ogre::ResourceManager* resourceManager) override;
+
+    // Ogre::ResourceGroupListener
+    void resourceGroupScriptingEnded(const Ogre::String& groupName) override; //!< Adds missing fragment programs, see FfpFragmentFix.h
 
     // Ogre::ScriptCompilerListener
     bool handleEvent(Ogre::ScriptCompiler *compiler, Ogre::ScriptCompilerEvent *evt, void *retval) override;

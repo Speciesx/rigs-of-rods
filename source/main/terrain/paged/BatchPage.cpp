@@ -500,6 +500,15 @@ void BatchPage::_updateShaders()
                   if (PagedD3D11::IsActive())
                      PagedD3D11::ApplyFragmentProgram(pass);
                }
+               else if (pass->getVertexProgramName() != vertexProgName)
+               {
+                  // The material brings its own vertex program (mods: tree/rock shaders, ET terrain...). It does not
+                  // know the BatchPage parameters (worldViewProj, camPos, fade ranges) - leave it untouched instead of
+                  // failing the whole terrain. The objects are then drawn without distance fading.
+                  LogManager::getSingleton().logMessage("[PagedGeometry] BatchPage: material '" + ptrMat->getName() +
+                     "' has its own vertex program '" + pass->getVertexProgramName() + "' - fade transitions disabled for it");
+                  continue;
+               }
 
 					try
                {

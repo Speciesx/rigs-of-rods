@@ -30,6 +30,7 @@ set(SOURCE_FILES
         gfx/AdvancedScreen.h
         gfx/CaelumSkyXConverter.{h,cpp}
         gfx/D3D11ShaderFix.h
+        gfx/FfpFragmentFix.h
         gfx/DustPool.{h,cpp}
         gfx/EnvironmentMap.{h,cpp}
         gfx/GfxActor.{h,cpp}
@@ -121,6 +122,7 @@ set(SOURCE_FILES
         gui/panels/GUI_ConsoleWindow.{h,cpp}
         gui/panels/GUI_DirectionArrow.{h,cpp}
         gui/panels/GUI_TyrePressure.{h,cpp}
+        gui/panels/GUI_TrainPanel.{h,cpp}
         gui/panels/GUI_LoadingWindow.{h,cpp}
         gui/panels/GUI_FlexbodyDebug.{h,cpp}
         gui/panels/GUI_FrictionSettings.{h,cpp}

@@ -571,7 +571,11 @@ void ImpostorTexture::renderTextures(bool force)
 	//Calculate the filename hash used to uniquely identity this render
 	uint32 key = FastHash(entityKey.c_str(), entityKey.size(), 0);
 	String tempdir = this->group->getParentPagedGeometry()->getTempdir();
-	ResourceGroupManager::getSingleton().addResourceLocation(tempdir, "FileSystem", "Impostors");
+	// Add the location only once: every addResourceLocation() appends another entry for the *same* Archive object,
+	// and removeResourceLocation() below destroys that archive while the other entries still point to it ->
+	// the next resource lookup in any group (e.g. a sound file) crashes in OgreMain.
+	if (!ResourceGroupManager::getSingleton().resourceLocationExists(tempdir, "Impostors"))
+		ResourceGroupManager::getSingleton().addResourceLocation(tempdir, "FileSystem", "Impostors");
 
 	String fileName = StringUtil::format("Impostor.%08X.%d", key, textureSize);
 
@@ -620,8 +624,9 @@ void ImpostorTexture::renderTextures(bool force)
 #ifdef IMPOSTOR_FILE_SAVE
 		//Save RTT to file with respecting the temp dir
 		renderTarget->writeContentsToFile(tempdir + fileName+".png");
-        // force re-index
-        ResourceGroupManager::getSingleton().removeResourceLocation(tempdir, "Impostors");
+        // force re-index (safe: the location exists exactly once, see above)
+        if (ResourceGroupManager::getSingleton().resourceLocationExists(tempdir, "Impostors"))
+            ResourceGroupManager::getSingleton().removeResourceLocation(tempdir, "Impostors");
         ResourceGroupManager::getSingleton().addResourceLocation(tempdir, "FileSystem", "Impostors");
 
 		//Load the render into the appropriate texture view

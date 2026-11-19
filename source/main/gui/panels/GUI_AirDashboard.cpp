@@ -28,10 +28,12 @@
 #include "GameContext.h"
 #include "GUIManager.h"
 #include "GfxActor.h"
+#include "Language.h"
 #include "SimBuffers.h"
 #include "SimConstants.h"
 
 #include <imgui.h>
+#include <fmt/format.h>
 
 #include <algorithm>
 #include <cfloat>
@@ -374,7 +376,7 @@ void AirDashboard::Draw(GfxActor* gfx_actor)
             std::vector<Tick> t = { {0,"0"},{50,"50"},{100,"100"},{150,"150"},{200,"200"},{250,"250"},{300,"300"} };
             Dial(c, cx, cy, R, false, f, t, kt, 10.f);
             snprintf(buf, sizeof(buf), "%d kt", (int)kt);
-            Under(cx, "AIRSPEED", buf);
+            Under(cx, _LC("AirDashboard", "AIRSPEED"), buf);
             x += FULL_W;
         }
         // Altimeter (one revolution = 1000 ft, scale in hundreds of feet)
@@ -386,7 +388,7 @@ void AirDashboard::Draw(GfxActor* gfx_actor)
             const float hundreds = fmodf(fmodf(alt_ft, 1000.f) + 1000.f, 1000.f) / 100.f;
             Dial(c, cx, cy, R, false, f, t, hundreds, 10.f);
             snprintf(buf, sizeof(buf), "%d ft", (int)alt_ft);
-            Under(cx, "ALTITUDE x100", buf);
+            Under(cx, _LC("AirDashboard", "ALTITUDE x100"), buf);
             x += FULL_W;
         }
         // Vertical speed (half dial, 0 at 9 o'clock, scale in 1000 ft/min)
@@ -402,7 +404,7 @@ void AirDashboard::Draw(GfxActor* gfx_actor)
             const float vvi = sb.simbuf_node0_velo.y * 196.85f;
             Dial(c, px, cy, RH, true, f, t, vvi / 1000.f, 9.f);
             snprintf(buf, sizeof(buf), "%+d fpm", (int)vvi);
-            Under(px - 22.f, "VERT SPEED", buf);
+            Under(px - 22.f, _LC("AirDashboard", "VERT SPEED"), buf);
             x += HALF_W;
         }
         // Attitude indicator
@@ -481,7 +483,7 @@ void AirDashboard::Draw(GfxActor* gfx_actor)
             while (rd > 180.f) rd -= 360.f;
             while (rd < -180.f) rd += 360.f;
             snprintf(buf, sizeof(buf), "P %+d  R %+d", (int)pitch_deg, (int)rd);
-            Under(cx, "ATTITUDE", buf);
+            Under(cx, _LC("AirDashboard", "ATTITUDE"), buf);
             x += FULL_W;
         }
         // AOA (half dial)
@@ -527,7 +529,7 @@ void AirDashboard::Draw(GfxActor* gfx_actor)
             }
             const float hd360 = fmodf(hdg + 360.f, 360.f);
             snprintf(buf, sizeof(buf), "%03d", (int)hd360);
-            Under(cx, "HEADING", buf);
+            Under(cx, _LC("AirDashboard", "HEADING"), buf);
             x += FULL_W;
         }
 
@@ -592,14 +594,18 @@ void AirDashboard::Draw(GfxActor* gfx_actor)
         // ---- Settings popup ----
         if (ImGui::BeginPopup("AirDashSettings"))
         {
-            const char* names[9] = { "Airspeed", "Altitude", "Vertical speed", "Attitude", "AOA", "Heading (HSI)", "Engine RPM", "Engine pitch", "Engine torque" };
+            // Translated each frame; std::string keeps the text alive while ImGui uses it
+            const std::string names[9] = {
+                _LC("AirDashboard", "Airspeed"), _LC("AirDashboard", "Altitude"), _LC("AirDashboard", "Vertical speed"),
+                _LC("AirDashboard", "Attitude"), _LC("AirDashboard", "AOA"), _LC("AirDashboard", "Heading (HSI)"),
+                _LC("AirDashboard", "Engine RPM"), _LC("AirDashboard", "Engine pitch"), _LC("AirDashboard", "Engine torque") };
             for (int i = 0; i < 9; ++i)
-                ImGui::Checkbox(names[i], &m_show[i]);
-            ImGui::Checkbox("Outside temperature", &m_show_temp);
+                ImGui::Checkbox(fmt::format("{}##show{}", names[i], i).c_str(), &m_show[i]);
+            ImGui::Checkbox(fmt::format("{}##showtemp", _LC("AirDashboard", "Outside temperature")).c_str(), &m_show_temp);
             ImGui::Separator();
-            ImGui::Checkbox("Transparent background", &m_transparent);
-            ImGui::SliderFloat("Scale", &m_scale_mul, 0.6f, 2.0f, "%.2f");
-            if (ImGui::Button("Reset position"))
+            ImGui::Checkbox(fmt::format("{}##transparent", _LC("AirDashboard", "Transparent background")).c_str(), &m_transparent);
+            ImGui::SliderFloat(fmt::format("{}##scale", _LC("AirDashboard", "Scale")).c_str(), &m_scale_mul, 0.6f, 2.0f, "%.2f");
+            if (ImGui::Button(fmt::format("{}##resetpos", _LC("AirDashboard", "Reset position")).c_str()))
                 m_reset_pos = true;
             ImGui::EndPopup();
         }

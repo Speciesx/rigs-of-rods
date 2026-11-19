@@ -54,6 +54,7 @@
 #include <OgreHighLevelGpuProgramManager.h>
 #include <OgreScriptCompiler.h>
 #include "D3D11ShaderFix.h"
+#include "FfpFragmentFix.h"
 #include <regex>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
@@ -173,6 +174,7 @@ void ContentManager::InitContentManager()
     }
 
     Ogre::ScriptCompilerManager::getSingleton().setListener(this);
+    Ogre::ResourceGroupManager::getSingleton().addResourceGroupListener(this); // see resourceGroupScriptingEnded()
     MeshVertexColourFix::Install(); // RTSS: materials tracking vertex colours on meshes without them
 
     // Initialize "managed materials" first
@@ -356,6 +358,13 @@ bool ContentManager::resourceCollision(Ogre::Resource* resource, Ogre::ResourceM
     RoR::LogFormat("[RoR|ContentManager] Skipping resource with duplicate name: '%s' (origin: '%s')",
         resource->getName().c_str(), resource->getOrigin().c_str());
     return false; // Instruct OGRE to drop the new resource and keep the original.
+}
+
+void ContentManager::resourceGroupScriptingEnded(const Ogre::String& groupName)
+{
+    // Render systems without fixed-function pipeline (D3D11, GL3+, Vulkan): passes with only a vertex program
+    // need a generated fragment program, otherwise OGRE throws when the material is first rendered.
+    FfpFragmentFix::FixGroup(groupName);
 }
 
 static bool IsD3D11Active()
