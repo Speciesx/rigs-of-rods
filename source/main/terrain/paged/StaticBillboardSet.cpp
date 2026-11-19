@@ -142,7 +142,12 @@ mFadeInvisibleDist      (0.f)
          }
 
 		 HighLevelGpuProgramPtr vertexShader = HighLevelGpuProgramManager::getSingleton().getByName("Sprite_vp");
-         OgreAssert(!vertexShader, "Sprite_vp already exist");
+         if (vertexShader) // left over from an earlier terrain (e.g. instance count dropped to 0 while still registered)
+         {
+            Ogre::LogManager::getSingleton().logMessage("[PagedGeometry] Sprite_vp already exists, recreating it");
+            HighLevelGpuProgramManager::getSingleton().remove(vertexShader);
+            vertexShader.reset();
+         }
 
          vertexShader = HighLevelGpuProgramManager::getSingleton().createProgram(
             "Sprite_vp", ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME, shaderLanguage, GPT_VERTEX_PROGRAM);
@@ -251,7 +256,12 @@ mFadeInvisibleDist      (0.f)
          }
 
 		 HighLevelGpuProgramPtr vertexShader2 = HighLevelGpuProgramManager::getSingleton().getByName("SpriteFade_vp");
-         OgreAssert(!vertexShader2, "SpriteFade_vp already exist");
+         if (vertexShader2) // left over from an earlier terrain (e.g. instance count dropped to 0 while still registered)
+         {
+            Ogre::LogManager::getSingleton().logMessage("[PagedGeometry] SpriteFade_vp already exists, recreating it");
+            HighLevelGpuProgramManager::getSingleton().remove(vertexShader2);
+            vertexShader2.reset();
+         }
          vertexShader2 = HighLevelGpuProgramManager::getSingleton().createProgram("SpriteFade_vp",
             ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME, shaderLanguage, GPT_VERTEX_PROGRAM);
          vertexShader2->setSource(PagedD3D11::IsActive() ? PagedD3D11::ConvertVertexSource(vertexProg2) : vertexProg2);

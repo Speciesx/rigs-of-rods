@@ -44,22 +44,34 @@ DustPool::DustPool(Ogre::SceneManager* sm, const char* dname, int dsize, const s
 {
     std::string poolname = fmt::format("DustPools/{}", custom_name.empty() ? dname : custom_name);
     parent_snode = sm->getRootSceneNode()->createChildSceneNode(poolname);
+    for (int i = 0; i < MAX_DUSTS; i++)
+        emitters[i] = nullptr;
 
-    for (int i = 0; i < size; i++)
+    m_ps = sm->createParticleSystem(poolname, dname);
+    if (!m_ps || m_ps->getNumEmitters() == 0)
     {
-        sns[i] = parent_snode->createChildSceneNode();
-        pss[i] = sm->createParticleSystem(fmt::format("{}_{}", poolname, i), dname);
-        if (pss[i])
-        {
-            sns[i]->attachObject(pss[i]);
-            pss[i]->setCastShadows(false);
-            pss[i]->setVisibilityFlags(RoR::DEPTHMAP_DISABLED);
-            if (pss[i]->getNumEmitters() > 0)
-            {
-                pss[i]->getEmitter(0)->setEnabled(false);
-            }
-        }
+        size = 0;
+        return;
     }
+    parent_snode->attachObject(m_ps);
+    m_ps->setCastShadows(false);
+    m_ps->setVisibilityFlags(RoR::DEPTHMAP_DISABLED);
+    // The emitters move all over the map: keep the bounds following the particles (OGRE stops after 10 s by default)
+    m_ps->setBoundsAutoUpdated(true, 0.f);
+
+    // The template's quota is meant for one emitter: scale it to the number of slots.
+    m_ps->setParticleQuota(m_ps->getParticleQuota() * size);
+
+    // Slot 0 uses the template's emitter, the other slots get copies of it.
+    Ogre::ParticleEmitter* first = m_ps->getEmitter(0);
+    emitters[0] = first;
+    for (int i = 1; i < size; i++)
+    {
+        emitters[i] = m_ps->addEmitter(first->getType());
+        first->copyParametersTo(emitters[i]);
+    }
+    for (int i = 0; i < size; i++)
+        emitters[i]->setEnabled(false);
 }
 
 DustPool::~DustPool()
@@ -69,28 +81,21 @@ DustPool::~DustPool()
 
 void DustPool::Discard(Ogre::SceneManager* sm)
 {
-	for (int i = 0; i < size; i++)
-	{
-		sns[i]->removeAndDestroyAllChildren();
-		sm->destroySceneNode(sns[i]);
-		sns[i] = nullptr;
-
-		if (pss[i])
-		{
-			sm->destroyParticleSystem(pss[i]);
-			pss[i] = nullptr;
-		}
-	}
+    if (m_ps)
+    {
+        sm->destroyParticleSystem(m_ps); // also destroys the emitters
+        m_ps = nullptr;
+    }
+    for (int i = 0; i < MAX_DUSTS; i++)
+        emitters[i] = nullptr;
     sm->destroySceneNode(parent_snode);
 	m_is_discarded = true;
 }
 
 void DustPool::setVisible(bool s)
 {
-    for (int i = 0; i < size; i++)
-    {
-        pss[i]->setVisible(s);
-    }
+    if (m_ps)
+        m_ps->setVisible(s);
 }
 
 //Dust
@@ -194,11 +199,8 @@ void DustPool::allocRipple(Vector3 pos, Vector3 vel)
 
 void DustPool::AdjustDustPoolSpeedFactor(GfxActor* gfx_actor /* = nullptr */)
 {
-    // This must be done over all particle system, even those not allocated at the moment
-    for (int i = 0; i < size; i++)
-    {
-        App::GetGfxScene()->AdjustParticleSystemTimeFactor(pss[i], gfx_actor);
-    }
+    if (m_ps)
+        App::GetGfxScene()->AdjustParticleSystemTimeFactor(m_ps, gfx_actor);
 }
 
 /// The 'DeflectorPlane' affector of the water particle scripts sits at world y=0. On maps with another water level (or with waves)
@@ -232,9 +234,19 @@ void DustPool::update()
     Wavefield* water = (RoR::App::GetGameContext()->GetTerrain() != nullptr) ? RoR::App::GetGameContext()->GetTerrain()->getWater() : nullptr;
     const float brightness = CalcParticleBrightness();
 
+    // All slots share one deflector plane now: use the water surface at the first slot that needs it
+    // (the water height differs only by the waves between the slots of one frame).
+    bool deflector_set = false;
+    auto set_deflector = [&](float height)
+    {
+        if (!deflector_set)
+            SetDeflectorHeight(m_ps, height);
+        deflector_set = true;
+    };
+
     for (int i = 0; i < allocated; i++)
     {
-        ParticleEmitter* emit = pss[i]->getEmitter(0);
+        ParticleEmitter* emit = emitters[i];
         Vector3 ndir = velocities[i];
         Real vel = ndir.length();
         ColourValue col = colours[i];
@@ -249,7 +261,7 @@ void DustPool::update()
         {
             emit->setDirection(ndir);
             emit->setParticleVelocity(vel);
-            sns[i]->setPosition(positions[i]);
+            emit->setPosition(positions[i]);
         }
 
         if (types[i] == DUST_NORMAL)
@@ -300,7 +312,7 @@ void DustPool::update()
             emit->setEmissionRate(rates[i]);
             // Drips stop on the water surface (the deflector plane of the script sits at y=0 - they used to sink
             // to the sea floor and show up as a bright column under the boat).
-            SetDeflectorHeight(pss[i], (water != nullptr) ? water->CalcWavesHeight(positions[i]) : 0.f);
+            set_deflector((water != nullptr) ? water->CalcWavesHeight(positions[i]) : 0.f);
         }
         else if (types[i] == DUST_SPLASH)
         {
@@ -310,7 +322,7 @@ void DustPool::update()
             if (positions[i].y < surface + 0.05f)
             {
                 positions[i].y = surface + 0.05f;
-                sns[i]->setPosition(positions[i]);
+                emit->setPosition(positions[i]);
             }
             // Spray: thrown up (and a bit along the movement), not shot ahead with the full boat speed
             ndir.y = 0.0;
@@ -320,7 +332,7 @@ void DustPool::update()
 
             emit->setDirection(ndir);
             emit->setParticleVelocity(std::min<Real>(std::max<Real>(vel * 0.3, 1.0), 6.0));
-            SetDeflectorHeight(pss[i], surface);
+            set_deflector(surface);
 
             col.a = sqrt(vel) * 0.04;
             col.b = 0.9;
@@ -332,8 +344,8 @@ void DustPool::update()
         else if (types[i] == DUST_RIPPLE)
         {
             positions[i].y = ((water != nullptr) ? water->CalcWavesHeight(positions[i]) : 0.f) - 0.02;
-            sns[i]->setPosition(positions[i]);
-            SetDeflectorHeight(pss[i], positions[i].y);
+            emit->setPosition(positions[i]);
+            set_deflector(positions[i].y);
 
             col.a = vel * 0.04;
             col.b = 0.9;
@@ -353,7 +365,7 @@ void DustPool::update()
     }
     for (int i = allocated; i < size; i++)
     {
-        pss[i]->getEmitter(0)->setEnabled(false);
+        emitters[i]->setEnabled(false);
     }
     allocated = 0;
 }
