@@ -17,6 +17,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 #include "OgreString.h"
 #include "OgreStringConverter.h"
 #include "OgreMaterialManager.h"
+#include "OgreControllerManager.h"
 #include "OgreMaterial.h"
 #include "OgreHardwareBufferManager.h"
 #include "OgreHardwareBuffer.h"
@@ -146,7 +147,8 @@ void GrassLoader::frameUpdate()
 	unsigned long ellapsedTime = currentTime - lastTime;
 	lastTime = currentTime;
 
-	float ellapsed = ellapsedTime / 1000.0f;
+	// RoR: scaled by OGRE's time factor, which is 0 while the simulation is paused (GfxScene::UpdateScene)
+	float ellapsed = ellapsedTime / 1000.0f * Ogre::ControllerManager::getSingleton().getTimeFactor();
 
 	//Update the vertex shader parameters
 	std::list<GrassLayer*>::iterator it;

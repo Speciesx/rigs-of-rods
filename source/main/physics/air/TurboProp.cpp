@@ -292,6 +292,11 @@ void Turboprop::updateForces(float dt, int doUpdate)
     }
 
     timer += dt;
+    // engine drowned: propeller hub or exhaust under water (cars: Engine::m_air_intake_node)
+    if (ignition && (m_actor->ar_nodes[noderef].nd_under_water || m_actor->ar_nodes[nodeback].nd_under_water))
+    {
+        this->StopEngine();
+    }
     //evaluate the rotation speed
     float velacc = 0;
     for (int i = 0; i < numblades; i++)
@@ -533,8 +538,19 @@ void Turboprop::setMaxPower(float power)
     }
 }
 
+void Turboprop::StopEngine()
+{
+    ignition = false;
+    warmup = false;
+    // kill instead of stop: SoundScriptInstance::stop() would let a running start sound play to its end
+    SOUND_KILL(m_actor->ar_instance_id, src_id);
+}
+
 void Turboprop::reset()
 {
+    this->StopEngine();
+    SOUND_MODULATE(m_actor->ar_instance_id, thr_id, 0);
+    SOUND_MODULATE(m_actor->ar_instance_id, mod_id, 0);
     rpm = 0;
     throtle = 0;
     failed = false;

@@ -82,6 +82,7 @@ public:
 
     bool getIgnition() { return m_ignition; };
     void setIgnition(bool val) { m_ignition = val; };
+    void StopEngine() override;
     bool getWarmup() { return m_warmup; };
     bool isFailed() { return m_is_failed; };
     bool isDetached() { return m_detached; };

@@ -86,6 +86,7 @@ public:
     AeroEngineType getType() { return AeroEngineType::AE_XPROP; };
     bool getIgnition() { return ignition; };
     void setIgnition(bool val) { ignition = val; };
+    void StopEngine() override;
     int getNoderef() { return noderef; };
     NodeNum_t GetFrontNode()  const override { return RoR::NODENUM_INVALID; }; // turboprops have no front node
     NodeNum_t GetBackNode()   const override { return nodeback; };

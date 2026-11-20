@@ -268,6 +268,11 @@ void Turbojet::updateForces(float dt, int doUpdate)
         SOUND_MODULATE(m_actor, m_sound_mod, m_rpm_percent);
     }
     m_timer += dt;
+    // engine drowned: intake or exhaust under water (cars: Engine::m_air_intake_node)
+    if (m_ignition && (m_actor->ar_nodes[m_node_front].nd_under_water || m_actor->ar_nodes[m_node_back].nd_under_water))
+    {
+        this->StopEngine();
+    }
     m_axis = m_actor->ar_nodes[m_node_front].RelPosition - m_actor->ar_nodes[m_node_back].RelPosition;
     float axlen = m_axis.length();
     m_axis = m_axis / axlen; //normalize
@@ -370,8 +375,20 @@ void Turbojet::setAfterburnThrust(float abThrust)
     }
 }
 
+void Turbojet::StopEngine()
+{
+    m_ignition = false;
+    m_warmup = false;
+    // kill instead of stop: SoundScriptInstance::stop() would let a running start sound play to its end
+    SOUND_KILL(m_actor, m_sound_src);
+    SOUND_STOP(m_actor, m_sound_ab);
+}
+
 void Turbojet::reset()
 {
+    this->StopEngine();
+    SOUND_MODULATE(m_actor, m_sound_thr, 0);
+    SOUND_MODULATE(m_actor, m_sound_mod, 0);
     m_rpm_percent = 0;
     m_throtle = 0;
     m_propwash = 0;

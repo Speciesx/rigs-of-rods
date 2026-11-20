@@ -69,6 +69,7 @@ public:
     virtual AeroEngineType getType() =0;
     virtual bool getIgnition() =0;
     virtual void setIgnition(bool val) =0;
+    virtual void StopEngine() =0; //!< Engine dies (e.g. drowned): ignition off, start/running sound cut off
     virtual int getNoderef() =0;
     virtual NodeNum_t GetFrontNode() const =0;
     virtual NodeNum_t GetBackNode()  const =0;

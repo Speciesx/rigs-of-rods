@@ -193,6 +193,8 @@ void GfxScene::ClearScene()
     }
     m_dustpools.clear();
 
+    Ogre::ControllerManager::getSingleton().setTimeFactor(1.f); // in case we leave a paused simulation
+
     // Heat haze particles are destroyed by the scene wipe below
     m_heathaze_psys.clear();
     if (m_heathaze_compositor)
@@ -227,6 +229,12 @@ void GfxScene::UpdateScene(float dt)
 {
     // NOTE: The `dt` parameter here is simulation time (0 when paused), not real time!
     // ================================================================================
+
+    // Pause: freeze OGRE's frame time - texture animations (propeller spinner discs, ...), shader 'time'
+    // auto params (heat haze) and the grass wind (GrassLoader) all run on it.
+    const bool paused = App::sim_state->getEnum<SimState>() == SimState::PAUSED
+        || App::GetGameContext()->GetActorManager()->IsSimulationPaused();
+    Ogre::ControllerManager::getSingleton().setTimeFactor(paused ? 0.f : 1.f);
 
     this->UpdateHeatHaze();
 
