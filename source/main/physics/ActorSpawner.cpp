@@ -5886,23 +5886,33 @@ void ActorSpawner::CreateBeamVisuals(beam_t & beam, int beam_index, bool visible
 
     try
     {
-        Ogre::Entity* entity = App::GetGfxScene()->GetSceneManager()->createEntity(this->ComposeName("beam", beam_index), "beam.mesh");
         Ogre::MaterialPtr mat = this->FindOrCreateCustomizedMaterial(material_name, m_custom_resource_group);
-        entity->setMaterial(mat);
+
+        // One batched mesh per material (see `GfxActor::UpdateRods()`)
+        auto& batches = m_actor->m_gfx_actor->m_rod_batches;
+        auto found = std::find_if(batches.begin(), batches.end(),
+            [&mat](const GfxActor::RodBatch& b) { return b.rb_material == mat; });
+        size_t batch_index = (size_t)std::distance(batches.begin(), found);
+        if (found == batches.end())
+        {
+            GfxActor::RodBatch batch;
+            batch.rb_material = mat;
+            batch.rb_object = App::GetGfxScene()->GetSceneManager()->createManualObject(this->ComposeName("beambatch", (int)batch_index));
+            batch.rb_object->setDynamic(true); // rebuilt every frame
+            batch.rb_object->setVisible(false); // until the first update fills it
+            m_actor->m_gfx_actor->m_gfx_beams_parent_scenenode->attachObject(batch.rb_object);
+            batches.push_back(batch);
+        }
 
         BeamGfx beamx;
+        beamx.rod_batch = static_cast<uint16_t>(batch_index);
         beamx.rod_diameter = beam_defaults->visual_beam_diameter;
         beam.default_beam_diameter = beam_defaults->visual_beam_diameter; // Hack for ActorExport.cpp
         beamx.rod_beam_index = static_cast<uint16_t>(beam_index);
         beamx.rod_node1 = beam.p1->pos;
         beamx.rod_node2 = beam.p2->pos;
         beamx.rod_target_actor = m_actor;
-        beamx.rod_is_visible = false;
-
-        beamx.rod_scenenode = m_actor->m_gfx_actor->m_gfx_beams_parent_scenenode->createChildSceneNode(this->ComposeName("beam", beam_index));
-        beamx.rod_scenenode->attachObject(entity);
-        beamx.rod_scenenode->setVisible(visible, /*cascade:*/ false);
-        beamx.rod_scenenode->setScale(beam_defaults->visual_beam_diameter, -1, beam_defaults->visual_beam_diameter);
+        beamx.rod_is_visible = false; // Visibility follows the beam state (disabled/broken), see `GfxActor::UpdateSimDataBuffer()`
 
         m_actor->m_gfx_actor->m_gfx_beams.push_back(beamx);
     }

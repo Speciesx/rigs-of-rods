@@ -106,12 +106,12 @@ RoR::GfxActor::~GfxActor()
     {
         try
         {
-            for (BeamGfx& rod: m_gfx_beams)
+            for (RodBatch& batch: m_rod_batches)
             {
-                Ogre::MovableObject* ogre_object = rod.rod_scenenode->getAttachedObject(0);
-                rod.rod_scenenode->detachAllObjects();
-                App::GetGfxScene()->GetSceneManager()->destroyEntity(static_cast<Ogre::Entity*>(ogre_object));
+                batch.rb_object->detachFromParent();
+                App::GetGfxScene()->GetSceneManager()->destroyManualObject(batch.rb_object);
             }
+            m_rod_batches.clear();
             m_gfx_beams.clear();
 
             m_gfx_beams_parent_scenenode->removeAndDestroyAllChildren();
@@ -1671,26 +1671,202 @@ void RoR::GfxActor::CycleDebugViews()
     while (!this->IsDebugViewApplicable(m_debug_view));
 }
 
+namespace {
+
+/// Geometry of 'beam.mesh' (unit rod along Y), read once and replicated for every visible beam.
+struct RodTemplate
+{
+    std::vector<Ogre::Vector3> pos;
+    std::vector<Ogre::Vector3> nrm;
+    std::vector<Ogre::Vector2> uv;
+    std::vector<uint32_t>      idx;
+};
+
+bool ReadRodTemplateFromMesh(RodTemplate& t)
+{
+    Ogre::MeshPtr mesh = Ogre::MeshManager::getSingleton().load("beam.mesh", Ogre::RGN_AUTODETECT);
+    bool shared_done = false;
+    uint32_t shared_base = 0;
+    for (Ogre::SubMesh* sub: mesh->getSubMeshes())
+    {
+        if (sub->operationType != Ogre::RenderOperation::OT_TRIANGLE_LIST || !sub->indexData || sub->indexData->indexCount == 0)
+            return false;
+
+        Ogre::VertexData* vd = sub->useSharedVertices ? mesh->sharedVertexData : sub->vertexData;
+        uint32_t base = (uint32_t)t.pos.size();
+        if (sub->useSharedVertices && shared_done)
+        {
+            base = shared_base;
+        }
+        else
+        {
+            const Ogre::VertexElement* pe = vd->vertexDeclaration->findElementBySemantic(Ogre::VES_POSITION);
+            const Ogre::VertexElement* ne = vd->vertexDeclaration->findElementBySemantic(Ogre::VES_NORMAL);
+            const Ogre::VertexElement* te = vd->vertexDeclaration->findElementBySemantic(Ogre::VES_TEXTURE_COORDINATES, 0);
+            if (!pe || pe->getType() != Ogre::VET_FLOAT3 || (ne && ne->getType() != Ogre::VET_FLOAT3) || (te && te->getType() != Ogre::VET_FLOAT2))
+                return false;
+
+            const Ogre::VertexElement* elems[3] = { pe, ne, te };
+            t.pos.resize(base + vd->vertexCount, Ogre::Vector3::ZERO);
+            t.nrm.resize(base + vd->vertexCount, Ogre::Vector3::UNIT_X);
+            t.uv.resize(base + vd->vertexCount, Ogre::Vector2::ZERO);
+            for (int e = 0; e < 3; e++)
+            {
+                if (!elems[e])
+                    continue;
+                Ogre::HardwareVertexBufferSharedPtr buf = vd->vertexBufferBinding->getBuffer(elems[e]->getSource());
+                Ogre::HardwareBufferLockGuard lock(buf.get(), Ogre::HardwareBuffer::HBL_READ_ONLY);
+                const size_t vsize = buf->getVertexSize();
+                unsigned char* vptr = static_cast<unsigned char*>(lock.pData) + vd->vertexStart * vsize;
+                for (size_t v = 0; v < vd->vertexCount; v++, vptr += vsize)
+                {
+                    float* f = nullptr;
+                    elems[e]->baseVertexPointerToElement(vptr, &f);
+                    if (e == 0)      t.pos[base + v] = Ogre::Vector3(f[0], f[1], f[2]);
+                    else if (e == 1) t.nrm[base + v] = Ogre::Vector3(f[0], f[1], f[2]);
+                    else             t.uv[base + v]  = Ogre::Vector2(f[0], f[1]);
+                }
+            }
+            if (sub->useSharedVertices)
+            {
+                shared_done = true;
+                shared_base = base;
+            }
+        }
+
+        Ogre::IndexData* id = sub->indexData;
+        Ogre::HardwareBufferLockGuard lock(id->indexBuffer.get(), Ogre::HardwareBuffer::HBL_READ_ONLY);
+        const bool is32 = id->indexBuffer->getType() == Ogre::HardwareIndexBuffer::IT_32BIT;
+        for (size_t i = 0; i < id->indexCount; i++)
+        {
+            const size_t k = id->indexStart + i;
+            const uint32_t index = is32 ? static_cast<uint32_t*>(lock.pData)[k] : static_cast<uint16_t*>(lock.pData)[k];
+            t.idx.push_back(base + index);
+        }
+    }
+    return !t.pos.empty() && !t.idx.empty();
+}
+
+const RodTemplate& GetRodTemplate()
+{
+    static RodTemplate tpl;
+    static bool initialized = false;
+    if (!initialized)
+    {
+        initialized = true;
+        bool ok = false;
+        try
+        {
+            ok = ReadRodTemplateFromMesh(tpl);
+        }
+        catch (Ogre::Exception& e)
+        {
+            RoR::LogFormat("[RoR|Gfx] Could not read 'beam.mesh' for batched beams: %s", e.getDescription().c_str());
+        }
+        if (!ok)
+        {
+            // Fallback: 8-sided open cylinder, diameter 1, length 1, centered
+            tpl = RodTemplate();
+            const int SIDES = 8;
+            for (int s = 0; s <= SIDES; s++)
+            {
+                const float a = Ogre::Math::TWO_PI * s / SIDES;
+                const Ogre::Vector3 n(cosf(a), 0.f, sinf(a));
+                for (int end = 0; end < 2; end++)
+                {
+                    tpl.pos.push_back(Ogre::Vector3(n.x * 0.5f, end ? 0.5f : -0.5f, n.z * 0.5f));
+                    tpl.nrm.push_back(n);
+                    tpl.uv.push_back(Ogre::Vector2((float)s / SIDES, (float)end));
+                }
+            }
+            for (uint32_t s = 0; s < SIDES; s++)
+            {
+                const uint32_t i = s * 2;
+                tpl.idx.insert(tpl.idx.end(), { i, i + 1, i + 2, i + 2, i + 1, i + 3 });
+            }
+        }
+        RoR::LogFormat("[RoR|Gfx] Batched beams: %d vertices, %d indices per beam%s",
+            (int)tpl.pos.size(), (int)tpl.idx.size(), ok ? "" : " (fallback cylinder)");
+    }
+    return tpl;
+}
+
+} // namespace
+
 void RoR::GfxActor::UpdateRods()
 {
-    for (BeamGfx& rod: m_gfx_beams)
+    if (m_rod_batches.empty())
+        return;
+
+    const RodTemplate& tpl = GetRodTemplate();
+    const size_t num_verts = tpl.pos.size();
+    NodeSB* nodes1 = this->GetSimNodeBuffer();
+
+    for (size_t b = 0; b < m_rod_batches.size(); b++)
     {
-        rod.rod_scenenode->setVisible(rod.rod_is_visible);
-        if (!rod.rod_is_visible)
+        RodBatch& batch = m_rod_batches[b];
+
+        size_t count = 0;
+        for (const BeamGfx& rod: m_gfx_beams)
+        {
+            if (rod.rod_batch == b && rod.rod_is_visible)
+                count++;
+        }
+        if (count == 0)
+        {
+            batch.rb_object->setVisible(false);
             continue;
+        }
 
-        NodeSB* nodes1 = this->GetSimNodeBuffer();
-        Ogre::Vector3 pos1 = nodes1[rod.rod_node1].AbsPosition;
-        NodeSB* nodes2 = rod.rod_target_actor->GetGfxActor()->GetSimNodeBuffer();
-        Ogre::Vector3 pos2 = nodes2[rod.rod_node2].AbsPosition;
+        Ogre::ManualObject* mo = batch.rb_object;
+        if (mo->getNumSections() == 0)
+            mo->begin(batch.rb_material, Ogre::RenderOperation::OT_TRIANGLE_LIST);
+        else
+            mo->beginUpdate(0);
+        mo->estimateVertexCount(count * num_verts);
+        mo->estimateIndexCount(count * tpl.idx.size());
 
-        // Classic method
-        float beam_diameter = rod.rod_diameter;
-        float beam_length = pos1.distance(pos2);
+        Ogre::AxisAlignedBox aabb;
+        uint32_t base = 0;
+        for (const BeamGfx& rod: m_gfx_beams)
+        {
+            if (rod.rod_batch != b || !rod.rod_is_visible)
+                continue;
 
-        rod.rod_scenenode->setPosition(pos1.midPoint(pos2));
-        rod.rod_scenenode->setScale(beam_diameter, beam_length, beam_diameter);
-        rod.rod_scenenode->setOrientation(GfxScene::SpecialGetRotationTo(Ogre::Vector3::UNIT_Y, (pos1 - pos2)));
+            const Ogre::Vector3 pos1 = nodes1[rod.rod_node1].AbsPosition;
+            NodeSB* nodes2 = rod.rod_target_actor->GetGfxActor()->GetSimNodeBuffer();
+            const Ogre::Vector3 pos2 = nodes2[rod.rod_node2].AbsPosition;
+
+            // Same transform as the former per-beam SceneNode: scale (diameter, length, diameter), rotate Y onto the beam, move to its middle
+            const float diameter = rod.rod_diameter;
+            const float length = pos1.distance(pos2);
+            if (length < 1e-4f || diameter <= 0.f)
+                continue;
+
+            Ogre::Matrix3 rot;
+            GfxScene::SpecialGetRotationTo(Ogre::Vector3::UNIT_Y, (pos1 - pos2)).ToRotationMatrix(rot);
+            const Ogre::Vector3 mid = pos1.midPoint(pos2);
+            const Ogre::Vector3 scale(diameter, length, diameter);
+            const Ogre::Vector3 inv_scale(1.f / diameter, 1.f / length, 1.f / diameter);
+
+            for (size_t v = 0; v < num_verts; v++)
+            {
+                const Ogre::Vector3 p = mid + rot * (tpl.pos[v] * scale);
+                mo->position(p);
+                mo->normal((rot * (tpl.nrm[v] * inv_scale)).normalisedCopy());
+                mo->textureCoord(tpl.uv[v]);
+                aabb.merge(p);
+            }
+            for (uint32_t i: tpl.idx)
+            {
+                mo->index(base + i);
+            }
+            base += (uint32_t)num_verts;
+        }
+        mo->end();
+
+        mo->setBoundingBox(aabb); // the update doesn't shrink the old box
+        mo->setVisible(base > 0);
     }
 }
 
@@ -3359,9 +3535,9 @@ void RoR::GfxActor::SetCastShadows(bool value)
     }
 
     // Softbody beams
-    for (BeamGfx& rod: m_gfx_beams)
+    for (RodBatch& batch: m_rod_batches)
     {
-        static_cast<Ogre::Entity*>(rod.rod_scenenode->getAttachedObject(0))->setCastShadows(value);
+        batch.rb_object->setCastShadows(value);
     }
 
     // Flexbody meshes
@@ -3447,24 +3623,7 @@ void RoR::GfxActor::RemoveBeam(int beam_index)
     {
         if (itor->rod_beam_index == beam_index)
         {
-            // Destroy OGRE objects
-            if (itor->rod_scenenode)
-            {
-                if (itor->rod_scenenode->getAttachedObject(0))
-                {
-                    Ogre::Entity* ent = static_cast<Ogre::Entity*>(itor->rod_scenenode->getAttachedObject(0));
-                    if (ent)
-                    {
-                        ent->detachFromParent();
-                        App::GetGfxScene()->GetSceneManager()->destroyEntity(ent);
-                    }
-                }
-
-                App::GetGfxScene()->GetSceneManager()->destroySceneNode(itor->rod_scenenode);
-                itor->rod_scenenode = nullptr;
-            }
-
-            // Destroy the beam visuals
+            // Batched mesh: the beam simply drops out of the next `UpdateRods()`
             m_gfx_beams.erase(itor);
             return;
         }

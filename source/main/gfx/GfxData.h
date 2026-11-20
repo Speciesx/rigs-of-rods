@@ -264,8 +264,7 @@ struct BeamGfx
     BeamGfx();
     ~BeamGfx();
 
-    // We don't keep pointer to the Ogre::Entity - we rely on the SceneNode keeping it attached all the time.
-    Ogre::SceneNode* rod_scenenode       = nullptr;
+    uint16_t         rod_batch           = 0;                      //!< Index into `GfxActor::m_rod_batches` (one batched mesh per material)
     uint16_t         rod_beam_index      = 0;
     float            rod_diameter        = 0.f;                    //!< meters
 

@@ -163,6 +163,15 @@ private:
     int                         m_driverseat_prop_index = -1;
     Ogre::SceneNode*            m_gfx_beams_parent_scenenode = nullptr;
 
+    /// All visible beams with the same material are drawn as one mesh (rebuilt on CPU every frame)
+    /// instead of one Entity + SceneNode per beam - one draw call per material instead of per beam.
+    struct RodBatch
+    {
+        Ogre::MaterialPtr    rb_material;
+        Ogre::ManualObject*  rb_object = nullptr;
+    };
+    std::vector<RodBatch>       m_rod_batches;
+
     // Game state
     bool                        m_initialized = false;
     VideoCamState               m_vidcam_state = VideoCamState::VCSTATE_ENABLED_ONLINE;
