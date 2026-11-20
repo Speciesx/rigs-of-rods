@@ -7370,6 +7370,7 @@ void ActorSpawner::CreateMirrorPropVideoCam(
         // Setup rendering
         vcam.vcam_render_target = vcam.vcam_render_tex->getBuffer()->getRenderTarget();
         vcam.vcam_render_target->setActive(true);
+        vcam.vcam_render_target->setAutoUpdated(false); // Rendered by `GfxActor::UpdateVideoCameras()` (player vehicle only, every 2nd frame)
         Ogre::Viewport* v = vcam.vcam_render_target->addViewport(vcam.vcam_ogre_camera);
         v->setClearEveryFrame(true);
         v->setBackgroundColour(App::GetCameraManager()->GetCamera()->getViewport()->getBackgroundColour());

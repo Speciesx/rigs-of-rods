@@ -175,6 +175,7 @@ private:
     // Game state
     bool                        m_initialized = false;
     VideoCamState               m_vidcam_state = VideoCamState::VCSTATE_ENABLED_ONLINE;
+    unsigned int                m_vidcam_frame = 0; //!< Videocameras/mirrors are rendered every 2nd frame, alternating
     DebugViewType               m_debug_view = DebugViewType::DEBUGVIEW_NONE;
     DebugViewType               m_last_debug_view = DebugViewType::DEBUGVIEW_SKELETON; // intentional
     bool                        m_beaconlight_active = true; // 'true' will trigger SetBeaconsEnabled(false) on the first buffer update

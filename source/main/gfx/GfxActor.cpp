@@ -469,8 +469,13 @@ void RoR::GfxActor::UpdateVideoCameras(float dt)
     if (m_vidcam_state != VideoCamState::VCSTATE_ENABLED_ONLINE)
         return;
 
+    // Each camera renders the whole scene - update them every 2nd frame, half of them in each frame
+    m_vidcam_frame++;
+    unsigned int vidcam_index = 0;
+
     for (VideoCamera& vidcam: m_videocameras)
     {
+        const bool render_now = ((m_vidcam_frame + vidcam_index++) % 2) == 0;
 
         if ((vidcam.vcam_role == VCAM_ROLE_MIRROR_PROP_LEFT)
             || (vidcam.vcam_role == VCAM_ROLE_MIRROR_PROP_RIGHT))
@@ -504,14 +509,17 @@ void RoR::GfxActor::UpdateVideoCameras(float dt)
             // vidcam.vcam_ogre_camera->getParentSceneNode()->roll(roll); // makes the camera spin
             vidcam.vcam_ogre_camera->setNearClipDistance(1); // fixes Caelum sky rendered black on mirrors
 
+            if (render_now && vidcam.vcam_render_target != nullptr)
+                vidcam.vcam_render_target->update(); // not auto-updated, see `ActorSpawner::CreateMirrorPropVideoCam()`
+
             continue; // Done processing mirror prop.
         }
 
         // update the texture now, otherwise shuttering
-        if (vidcam.vcam_render_target != nullptr)
+        if (render_now && vidcam.vcam_render_target != nullptr)
             vidcam.vcam_render_target->update();
 
-        if (vidcam.vcam_render_window != nullptr)
+        if (render_now && vidcam.vcam_render_window != nullptr)
             vidcam.vcam_render_window->update();
 
         // get the normal of the camera plane now
