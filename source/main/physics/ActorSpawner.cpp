@@ -7279,6 +7279,8 @@ void ActorSpawner::CreateVideoCamera(RigDef::VideoCamera* def)
             vp->setVisibilityMask(~HIDE_MIRROR);
             vp->setVisibilityMask(~DEPTHMAP_DISABLED);
             vp->setOverlaysEnabled(false);
+            vp->setShadowsEnabled(false); // Otherwise each videocamera re-renders all PSSM shadow maps for its own camera
+            vcam.vcam_ogre_camera->setLodBias(0.5f);
 
             vcam.vcam_material->getTechnique(0)->getPass(0)->getTextureUnitState(0)->setTextureName(vcam.vcam_render_tex->getName());
 
@@ -7372,6 +7374,8 @@ void ActorSpawner::CreateMirrorPropVideoCam(
         v->setClearEveryFrame(true);
         v->setBackgroundColour(App::GetCameraManager()->GetCamera()->getViewport()->getBackgroundColour());
         v->setOverlaysEnabled(false);
+        v->setShadowsEnabled(false); // Small mirror image (128x256) - no need to re-render the PSSM shadow maps for it
+        vcam.vcam_ogre_camera->setLodBias(0.5f);
 
         // Setup material
         vcam.vcam_material = custom_mat;

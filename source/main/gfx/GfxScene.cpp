@@ -286,10 +286,13 @@ void GfxScene::UpdateScene(float dt)
     if (player_gfx_actor != nullptr)
     {
         // Safe to be called here, only modifies OGRE objects, doesn't read any physics state.
+        const auto perf_envmap = PerfNow();
         m_envmap.UpdateEnvMap(player_gfx_actor->GetSimDataBuffer().simbuf_pos, player_gfx_actor);
+        PerfAdd(PERF_SCENE_ENVMAP, perf_envmap);
     }
 
     // Terrain - animated meshes and paged geometry
+    const auto perf_terrain = PerfNow();
     App::GetGameContext()->GetTerrain()->getObjectManager()->UpdateTerrainObjects(dt);
 
     // Terrain - lightmap; TODO: ported as-is from Terrain::update(), is it needed? ~ only_a_ptr, 05/2018
@@ -324,6 +327,8 @@ void GfxScene::UpdateScene(float dt)
        skyx_man->update(dt, audio_paused ? 0.f : dt); // Light update
     }
 
+    PerfAdd(PERF_SCENE_TERRAIN, perf_terrain);
+
     // GUI - race
     if (m_simbuf.simbuf_race_in_progress != m_simbuf.simbuf_race_in_progress_prev)
     {
@@ -354,6 +359,7 @@ void GfxScene::UpdateScene(float dt)
     }
 
     // Actors - update misc visuals
+    const auto perf_actors = PerfNow();
     for (GfxActor* gfx_actor: m_all_gfx_actors)
     {
         float dt_actor = (!gfx_actor->GetSimDataBuffer().simbuf_physics_paused) ? dt : 0.f;
@@ -373,10 +379,14 @@ void GfxScene::UpdateScene(float dt)
         // Blinkers (turn signals) must always be updated
         gfx_actor->UpdateFlares(dt_actor, (gfx_actor == player_gfx_actor));
     }
+    PerfAdd(PERF_SCENE_ACTORS, perf_actors);
     if (player_gfx_actor != nullptr)
     {
         float dt_actor = (!player_gfx_actor->GetSimDataBuffer().simbuf_physics_paused) ? dt : 0.f;
+        const auto perf_vidcam = PerfNow();
         player_gfx_actor->UpdateVideoCameras(dt_actor);
+        PerfAdd(PERF_SCENE_VIDCAM, perf_vidcam);
+        const auto perf_hud = PerfNow();
 
         // The old-style render-to-texture dashboard (based on OGRE overlays)
         if (m_simbuf.simbuf_player_actor->ar_driveable == TRUCK && m_simbuf.simbuf_player_actor->ar_engine != nullptr)
@@ -387,20 +397,25 @@ void GfxScene::UpdateScene(float dt)
         {
             RoR::App::GetOverlayWrapper()->UpdateAerialHUD(player_gfx_actor);
         }
+        PerfAdd(PERF_SCENE_HUD, perf_hud);
     }
 
+    const auto perf_gui = PerfNow();
     App::GetGuiManager()->DrawSimGuiBuffered(player_gfx_actor);
+    PerfAdd(PERF_SCENE_HUD, perf_gui);
 
     App::GetGameContext()->GetSceneMouse().UpdateVisuals();
 
     this->UpdateFreeBeamGfx(dt);
 
     // Actors - finalize threaded tasks
+    const auto perf_task_wait = PerfNow();
     for (GfxActor* gfx_actor: m_live_gfx_actors)
     {
         gfx_actor->FinishWheelUpdates();
         gfx_actor->FinishFlexbodyTasks();
     }
+    PerfAdd(PERF_SCENE_TASK_WAIT, perf_task_wait);
 }
 
 void GfxScene::SetParticlesVisible(bool visible)

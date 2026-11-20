@@ -35,6 +35,7 @@
 #include <OgreStringConverter.h>
 
 #include <assert.h>
+#include <chrono>
 #include <string>
 
 #define ROR_ASSERT(_EXPR)  assert(_EXPR)
@@ -690,6 +691,7 @@ extern CVar* diag_rig_log_node_import;
 extern CVar* diag_rig_log_node_stats;
 extern CVar* diag_truck_mass;
 extern CVar* diag_envmap;
+extern CVar* diag_perf_log;
 extern CVar* diag_videocameras;
 extern CVar* diag_preset_terrain;
 extern CVar* diag_preset_spawn_pos;
@@ -889,6 +891,15 @@ void DestroyOverlayWrapper();
 void DestroyInputEngine();
 
 } // namespace App
+
+// Main thread timings for the performance log (diag_perf_log), summed up and reset by `ActorManager::UpdatePerfLog()`
+enum PerfSlot { PERF_MSG_QUEUE, PERF_SIM_BUFFER, PERF_SIM_START, PERF_SCENE, PERF_SCENE_ACTORS, PERF_SCENE_TASK_WAIT, PERF_SCENE_ENVMAP, PERF_SCENE_VIDCAM, PERF_SCENE_HUD, PERF_SCENE_TERRAIN, PERF_RENDER, PERF_SLOT_COUNT };
+extern double g_perf_main_ms[PERF_SLOT_COUNT];
+inline std::chrono::steady_clock::time_point PerfNow() { return std::chrono::steady_clock::now(); }
+inline void PerfAdd(PerfSlot slot, std::chrono::steady_clock::time_point since)
+{
+    g_perf_main_ms[slot] += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - since).count();
+}
 
 // ------------------------------------------------------------------------------------------------
 // Exception handling

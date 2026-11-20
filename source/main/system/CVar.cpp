@@ -83,6 +83,7 @@ void Console::cVarSetupBuiltins()
     App::diag_rig_log_node_stats = this->cVarCreate("diag_rig_log_node_stats", "RigImporter_LogNodeStats",   CVAR_ARCHIVE | CVAR_TYPE_BOOL,    "false");
     App::diag_truck_mass         = this->cVarCreate("diag_truck_mass",         "Debug Truck Mass",           CVAR_ARCHIVE | CVAR_TYPE_BOOL,    "false");
     App::diag_envmap             = this->cVarCreate("diag_envmap",             "EnvMapDebug",                CVAR_ARCHIVE | CVAR_TYPE_BOOL,    "false");
+    App::diag_perf_log           = this->cVarCreate("diag_perf_log",           "PerfLog",                    CVAR_TYPE_BOOL,                   "false");
     App::diag_videocameras       = this->cVarCreate("diag_videocameras",       "VideoCameraDebug",           CVAR_ARCHIVE | CVAR_TYPE_BOOL,    "false");
     App::diag_preset_terrain     = this->cVarCreate("diag_preset_terrain",     "Preselected Terrain",        CVAR_ARCHIVE);
     App::diag_preset_spawn_pos   = this->cVarCreate("diag_spawn_position",     "",                           CVAR_ARCHIVE);

@@ -168,6 +168,20 @@ private:
     // Utils
     std::unique_ptr<ThreadPool> m_sim_thread_pool;
     std::shared_ptr<Task>       m_sim_task;
+
+    // Performance log (diag_perf_log): where does the frame time go - physics thread vs. waiting for it
+    struct PerfStats
+    {
+        double  sim_ms = 0, sim_ms_max = 0;     //!< UpdatePhysicsSimulation() duration (sim thread)
+        double  compute_ms = 0;                 //!< ... of which: CalcForcesEulerCompute (parallel)
+        double  intercol_ms = 0;                //!< ... of which: inter-actor collisions (parallel)
+        double  wait_ms = 0, wait_ms_max = 0;   //!< Main thread blocked in SyncWithSimThread()
+        int     steps = 0, frames = 0, sim_runs = 0;
+        int     active_actors = 0, active_nodes = 0, active_beams = 0;
+        double  elapsed_ms = 0;
+    };
+    PerfStats                   m_perf;
+    void                        UpdatePerfLog(double frame_ms);
     RoR::CmdKeyInertiaConfig    m_inertia_config;
 };
 

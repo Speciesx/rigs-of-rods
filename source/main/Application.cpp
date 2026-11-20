@@ -139,6 +139,7 @@ CVar* diag_rig_log_node_import;
 CVar* diag_rig_log_node_stats;
 CVar* diag_truck_mass;
 CVar* diag_envmap;
+CVar* diag_perf_log;
 CVar* diag_videocameras;
 CVar* diag_preset_terrain;
 CVar* diag_preset_spawn_pos;
@@ -404,6 +405,8 @@ void DestroyInputEngine()
 }
 
 } // namespace App
+
+double g_perf_main_ms[PERF_SLOT_COUNT] = {};
 
 // ------------------------------------------------------------------------------------------------
 // Global exception handling

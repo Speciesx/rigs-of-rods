@@ -52,9 +52,11 @@ void RoR::GfxEnvmap::SetupEnvMap()
         m_cameras[face]->setFOVy(Ogre::Degree(90));
         m_cameras[face]->setNearClipDistance(0.1f);
         m_cameras[face]->setFarClipDistance(App::GetCameraManager()->GetCamera()->getFarClipDistance());
+        m_cameras[face]->setLodBias(0.25f); // Reflections are small and blurry - use the low mesh/material LODs
 
         Ogre::Viewport* v = m_render_targets[face]->addViewport(m_cameras[face]);
         v->setOverlaysEnabled(false);
+        v->setShadowsEnabled(false); // Otherwise every face re-renders all PSSM shadow maps (3x the scene) for its own camera
         v->setClearEveryFrame(true);
         v->setBackgroundColour(App::GetCameraManager()->GetCamera()->getViewport()->getBackgroundColour());
         m_render_targets[face]->setAutoUpdated(false);

@@ -60,6 +60,7 @@
 #include "VehicleAI.h"
 
 #include <fmt/format.h>
+#include <chrono>
 
 using namespace Ogre;
 using namespace RoR;
@@ -1117,8 +1118,67 @@ const ActorPtr& ActorManager::FetchRescueVehicle()
     return ACTORPTR_NULL;
 }
 
+namespace {
+using PerfClock = std::chrono::steady_clock;
+inline double PerfMs(PerfClock::time_point since) { return std::chrono::duration<double, std::milli>(PerfClock::now() - since).count(); }
+}
+
+void ActorManager::UpdatePerfLog(double frame_ms)
+{
+    if (!App::diag_perf_log->getBool())
+    {
+        m_perf = PerfStats();
+        std::fill(std::begin(g_perf_main_ms), std::end(g_perf_main_ms), 0.0);
+        return;
+    }
+
+    m_perf.frames++;
+    m_perf.elapsed_ms += frame_ms;
+    if (m_perf.elapsed_ms < 2000.0 || m_perf.frames == 0)
+        return;
+
+    const double f = (double)m_perf.frames;
+    const double runs = std::max(1.0, (double)m_perf.sim_runs);
+    LOG(fmt::format("[RoR|Perf] frame {:.2f} ms ({:.0f} FPS) | wait for physics {:.2f} ms (max {:.2f}) | "
+        "physics thread {:.2f} ms/frame (max {:.2f}) = compute {:.2f} + intercol {:.2f} + rest {:.2f} | "
+        "{:.1f} steps/frame | active actors {} ({} nodes, {} beams) of {}",
+        m_perf.elapsed_ms / f, 1000.0 * f / m_perf.elapsed_ms,
+        m_perf.wait_ms / f, m_perf.wait_ms_max,
+        m_perf.sim_ms / runs, m_perf.sim_ms_max,
+        m_perf.compute_ms / runs, m_perf.intercol_ms / runs, (m_perf.sim_ms - m_perf.compute_ms - m_perf.intercol_ms) / runs,
+        m_perf.steps / runs,
+        m_perf.active_actors, m_perf.active_nodes, m_perf.active_beams, m_actors.size()));
+
+    const double* mt = g_perf_main_ms;
+    double main_sum = 0;
+    for (int i = 0; i < PERF_SLOT_COUNT; i++)
+    {
+        if (i == PERF_SCENE_ACTORS || i == PERF_SCENE_TASK_WAIT || i == PERF_SCENE_ENVMAP ||
+            i == PERF_SCENE_VIDCAM || i == PERF_SCENE_HUD || i == PERF_SCENE_TERRAIN) // parts of PERF_SCENE
+            continue;
+        else
+            main_sum += mt[i];
+    }
+    LOG(fmt::format("[RoR|Perf] main thread ms/frame: msg queue {:.2f} | sim buffer {:.2f} | sim start {:.2f} | "
+        "scene {:.2f} (actors {:.2f}, flexbody/wheel wait {:.2f}, envmap {:.2f}, videocams {:.2f}, hud/gui {:.2f}, terrain/water/sky {:.2f}) | render {:.2f} | other {:.2f}",
+        mt[PERF_MSG_QUEUE] / f, mt[PERF_SIM_BUFFER] / f, mt[PERF_SIM_START] / f,
+        mt[PERF_SCENE] / f, mt[PERF_SCENE_ACTORS] / f, mt[PERF_SCENE_TASK_WAIT] / f, mt[PERF_SCENE_ENVMAP] / f,
+        mt[PERF_SCENE_VIDCAM] / f, mt[PERF_SCENE_HUD] / f, mt[PERF_SCENE_TERRAIN] / f,
+        mt[PERF_RENDER] / f, (m_perf.elapsed_ms - main_sum) / f));
+    std::fill(std::begin(g_perf_main_ms), std::end(g_perf_main_ms), 0.0);
+    m_perf = PerfStats();
+}
+
 void ActorManager::UpdateActors(ActorPtr player_actor)
 {
+    {
+        static PerfClock::time_point last_frame = PerfClock::now();
+        const double frame_ms = PerfMs(last_frame);
+        last_frame = PerfClock::now();
+        this->SyncWithSimThread(); // results of the previous physics run are read below
+        this->UpdatePerfLog(frame_ms);
+    }
+
     float dt = m_simulation_time;
 
     // do not allow dt > 1/20
@@ -1247,12 +1307,20 @@ const ActorPtr& ActorManager::GetActorById(ActorInstanceID_t actor_id)
 
 void ActorManager::UpdatePhysicsSimulation()
 {
+    const bool perf = App::diag_perf_log->getBool();
+    const PerfClock::time_point sim_start = PerfClock::now();
+    if (perf)
+    {
+        m_perf.active_actors = m_perf.active_nodes = m_perf.active_beams = 0;
+    }
+
     for (ActorPtr& actor: m_actors)
     {
         actor->UpdatePhysicsOrigin();
     }
     for (int i = 0; i < m_physics_steps; i++)
     {
+        PerfClock::time_point phase_start = PerfClock::now();
         {
             std::vector<std::function<void()>> tasks;
             for (ActorPtr& actor: m_actors)
@@ -1264,6 +1332,12 @@ void ActorManager::UpdatePhysicsSimulation()
                             actor->CalcForcesEulerCompute(i == 0, m_physics_steps);
                         });
                     tasks.push_back(func);
+                    if (perf && i == 0)
+                    {
+                        m_perf.active_actors++;
+                        m_perf.active_nodes += actor->ar_num_nodes;
+                        m_perf.active_beams += actor->ar_num_beams;
+                    }
                 }
             }
             App::GetThreadPool()->Parallelize(tasks);
@@ -1274,6 +1348,11 @@ void ActorManager::UpdatePhysicsSimulation()
                     actor->CalcBeamsInterActor();
                 }
             }
+        }
+        if (perf)
+        {
+            m_perf.compute_ms += PerfMs(phase_start);
+            phase_start = PerfClock::now();
         }
         {
             std::vector<std::function<void()>> tasks;
@@ -1303,6 +1382,10 @@ void ActorManager::UpdatePhysicsSimulation()
             }
             App::GetThreadPool()->Parallelize(tasks);
         }
+        if (perf)
+        {
+            m_perf.intercol_ms += PerfMs(phase_start);
+        }
 
         // Apply FreeForces - intentionally as a separate pass over all actors
         this->CalcFreeForces();
@@ -1323,12 +1406,30 @@ void ActorManager::UpdatePhysicsSimulation()
             actor->ar_top_speed = std::max(actor->ar_top_speed, actor->ar_nodes[0].Velocity.length());
         }
     }
+
+    if (perf)
+    {
+        const double sim_ms = PerfMs(sim_start);
+        m_perf.sim_ms += sim_ms;
+        m_perf.sim_ms_max = std::max(m_perf.sim_ms_max, sim_ms);
+        m_perf.steps += m_physics_steps;
+        m_perf.sim_runs++;
+    }
 }
 
 void ActorManager::SyncWithSimThread()
 {
     if (m_sim_task)
+    {
+        const PerfClock::time_point wait_start = PerfClock::now();
         m_sim_task->join();
+        if (App::diag_perf_log->getBool())
+        {
+            const double wait_ms = PerfMs(wait_start);
+            m_perf.wait_ms += wait_ms;
+            m_perf.wait_ms_max = std::max(m_perf.wait_ms_max, wait_ms);
+        }
+    }
 }
 
 void HandleErrorLoadingFile(std::string type, std::string filename, std::string exception_msg)
