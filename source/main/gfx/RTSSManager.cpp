@@ -66,25 +66,46 @@ void RTSSManager::SetupRTSS()
             casterMat->setLightingEnabled(false);
         }
 
-        App::GetGfxScene()->GetSceneManager()->setShadowTechnique(SHADOWTYPE_TEXTURE_MODULATIVE_INTEGRATED);
-        App::GetGfxScene()->GetSceneManager()->setShadowFarDistance(350);
-        App::GetGfxScene()->GetSceneManager()->setShadowTextureCountPerLightType(Ogre::Light::LT_DIRECTIONAL, 3);
-        App::GetGfxScene()->GetSceneManager()->setShadowTextureSettings(2048, 3, PF_DEPTH16);
-        App::GetGfxScene()->GetSceneManager()->setShadowTextureSelfShadow(true);
+        // Quality presets (gfx_shadow_quality): shadow map size, number of PSSM splits, shadow distance, PCF filter
+        struct ShadowPreset { unsigned short tex_size; size_t splits; float far_dist; const char* filter; };
+        static const ShadowPreset PRESETS[] =
+        {
+            { 1024, 2, 150.f, "pcf4"  }, // Low
+            { 1024, 3, 250.f, "pcf4"  }, // Medium
+            { 2048, 3, 400.f, "pcf4"  }, // High (previous fixed setup: 2048, 3 splits)
+            { 4096, 4, 600.f, "pcf16" }, // Ultra
+        };
+        const int quality = Ogre::Math::Clamp(App::gfx_shadow_quality->getInt(), 0, 3);
+        const ShadowPreset& preset = PRESETS[quality];
+
+        Ogre::SceneManager* sm = App::GetGfxScene()->GetSceneManager();
+        sm->setShadowTechnique(SHADOWTYPE_TEXTURE_MODULATIVE_INTEGRATED);
+        sm->setShadowFarDistance(preset.far_dist); // same as the last split - no casters beyond it
+        sm->setShadowTextureCountPerLightType(Ogre::Light::LT_DIRECTIONAL, preset.splits);
+        sm->setShadowTextureSettings(preset.tex_size, preset.splits, PF_DEPTH16); // 16 bit depth: half the memory/bandwidth of 32 bit
+        sm->setShadowTextureSelfShadow(true);
 
         pssmSetup = new PSSMShadowCameraSetup();
-        pssmSetup->calculateSplitPoints(3, 1, 500);
+        pssmSetup->calculateSplitPoints(preset.splits, 1, preset.far_dist);
         pssmSetup->setSplitPadding(App::GetCameraManager()->GetCamera()->getNearClipDistance());
-        pssmSetup->setOptimalAdjustFactor(0, 2);
-        pssmSetup->setOptimalAdjustFactor(1, 1);
-        pssmSetup->setOptimalAdjustFactor(2, 0.5);
+        for (size_t i = 0; i < preset.splits; i++)
+        {
+            pssmSetup->setOptimalAdjustFactor(i, 2.f / (float)(1 << i)); // 2, 1, 0.5, 0.25
+        }
 
         auto* mShaderGenerator = Ogre::RTShader::ShaderGenerator::getSingletonPtr();
         auto* schemRenderState = mShaderGenerator->getRenderState(Ogre::MSN_SHADERGEN);
 
-        App::GetGfxScene()->GetSceneManager()->setShadowCameraSetup(ShadowCameraSetupPtr(pssmSetup));
+        sm->setShadowCameraSetup(ShadowCameraSetupPtr(pssmSetup));
         auto subRenderState = mShaderGenerator->createSubRenderState(RTShader::SRS_INTEGRATED_PSSM3);
+        // The shader must know the splits - without them it samples only the first shadow map,
+        // while the other splits are still rendered every frame (wasted) and distant shadows are missing.
+        subRenderState->setParameter("split_points", pssmSetup->getSplitPoints());
+        subRenderState->setParameter("filter", Ogre::String(preset.filter));
         schemRenderState->addTemplateSubRenderState(subRenderState);
+
+        LOG(fmt::format("[RoR|Gfx] Shadows: quality {}, {}x{} x{} splits, distance {:.0f} m, {}",
+            quality, preset.tex_size, preset.tex_size, preset.splits, preset.far_dist, preset.filter));
     }
 
     // PBR

@@ -406,6 +406,12 @@ void GameSettings::DrawGraphicsSettings()
     DrawGCombo(App::gfx_shadow_type, _LC("GameSettings", "Shadow type (requires restart)"),
         m_combo_items_shadow_type.c_str());
 
+    if (App::gfx_shadow_type->getEnum<GfxShadowType>() == GfxShadowType::PSSM)
+    {
+        DrawGCombo(App::gfx_shadow_quality, _LC("GameSettings", "Shadow quality (requires restart)"),
+            "Low\0Medium\0High\0Ultra\0\0");
+    }
+
     DrawGCombo(App::gfx_sky_mode, _LC("GameSettings", "Sky gfx"),
         m_combo_items_sky_mode.c_str());
 

@@ -237,6 +237,7 @@ CVar* audio_sim_pause_disables_doppler_effect;
 CVar* gfx_flares_mode;
 CVar* gfx_polygon_mode;
 CVar* gfx_shadow_type;
+CVar* gfx_shadow_quality;
 CVar* gfx_extcam_mode;
 CVar* gfx_sky_mode;
 CVar* gfx_sky_time_cycle;
