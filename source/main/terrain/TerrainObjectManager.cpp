@@ -328,11 +328,13 @@ void TerrainObjectManager::ProcessTree(
 
     //Set up LODs
     //trees->addDetailLevel<EntityPage>(50);
-    float min = minDist * terrainManager->getPagedDetailFactor();
+    // Ranges scale with the LOD range factor (gfx_lod_range), the tree count only with the vegetation density
+    const float lod_range = Ogre::Math::Clamp(App::gfx_lod_range->getFloat(), 0.1f, 10.f);
+    float min = minDist * terrainManager->getPagedDetailFactor() * lod_range;
     if (min < 10)
         min = 10;
     geom->addDetailLevel<BatchPage>(min, min / 2);
-    float max = maxDist * terrainManager->getPagedDetailFactor();
+    float max = maxDist * terrainManager->getPagedDetailFactor() * lod_range;
     if (max < 10)
         max = 10;
 
@@ -431,7 +433,8 @@ void TerrainObjectManager::ProcessGrass(
         PagedGeometry *grass = new PagedGeometry(App::GetCameraManager()->GetCamera(), 30, pagedGroupingNode);
         //Set up LODs
 
-        grass->addDetailLevel<GrassPage>(range * terrainManager->getPagedDetailFactor()); // original value: 80
+        grass->addDetailLevel<GrassPage>(range * terrainManager->getPagedDetailFactor()
+            * Ogre::Math::Clamp(App::gfx_lod_range->getFloat(), 0.1f, 10.f)); // original value: 80; gfx_lod_range
 
         //Set up a GrassLoader for easy use
         GrassLoader *grassLoader = new GrassLoader(grass);
@@ -647,7 +650,8 @@ bool TerrainObjectManager::LoadTerrainObject(const Ogre::String& name, const Ogr
         if (mo->getEntity())
         {
             mo->getEntity()->setCastShadows(odef->header.cast_shadows);
-            mo->getEntity()->setRenderingDistance(rendering_distance);
+            // 0 = unlimited; otherwise scaled by the LOD range factor (gfx_lod_range)
+            mo->getEntity()->setRenderingDistance(rendering_distance * Ogre::Math::Clamp(App::gfx_lod_range->getFloat(), 0.1f, 10.f));
             m_mesh_objects.push_back(mo);
         }
         else

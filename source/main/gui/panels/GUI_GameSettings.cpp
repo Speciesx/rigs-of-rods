@@ -430,6 +430,14 @@ void GameSettings::DrawGraphicsSettings()
     DrawGCombo(App::gfx_vegetation_mode, _LC("GameSettings", "Vegetation density"),
         m_combo_items_vegetation.c_str());
 
+    DrawGFloatSlider(App::gfx_lod_range, _LC("GameSettings", "LOD range factor"), 0.5f, 5.f);
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("%s", _LC("GameSettings", "Multiplies the distances at which detail is reduced or hidden:\n"
+            "mesh LOD (immediately), terrain objects, trees, grass and terrain detail (on next terrain load).\n"
+            "Values above 1 show more detail farther away and cost performance."));
+    }
+
     DrawGCombo(App::gfx_water_mode, _LC("GameSettings", "Water gfx"),
         m_combo_items_water_mode.c_str());
 

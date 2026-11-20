@@ -64,22 +64,15 @@ ImpostorPage::~ImpostorPage()
       ++iter;
    }
 
-   if (--s_nSelfInstances == 0 && m_pPagedGeom)
+   if (--s_nSelfInstances == 0 && m_pSceneMgr)
    {
-      if (m_pPagedGeom->getSceneNode())
-      {
-         m_pPagedGeom->getSceneNode()->removeAndDestroyChild("ImpostorPage::renderNode");
-         m_pPagedGeom->getSceneNode()->removeAndDestroyChild("ImpostorPage::cameraNode");
-      }
-      else if (m_pSceneMgr)
-      {
+      // RoR: the shared nodes belong to the scene root (see init()), not to the PagedGeometry of the
+      // last impostor page - with several tree layers that one never had them (exception on unload).
+      // They may also be gone already (scene cleared).
+      if (m_pSceneMgr->hasSceneNode("ImpostorPage::renderNode"))
          m_pSceneMgr->destroySceneNode("ImpostorPage::renderNode");
+      if (m_pSceneMgr->hasSceneNode("ImpostorPage::cameraNode"))
          m_pSceneMgr->destroySceneNode("ImpostorPage::cameraNode");
-      }
-      else
-      {
-         assert(false && "Who must delete scene node???");
-      }
 
       ResourceGroupManager::getSingleton().destroyResourceGroup("Impostors");
    }
@@ -97,8 +90,9 @@ void ImpostorPage::init(PagedGeometry *geom, const Ogre::Any &data)
 	if (s_nSelfInstances == 1)  // first instance
    {
 		// Set up a single instance of a scene node which will be used when rendering impostor textures
-		geom->getSceneNode()->createChildSceneNode("ImpostorPage::renderNode");
-		geom->getSceneNode()->createChildSceneNode("ImpostorPage::cameraNode");
+		// RoR: under the scene root, so they don't die with the first PagedGeometry (several tree layers)
+		m_pSceneMgr->getRootSceneNode()->createChildSceneNode("ImpostorPage::renderNode");
+		m_pSceneMgr->getRootSceneNode()->createChildSceneNode("ImpostorPage::cameraNode");
       ResourceGroupManager::getSingleton().createResourceGroup("Impostors");
 	}
 }

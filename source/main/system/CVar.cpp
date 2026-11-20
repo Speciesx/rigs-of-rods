@@ -194,6 +194,7 @@ void Console::cVarSetupBuiltins()
     App::gfx_envmap_enabled      = this->cVarCreate("gfx_envmap_enabled",      "Reflections",                CVAR_ARCHIVE | CVAR_TYPE_BOOL,    "true");
     App::gfx_envmap_rate         = this->cVarCreate("gfx_envmap_rate",         "ReflectionUpdateRate",       CVAR_ARCHIVE | CVAR_TYPE_INT,     "1");
     App::gfx_skidmarks_mode      = this->cVarCreate("gfx_skidmarks_mode",      "Skidmarks",                  CVAR_ARCHIVE | CVAR_TYPE_INT,     "0");
+    App::gfx_lod_range           = this->cVarCreate("gfx_lod_range",           "LodRange",                   CVAR_ARCHIVE | CVAR_TYPE_FLOAT,   "1.0");
     App::gfx_sight_range         = this->cVarCreate("gfx_sight_range",         "SightRange",                 CVAR_ARCHIVE | CVAR_TYPE_INT,     "5000");
     App::gfx_camera_height       = this->cVarCreate("gfx_camera_height",       "Static camera height",       CVAR_ARCHIVE | CVAR_TYPE_INT,     "5");
     App::gfx_fov_external        = this->cVarCreate("gfx_fov_external",        "",                                          CVAR_TYPE_INT,     "60");

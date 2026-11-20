@@ -236,6 +236,9 @@ void GfxScene::UpdateScene(float dt)
         || App::GetGameContext()->GetActorManager()->IsSimulationPaused();
     Ogre::ControllerManager::getSingleton().setTimeFactor(paused ? 0.f : 1.f);
 
+    // LOD range factor: mesh and material LOD distances (gfx_lod_range)
+    App::GetCameraManager()->GetCamera()->setLodBias(Ogre::Math::Clamp(App::gfx_lod_range->getFloat(), 0.1f, 10.f));
+
     this->UpdateHeatHaze();
 
     // Actors - start threaded tasks

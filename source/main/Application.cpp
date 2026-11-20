@@ -256,6 +256,7 @@ CVar* gfx_envmap_enabled;
 CVar* gfx_envmap_rate;
 CVar* gfx_skidmarks_mode;
 CVar* gfx_sight_range;
+CVar* gfx_lod_range;
 CVar* gfx_camera_height;
 CVar* gfx_fov_external;
 CVar* gfx_fov_external_default;
