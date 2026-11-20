@@ -909,6 +909,24 @@ unsigned int GrassLayer::_populateGrassList_Uniform(PageInfo page, float *posBuf
 	return grassCount;
 }
 
+// RoR: wide grass (bushes, tree billboards several meters across) must not stick out of its density area,
+// e.g. over a road next to a forest. The centre test alone lets the quad overhang by half its width.
+static bool GrassFootprintInDensityMap(DensityMap* densityMap, const TRect<Real>& mapBounds, float x, float z, Real maxWidth)
+{
+	const float MIN_CHECKED_WIDTH = 2.f; // narrower grass: overhang not noticeable
+	if (maxWidth < MIN_CHECKED_WIDTH)
+		return true;
+	const float r = maxWidth * 0.5f;
+	const float d = r * 0.7071f;
+	const float offsets[8][2] = { {r, 0}, {-r, 0}, {0, r}, {0, -r}, {d, d}, {-d, d}, {d, -d}, {-d, -d} };
+	for (const auto& o : offsets)
+	{
+		if (densityMap->_getDensityAt_Unfiltered(x + o[0], z + o[1], mapBounds) <= 0.f)
+			return false;
+	}
+	return true;
+}
+
 unsigned int GrassLayer::_populateGrassList_UnfilteredDM(PageInfo page, float *posBuff, unsigned int grassCount)
 {
 	float *posPtr = posBuff;
@@ -925,7 +943,8 @@ unsigned int GrassLayer::_populateGrassList_UnfilteredDM(PageInfo page, float *p
 
 			//Determine whether this grass will be added based on the local density.
 			//For example, if localDensity is .32, grasses will be added 32% of the time.
-			if (parent->rTable->getUnitRandom() < densityMap->_getDensityAt_Unfiltered(x, z, mapBounds)){
+			if (parent->rTable->getUnitRandom() < densityMap->_getDensityAt_Unfiltered(x, z, mapBounds)
+				&& GrassFootprintInDensityMap(densityMap, mapBounds, x, z, maxWidth)){
 				//Add to list
 				*posPtr++ = x;
 				*posPtr++ = z;
@@ -952,7 +971,8 @@ unsigned int GrassLayer::_populateGrassList_UnfilteredDM(PageInfo page, float *p
 
 			//Determine whether this grass will be added based on the local density.
 			//For example, if localDensity is .32, grasses will be added 32% of the time.
-			if (parent->rTable->getUnitRandom() < densityMap->_getDensityAt_Unfiltered(x, z, mapBounds)){
+			if (parent->rTable->getUnitRandom() < densityMap->_getDensityAt_Unfiltered(x, z, mapBounds)
+				&& GrassFootprintInDensityMap(densityMap, mapBounds, x, z, maxWidth)){
 				//Calculate height
 				float y = (float)parent->heightFunction(x, z, parent->heightFunctionUserData);
 
@@ -997,7 +1017,8 @@ unsigned int GrassLayer::_populateGrassList_BilinearDM(PageInfo page, float *pos
 
 			//Determine whether this grass will be added based on the local density.
 			//For example, if localDensity is .32, grasses will be added 32% of the time.
-			if (parent->rTable->getUnitRandom() < densityMap->_getDensityAt_Bilinear(x, z, mapBounds)){
+			if (parent->rTable->getUnitRandom() < densityMap->_getDensityAt_Bilinear(x, z, mapBounds)
+				&& GrassFootprintInDensityMap(densityMap, mapBounds, x, z, maxWidth)){
 				//Add to list
 				*posPtr++ = x;
 				*posPtr++ = z;
@@ -1024,7 +1045,8 @@ unsigned int GrassLayer::_populateGrassList_BilinearDM(PageInfo page, float *pos
 
 			//Determine whether this grass will be added based on the local density.
 			//For example, if localDensity is .32, grasses will be added 32% of the time.
-			if (parent->rTable->getUnitRandom() < densityMap->_getDensityAt_Bilinear(x, z, mapBounds)){
+			if (parent->rTable->getUnitRandom() < densityMap->_getDensityAt_Bilinear(x, z, mapBounds)
+				&& GrassFootprintInDensityMap(densityMap, mapBounds, x, z, maxWidth)){
 				//Calculate height
 				float y = (float)parent->heightFunction(x, z, parent->heightFunctionUserData);
 
