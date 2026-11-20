@@ -115,7 +115,12 @@ void ImGuiOverlay::rebuildFontTexture()
     TextureManager::getSingleton().remove(mRenderable.mFontTex);
     mRenderable.mFontTex.reset();
     mRenderable.createFontTexture();
-    mRenderable.mMaterial->getTechnique(0)->getPass(0)->getTextureUnitState(0)->setTexture(mRenderable.mFontTex);
+    // RoR: also update the RTSS-generated technique (D3D11/GL3+/Vulkan render with that one)
+    for (Technique* tech : mRenderable.mMaterial->getTechniques())
+    {
+        if (tech->getNumPasses() > 0 && tech->getPass(0)->getNumTextureUnitStates() > 0)
+            tech->getPass(0)->getTextureUnitState(0)->setTexture(mRenderable.mFontTex);
+    }
     mCodePointRanges.clear();
 }
 

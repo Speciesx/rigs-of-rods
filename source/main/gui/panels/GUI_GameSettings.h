@@ -22,6 +22,10 @@
 #include "Application.h"
 #include "OgreImGui.h"
 
+#include <map>
+#include <string>
+#include <vector>
+
 namespace RoR {
 namespace GUI {
 
@@ -44,6 +48,12 @@ private:
     void DrawAudioSettings();
     void DrawControlSettings();
     void DrawDiagSettings();
+
+    // Settings changed while a terrain is loaded
+    void TakeSettingsSnapshot();
+    void ApplyLiveSettings();       //!< Settings that can be applied immediately
+    float DrawReloadNotice();       //!< Settings that need a terrain reload; returns the height used
+    std::map<CVar*, std::string> m_snapshot;
 
     // UI settings
     const float UI_SELECTOR_WIDTH = 17.1875f; //!< Relative to font size

@@ -68,6 +68,7 @@ public:
     Ogre::Root*          GetOgreRoot() { return m_ogre_root; }
     Ogre::Viewport*      GetViewport() { return m_viewport; }
     Ogre::RenderWindow*  GetRenderWindow() { return m_render_window; }
+    size_t               GetNativeWindowHandle(); //!< HWND on Windows; works also for render systems without "WINDOW" attribute (Vulkan)
     RoR::ForceFeedback&  GetForceFeedback() { return m_force_feedback; }
     std::thread::id      GetMainThreadID() { return m_mainthread_id; }
 
@@ -99,6 +100,7 @@ private:
 
     Ogre::Root*          m_ogre_root     = nullptr;
     Ogre::RenderWindow*  m_render_window = nullptr;
+    size_t               m_native_window = 0; //!< Own Win32 window, only used by render systems that can't create one (Vulkan)
     Ogre::Viewport*      m_viewport      = nullptr;
     bool                 m_windowed_fix = false; //!< Workaround OGRE glitch when switching from fullscreen.
     bool                 m_profiler_enabled = false; //!< Last known state, to workaround OGRE v14.5.2 bug

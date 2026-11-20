@@ -1,0 +1,20 @@
+OGRE_NATIVE_GLSL_VERSION_DIRECTIVE
+// RoR: MyGUI vertex shader for Vulkan (GLSLang plugin, GLSL -> SPIR-V)
+#include <OgreUnifiedShader.h>
+
+OGRE_UNIFORMS(
+    uniform mat4 worldViewProj;
+)
+
+MAIN_PARAMETERS
+IN(vec4 vertex, POSITION)
+IN(vec4 uv0, TEXCOORD0)
+IN(vec4 colour, COLOR)
+OUT(vec4 outUV0, TEXCOORD0)
+OUT(vec4 outColor, COLOR)
+MAIN_DECLARATION
+{
+    gl_Position = mul(worldViewProj, vertex);
+    outUV0 = uv0;
+    outColor = colour;
+}

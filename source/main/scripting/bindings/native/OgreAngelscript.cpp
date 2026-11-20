@@ -433,7 +433,7 @@ void registerOgreRadian(AngelScript::asIScriptEngine* engine)
     // Register the object operators
     r = engine->RegisterObjectMethod("radian", "radian &opAssign(const radian &in)", asMETHODPR(Radian, operator =, (const Radian &), Radian&), asCALL_THISCALL);
     ROR_ASSERT( r >= 0 );
-    r = engine->RegisterObjectMethod("radian", "radian &opAssign(const float)", asMETHODPR(Radian, operator =, (const float &), Radian&), asCALL_THISCALL);
+    r = engine->RegisterObjectMethod("radian", "radian &opAssign(const float)", asMETHODPR(Radian, operator =, (float), Radian&), asCALL_THISCALL);
     ROR_ASSERT( r >= 0 );
     r = engine->RegisterObjectMethod("radian", "radian &opAssign(const degree &in)", asMETHODPR(Radian, operator =, (const Degree &), Radian&), asCALL_THISCALL);
     ROR_ASSERT( r >= 0 );
@@ -473,7 +473,7 @@ void registerOgreRadian(AngelScript::asIScriptEngine* engine)
     r = engine->RegisterObjectMethod("radian", "radian opDiv(float) const", asMETHODPR(Radian, operator/,(float) const, Radian), asCALL_THISCALL);
     ROR_ASSERT( r >= 0 );
 
-    r = engine->RegisterObjectMethod("radian", "radian &opDivAssign(float)", asMETHODPR(Radian,operator*=,(float),Radian&), asCALL_THISCALL);
+    r = engine->RegisterObjectMethod("radian", "radian &opDivAssign(float)", asMETHODPR(Radian,operator/=,(float),Radian&), asCALL_THISCALL);
     ROR_ASSERT( r >= 0 );
 
     r = engine->RegisterObjectMethod("radian", "int opCmp(const radian &in) const", asFUNCTION(RadianCmp), asCALL_CDECL_OBJFIRST);
@@ -514,7 +514,7 @@ void registerOgreDegree(AngelScript::asIScriptEngine* engine)
     // Register the object operators
     r = engine->RegisterObjectMethod("degree", "degree &opAssign(const degree &in)", asMETHODPR(Degree, operator =, (const Degree &), Degree&), asCALL_THISCALL);
     ROR_ASSERT( r >= 0 );
-    r = engine->RegisterObjectMethod("degree", "degree &opAssign(float)", asMETHODPR(Degree, operator =, (const float &), Degree&), asCALL_THISCALL);
+    r = engine->RegisterObjectMethod("degree", "degree &opAssign(float)", asMETHODPR(Degree, operator =, (float), Degree&), asCALL_THISCALL);
     ROR_ASSERT( r >= 0 );
     r = engine->RegisterObjectMethod("degree", "degree &opAssign(const radian &in)", asMETHODPR(Degree, operator =, (const Radian &), Degree&), asCALL_THISCALL);
     ROR_ASSERT( r >= 0 );
@@ -554,7 +554,7 @@ void registerOgreDegree(AngelScript::asIScriptEngine* engine)
     r = engine->RegisterObjectMethod("degree", "degree opDiv(float) const", asMETHODPR(Degree, operator/,(float) const, Degree), asCALL_THISCALL);
     ROR_ASSERT( r >= 0 );
 
-    r = engine->RegisterObjectMethod("degree", "degree &opDivAssign(float)", asMETHODPR(Degree,operator*=,(float),Degree&), asCALL_THISCALL);
+    r = engine->RegisterObjectMethod("degree", "degree &opDivAssign(float)", asMETHODPR(Degree,operator/=,(float),Degree&), asCALL_THISCALL);
     ROR_ASSERT( r >= 0 );
 
     r = engine->RegisterObjectMethod("degree", "int opCmp(const degree &in) const", asFUNCTION(DegreeCmp), asCALL_CDECL_OBJFIRST);
@@ -1414,6 +1414,7 @@ void registerOgreLight(AngelScript::asIScriptEngine* engine)
     r = engine->RegisterObjectMethod("Light", "float getAttenuationQuadric() const", asMETHOD(Ogre::Light, getAttenuationQuadric), asCALL_THISCALL); ROR_ASSERT(r >= 0);
 
     // Position & Direction
+    // OGRE 14.x: Light has no own transform anymore, these go through the parent SceneNode (see OgreAngelscriptWrappers.h)
     r = engine->RegisterObjectMethod("Light", "void setPosition(float x, float y, float z)", asMETHODPR(Ogre::Light, setPosition, (float, float, float), void), asCALL_THISCALL); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("Light", "void setPosition(const vector3&in)", asMETHODPR(Ogre::Light, setPosition, (const Ogre::Vector3&), void), asCALL_THISCALL); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("Light", "const vector3& getPosition() const", asMETHOD(Ogre::Light, getPosition), asCALL_THISCALL); ROR_ASSERT(r >= 0);

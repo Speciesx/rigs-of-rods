@@ -472,8 +472,7 @@ void InputEngine::destroy()
 
 void InputEngine::setup()
 {
-    size_t hWnd = 0;
-    App::GetAppContext()->GetRenderWindow()->getCustomAttribute("WINDOW", &hWnd);
+    size_t hWnd = App::GetAppContext()->GetNativeWindowHandle();
 
     LOG("*** Initializing OIS ***");
 

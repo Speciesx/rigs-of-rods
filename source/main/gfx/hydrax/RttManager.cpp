@@ -131,9 +131,21 @@ namespace Hydrax
 
 		if (Tex)
 		{
-		    Ogre::RenderTarget* RT = Tex->getBuffer()->getRenderTarget();
-            RT->removeAllListeners();
-            RT->removeAllViewports();
+			// RoR: the texture can already be unloaded (removed by name from the TextureManager while a material
+			// still holds it) - then its render target is gone and must not be touched.
+			if (Tex->isLoaded() && (Tex->getUsage() & Ogre::TU_RENDERTARGET))
+			{
+				Ogre::RenderTarget* RT = Tex->getBuffer()->getRenderTarget();
+				if (RT)
+				{
+					RT->removeAllListeners();
+					RT->removeAllViewports();
+				}
+			}
+			else
+			{
+				Ogre::LogManager::getSingleton().logMessage("[Hydrax] RttManager::remove(" + mRttOptions[Rtt].Name + "): texture not loaded, skipping render target cleanup");
+			}
 
 			Ogre::TextureManager::getSingleton().remove(mRttOptions[Rtt].Name);
 			Ogre::MeshManager::getSingleton().remove(mRttOptions[Rtt].Name + "ClipPlane");
@@ -507,6 +519,20 @@ namespace Hydrax
 		mCReflectionQueueListener.mActive = false;
     }
 
+	// RoR: OGRE 14.6 caches the projection matrix of the shader auto parameters per viewport render and only
+	// marks it dirty in setCurrentCamera(). The sky queue is rendered first, so the projection without the custom
+	// near clip plane got cached and was used for the whole reflection RTT -> everything below the water plane
+	// was mirrored up into the reflection (the 'wall'). Re-set the camera to drop the cached matrices.
+	static void _invalidateAutoParamProjection(Hydrax* h)
+	{
+		Ogre::SceneManager* sm = h->getSceneManager();
+		Ogre::AutoParamDataSource* src = const_cast<Ogre::AutoParamDataSource*>(sm->_getAutoParamDataSource());
+		if (src)
+		{
+			src->setCurrentCamera(h->getCamera(), sm->getCameraRelativeRendering());
+		}
+	}
+
 	void RttManager::CReflectionListener::CReflectionQueueListener::renderQueueStarted(Ogre::uint8 queueGroupId, const Ogre::String &invocation, bool
 
 		&skipThisInvocation)
@@ -518,6 +544,7 @@ namespace Hydrax
 		{
 			mRttManager->mHydrax->getCamera()->disableCustomNearClipPlane();
 			Ogre::Root::getSingleton().getRenderSystem()->_setProjectionMatrix(mRttManager->mHydrax->getCamera()->getProjectionMatrix());
+			_invalidateAutoParamProjection(mRttManager->mHydrax);
 		}
 	}
 
@@ -532,6 +559,7 @@ namespace Hydrax
 		{
 			mRttManager->mHydrax->getCamera()->enableCustomNearClipPlane(mRttManager->mPlanes[RTT_REFLECTION]);
 			Ogre::Root::getSingleton().getRenderSystem()->_setProjectionMatrix(mRttManager->mHydrax->getCamera()->getProjectionMatrix());
+			_invalidateAutoParamProjection(mRttManager->mHydrax);
 		}
 	}
 

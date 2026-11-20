@@ -27,6 +27,98 @@ using namespace Ogre;
 
 namespace Forests {
 
+static void DecodeDxtColourBlock(const uint8* b, uint8 rgba[16][4], bool allow_1bit_alpha)
+{
+	const uint16 c0 = (uint16)(b[0] | (b[1] << 8));
+	const uint16 c1 = (uint16)(b[2] | (b[3] << 8));
+	uint8 pal[4][4];
+	auto expand = [](uint16 c, uint8* o)
+	{
+		o[0] = (uint8)(((c >> 11) & 31) * 255 / 31);
+		o[1] = (uint8)(((c >> 5) & 63) * 255 / 63);
+		o[2] = (uint8)((c & 31) * 255 / 31);
+		o[3] = 255;
+	};
+	expand(c0, pal[0]);
+	expand(c1, pal[1]);
+	for (int k = 0; k < 3; ++k)
+	{
+		if (c0 > c1 || !allow_1bit_alpha)
+		{
+			pal[2][k] = (uint8)((2 * pal[0][k] + pal[1][k]) / 3);
+			pal[3][k] = (uint8)((pal[0][k] + 2 * pal[1][k]) / 3);
+		}
+		else
+		{
+			pal[2][k] = (uint8)((pal[0][k] + pal[1][k]) / 2);
+			pal[3][k] = 0;
+		}
+	}
+	pal[2][3] = 255;
+	pal[3][3] = (c0 > c1 || !allow_1bit_alpha) ? 255 : 0;
+	const uint32 idx = (uint32)(b[4] | (b[5] << 8) | (b[6] << 16) | ((uint32)b[7] << 24));
+	for (int i = 0; i < 16; ++i)
+		memcpy(rgba[i], pal[(idx >> (2 * i)) & 3], 4);
+}
+
+/// DXT1/3/5 (BC1-3) to RGBA on the CPU. OGRE's DDS codec only decompresses if the render system has no DXT support,
+/// so density/colour maps stored as compressed DDS can't be converted with bulkPixelConversion().
+static bool DecompressDxt(const Image& src, Image& dst)
+{
+	const PixelFormat pf = src.getFormat();
+	const bool dxt1 = (pf == PF_DXT1), dxt3 = (pf == PF_DXT2 || pf == PF_DXT3), dxt5 = (pf == PF_DXT4 || pf == PF_DXT5);
+	if (!dxt1 && !dxt3 && !dxt5)
+		return false;
+
+	const uint32 w = src.getWidth(), h = src.getHeight();
+	dst.create(PF_BYTE_RGBA, w, h);
+	const uint8* in = src.getData();
+	uint8* out = dst.getData();
+	const size_t block_size = dxt1 ? 8 : 16;
+
+	for (uint32 by = 0; by < (h + 3) / 4; ++by)
+	{
+		for (uint32 bx = 0; bx < (w + 3) / 4; ++bx, in += block_size)
+		{
+			uint8 rgba[16][4];
+			DecodeDxtColourBlock(dxt1 ? in : in + 8, rgba, dxt1);
+			if (dxt3)
+			{
+				for (int i = 0; i < 16; ++i)
+				{
+					const uint8 nib = (in[i / 2] >> ((i & 1) * 4)) & 15;
+					rgba[i][3] = (uint8)(nib * 17);
+				}
+			}
+			else if (dxt5)
+			{
+				const uint8 a0 = in[0], a1 = in[1];
+				uint8 apal[8] = { a0, a1 };
+				for (int k = 1; k < 7; ++k)
+				{
+					if (a0 > a1)
+						apal[k + 1] = (uint8)(((7 - k) * a0 + k * a1) / 7);
+					else if (k < 5)
+						apal[k + 1] = (uint8)(((5 - k) * a0 + k * a1) / 5);
+				}
+				if (a0 <= a1) { apal[6] = 0; apal[7] = 255; }
+				uint64 bits = 0;
+				for (int k = 0; k < 6; ++k)
+					bits |= (uint64)in[2 + k] << (8 * k);
+				for (int i = 0; i < 16; ++i)
+					rgba[i][3] = apal[(bits >> (3 * i)) & 7];
+			}
+			for (int i = 0; i < 16; ++i)
+			{
+				const uint32 x = bx * 4 + (i & 3), y = by * 4 + (i >> 2);
+				if (x < w && y < h)
+					memcpy(out + (y * w + x) * 4, rgba[i], 4);
+			}
+		}
+	}
+	return true;
+}
+
 /// Reads the pixels of a map texture into 'dst' (converting the format).
 /// Reads the image file instead of the GPU texture: GPU read-back (blitToMemory) is not reliable on
 /// all render systems (Direct3D11 returns zeros -> no grass / transparent grass).
@@ -36,6 +128,13 @@ static void ReadMapPixels(const TexturePtr& map, const HardwarePixelBufferShared
 	{
 		Image img;
 		img.load(map->getName(), map->getGroup());
+		if (PixelUtil::isCompressed(img.getFormat()))
+		{
+			Image raw;
+			if (!DecompressDxt(img, raw))
+				OGRE_EXCEPT(Exception::ERR_NOT_IMPLEMENTED, "unsupported compressed format " + PixelUtil::getFormatName(img.getFormat()), "ReadMapPixels");
+			img = raw;
+		}
 		if (img.getWidth() != dst.getWidth() || img.getHeight() != dst.getHeight())
 			img.resize((ushort)dst.getWidth(), (ushort)dst.getHeight());
 		PixelUtil::bulkPixelConversion(img.getPixelBox(), dst);

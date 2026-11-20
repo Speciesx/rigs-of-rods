@@ -50,6 +50,8 @@
 #   include <windows.h>
 #endif
 
+#include <OgreMeshSerializer.h>
+
 #include <iomanip>
 #include <sstream>
 #include <string>
@@ -201,9 +203,66 @@ void AppContext::windowFocusChange(Ogre::RenderWindow* rw)
 // --------------------------
 // Rendering
 
+#ifdef _WIN32
+/// OGRE's Vulkan render system cannot create windows on Windows ("externalWindowHandle required"),
+/// so RoR creates a plain Win32 window and hands it over. Messages go through OgreBites like with D3D/GL.
+static HWND CreateNativeRenderWindow(std::string const& title, int width, int height, bool fullscreen, bool resizable)
+{
+    HINSTANCE hinst = ::GetModuleHandleA(nullptr);
+    static bool registered = false;
+    if (!registered)
+    {
+        WNDCLASSEXA wc = {};
+        wc.cbSize = sizeof(wc);
+        wc.style = CS_OWNDC;
+        wc.lpfnWndProc = OgreBites::WindowEventUtilities::_WndProc;
+        wc.hInstance = hinst;
+        wc.hIcon = ::LoadIconA(hinst, MAKEINTRESOURCEA(101));
+        wc.hCursor = ::LoadCursor(nullptr, IDC_ARROW);
+        wc.hbrBackground = (HBRUSH)::GetStockObject(BLACK_BRUSH);
+        wc.lpszClassName = "RoRNativeRenderWindow";
+        ::RegisterClassExA(&wc);
+        registered = true;
+    }
+
+    DWORD style = WS_VISIBLE;
+    int x = 0, y = 0, w = width, h = height;
+    if (fullscreen)
+    {
+        style |= WS_POPUP; // borderless fullscreen, size is set by caller to the screen size
+    }
+    else
+    {
+        style |= WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
+        if (resizable)
+            style |= WS_THICKFRAME | WS_MAXIMIZEBOX;
+        RECT rc = { 0, 0, width, height };
+        ::AdjustWindowRect(&rc, style, FALSE);
+        w = rc.right - rc.left;
+        h = rc.bottom - rc.top;
+        x = (std::max)(0, (::GetSystemMetrics(SM_CXSCREEN) - w) / 2);
+        y = (std::max)(0, (::GetSystemMetrics(SM_CYSCREEN) - h) / 2);
+    }
+
+    return ::CreateWindowExA(0, "RoRNativeRenderWindow", title.c_str(), style, x, y, w, h, nullptr, nullptr, hinst, nullptr);
+}
+#endif // _WIN32
+
+size_t AppContext::GetNativeWindowHandle()
+{
+    if (m_native_window)
+        return m_native_window;
+    size_t hWnd = 0;
+    if (m_render_window)
+        m_render_window->getCustomAttribute("WINDOW", &hWnd);
+    return hWnd;
+}
+
 void AppContext::SetRenderWindowIcon(Ogre::RenderWindow* rw)
 {
 #ifdef _WIN32
+    if (m_native_window)
+        return; // icon comes from the window class
     size_t hWnd = 0;
     rw->getCustomAttribute("WINDOW", &hWnd);
 
@@ -229,6 +288,10 @@ bool AppContext::SetUpRendering()
     std::string cfg_filepath = PathCombine(App::sys_config_dir->getStr(), "ogre.cfg");
     LOG(fmt::format("[RoR|Startup|Rendering] Creating OGRE renderer Root object, config='{}'", cfg_filepath));
     m_ogre_root = new Ogre::Root("", cfg_filepath, log_filepath);
+
+    // OGRE 14.6 only loads mesh format 1.8+ by default; many mods still ship older meshes
+    // (e.g. "[MeshSerializer_v1.41]") which OGRE 14.1 still accepted.
+    Ogre::MeshSerializer::enablePre1_8Formats(true);
 
     // load OGRE plugins manually
     std::string plugins_path = PathCombine(RoR::App::sys_process_dir->getStr(), "plugins.cfg");
@@ -373,9 +436,37 @@ bool AppContext::SetUpRendering()
     LOG(fmt::format("[RoR|Startup|Rendering] Creating render window with settings:\n{}", miscParams_log.str()));
 
     // Create render window
+    const Ogre::String window_title = "Rigs of Rods version " + Ogre::String (ROR_VERSION_STRING);
+    bool fullscreen = ropts["Full Screen"].currentValue == "Yes";
+#ifdef _WIN32
+    if (m_ogre_root->getRenderSystem()->getName().find("Vulkan") != std::string::npos)
+    {
+        if (fullscreen)
+        {
+            width = ::GetSystemMetrics(SM_CXSCREEN);
+            height = ::GetSystemMetrics(SM_CYSCREEN);
+        }
+        HWND hwnd = CreateNativeRenderWindow(window_title, width, height, fullscreen, App::diag_allow_window_resize->getBool());
+        if (!hwnd)
+        {
+            ErrorUtils::ShowError(_L("Startup error"), fmt::format("CreateWindowEx failed (error {})", ::GetLastError()));
+            return false;
+        }
+        m_native_window = (size_t)hwnd;
+        miscParams["externalWindowHandle"] = Ogre::StringConverter::toString(m_native_window);
+        LOG(fmt::format("[RoR|Startup|Rendering] Vulkan: created native window {}x{} (fullscreen: {}), handle {}", width, height, fullscreen, m_native_window));
+        fullscreen = false; // borderless window already covers the screen
+    }
+#endif
     m_render_window = Ogre::Root::getSingleton().createRenderWindow (
-        "Rigs of Rods version " + Ogre::String (ROR_VERSION_STRING),
-        width, height, ropts["Full Screen"].currentValue == "Yes", &miscParams);
+        window_title, width, height, fullscreen, &miscParams);
+#ifdef _WIN32
+    if (m_native_window)
+    {
+        // OgreBites::_WndProc finds the render window through GWLP_USERDATA (normally set by OGRE in WM_CREATE)
+        ::SetWindowLongPtrA((HWND)m_native_window, GWLP_USERDATA, (LONG_PTR)m_render_window);
+    }
+#endif
     OgreBites::WindowEventUtilities::_addRenderWindow(m_render_window);
     OgreBites::WindowEventUtilities::addWindowEventListener(m_render_window, this);
 

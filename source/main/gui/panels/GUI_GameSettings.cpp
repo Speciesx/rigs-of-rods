@@ -27,6 +27,8 @@
 #include "Language.h"
 #include "SoundManager.h"
 
+#include <OgreMaterialManager.h>
+
 #ifdef USE_OPENAL
 #   include <alc.h>
 #endif
@@ -47,9 +49,12 @@ void GameSettings::Draw()
     bool keep_open = true;
     ImGui::Begin(_LC("GameSettings", "Game settings"), &keep_open, flags);
 
+    this->ApplyLiveSettings();
+    const float notice_height = this->DrawReloadNotice();
+
     ImGui::BeginTabBar("GameSettingsTabs");
 
-    const float child_height = ImGui::GetWindowHeight()
+    const float child_height = ImGui::GetWindowHeight() - notice_height
         - ((2.f * ImGui::GetStyle().WindowPadding.y) + (3.f * ImGui::GetItemsLineHeightWithSpacing())
             + ImGui::GetStyle().ItemSpacing.y);
 
@@ -535,10 +540,105 @@ void GameSettings::DrawControlSettings()
     }
 }
 
+// -------------------------------------------------------------------------------------------------
+// Settings changed while a terrain is loaded
+
+/// Read only while loading a terrain or spawning actors - changing them in-game has no visible effect.
+static std::vector<CVar*> ReloadCVars()
+{
+    return {
+        App::gfx_shadow_type, App::gfx_sky_mode, App::gfx_water_mode,
+        App::gfx_vegetation_mode, App::gfx_sight_range, App::gfx_flares_mode, App::gfx_auto_lod,
+        App::gfx_alt_actor_materials, App::gfx_enable_videocams
+    };
+}
+
+void GameSettings::TakeSettingsSnapshot()
+{
+    m_snapshot.clear();
+    for (CVar* cvar : ReloadCVars())
+        m_snapshot[cvar] = cvar->getStr();
+    for (CVar* cvar : { App::gfx_texture_filter, App::gfx_anisotropy, App::gfx_fov_external_default, App::gfx_fov_internal_default })
+        m_snapshot[cvar] = cvar->getStr();
+}
+
+void GameSettings::ApplyLiveSettings()
+{
+    // Texture filtering: the default sampler is shared by all texture units that don't set their own filtering
+    if (m_snapshot[App::gfx_texture_filter] != App::gfx_texture_filter->getStr() ||
+        m_snapshot[App::gfx_anisotropy] != App::gfx_anisotropy->getStr())
+    {
+        Ogre::TextureFilterOptions tfo = Ogre::TFO_NONE;
+        switch (App::gfx_texture_filter->getEnum<GfxTexFilter>())
+        {
+        case GfxTexFilter::ANISOTROPIC: tfo = Ogre::TFO_ANISOTROPIC; break;
+        case GfxTexFilter::TRILINEAR:   tfo = Ogre::TFO_TRILINEAR;   break;
+        case GfxTexFilter::BILINEAR:    tfo = Ogre::TFO_BILINEAR;    break;
+        case GfxTexFilter::NONE:        tfo = Ogre::TFO_NONE;        break;
+        }
+        Ogre::MaterialManager::getSingleton().setDefaultAnisotropy(Ogre::Math::Clamp(App::gfx_anisotropy->getInt(), 1, 16));
+        Ogre::MaterialManager::getSingleton().setDefaultTextureFiltering(tfo);
+        m_snapshot[App::gfx_texture_filter] = App::gfx_texture_filter->getStr();
+        m_snapshot[App::gfx_anisotropy] = App::gfx_anisotropy->getStr();
+    }
+
+    // Field of view: the default is copied to the active value when a camera mode starts
+    if (m_snapshot[App::gfx_fov_external_default] != App::gfx_fov_external_default->getStr())
+    {
+        App::gfx_fov_external->setVal(App::gfx_fov_external_default->getInt());
+        m_snapshot[App::gfx_fov_external_default] = App::gfx_fov_external_default->getStr();
+    }
+    if (m_snapshot[App::gfx_fov_internal_default] != App::gfx_fov_internal_default->getStr())
+    {
+        App::gfx_fov_internal->setVal(App::gfx_fov_internal_default->getInt());
+        m_snapshot[App::gfx_fov_internal_default] = App::gfx_fov_internal_default->getStr();
+    }
+}
+
+float GameSettings::DrawReloadNotice()
+{
+    if (App::app_state->getEnum<AppState>() != AppState::SIMULATION)
+        return 0.f;
+
+    std::vector<std::string> changed;
+    for (CVar* cvar : ReloadCVars())
+    {
+        auto it = m_snapshot.find(cvar);
+        if (it != m_snapshot.end() && it->second != cvar->getStr())
+            changed.push_back(cvar->getLongName());
+    }
+    if (changed.empty())
+        return 0.f;
+
+    const float y0 = ImGui::GetCursorPosY();
+    std::string names;
+    for (const std::string& n : changed)
+        names += (names.empty() ? "" : ", ") + n;
+    ImGui::TextColored(ImVec4(1.f, 0.8f, 0.3f, 1.f), "%s", _LC("GameSettings", "Takes effect after reloading the terrain:"));
+    ImGui::SameLine();
+    ImGui::TextWrapped("%s", names.c_str());
+    if (App::mp_state->getEnum<MpState>() == MpState::CONNECTED)
+    {
+        ImGui::TextDisabled("%s", _LC("GameSettings", "Reloading is not available in multiplayer - rejoin the server."));
+    }
+    else if (ImGui::Button(_LC("GameSettings", "Reload terrain now")))
+    {
+        // Same as 'Return to menu' + 'Resume game': unloading writes autosave.sav (vehicles, positions),
+        // loading it brings the terrain back with the new settings.
+        App::GetGameContext()->PushMessage(Message(MSG_SIM_UNLOAD_TERRN_REQUESTED));
+        App::GetGameContext()->PushMessage(Message(MSG_SIM_LOAD_SAVEGAME_REQUESTED, "autosave.sav"));
+        m_is_visible = false; // close without reopening the pause menu (see SetVisible())
+    }
+    ImGui::Separator();
+    return ImGui::GetCursorPosY() - y0;
+}
+
 void GameSettings::SetVisible(bool v)
 {
     const bool was_visible = m_is_visible;
     m_is_visible = v;
+    if (v && !was_visible)
+        this->TakeSettingsSnapshot();
     if (!v && App::app_state->getEnum<AppState>() == RoR::AppState::MAIN_MENU)
     {
         App::GetGuiManager()->GameMainMenu.SetVisible(true);

@@ -443,8 +443,7 @@ static void registerOgreRadianGeneric(AngelScript::asIScriptEngine* engine)
 
     r = engine->RegisterObjectMethod("radian", "radian opDiv(float) const", WRAP_MFN_PR(Radian, operator/,(float) const, Radian), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
 
-    // NOTE: mirrors the native binding, which maps opDivAssign to operator*= (!)
-    r = engine->RegisterObjectMethod("radian", "radian &opDivAssign(float)", WRAP_MFN_PR(Radian,operator*=,(float),Radian&), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
+    r = engine->RegisterObjectMethod("radian", "radian &opDivAssign(float)", WRAP_MFN_PR(Radian,operator/=,(float),Radian&), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
 
     r = engine->RegisterObjectMethod("radian", "int opCmp(const radian &in) const", WRAP_OBJ_FIRST(RadianCmp), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
 
@@ -491,8 +490,7 @@ static void registerOgreDegreeGeneric(AngelScript::asIScriptEngine* engine)
 
     r = engine->RegisterObjectMethod("degree", "degree opDiv(float) const", WRAP_MFN_PR(Degree, operator/,(float) const, Degree), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
 
-    // NOTE: mirrors the native binding, which maps opDivAssign to operator*= (!)
-    r = engine->RegisterObjectMethod("degree", "degree &opDivAssign(float)", WRAP_MFN_PR(Degree,operator*=,(float),Degree&), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
+    r = engine->RegisterObjectMethod("degree", "degree &opDivAssign(float)", WRAP_MFN_PR(Degree,operator/=,(float),Degree&), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
 
     r = engine->RegisterObjectMethod("degree", "int opCmp(const degree &in) const", WRAP_OBJ_FIRST(DegreeCmp), asCALL_GENERIC); ROR_ASSERT( r >= 0 );
 
@@ -1286,6 +1284,7 @@ static void registerOgreLightGeneric(AngelScript::asIScriptEngine* engine)
     r = engine->RegisterObjectMethod("Light", "float getAttenuationQuadric() const", WRAP_MFN(Ogre::Light, getAttenuationQuadric), asCALL_GENERIC); ROR_ASSERT(r >= 0);
 
     // Position & Direction
+    // OGRE 14.x: Light has no own transform anymore, these go through the parent SceneNode (see OgreAngelscriptWrappers.h)
     r = engine->RegisterObjectMethod("Light", "void setPosition(float x, float y, float z)", WRAP_MFN_PR(Ogre::Light, setPosition, (float, float, float), void), asCALL_GENERIC); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("Light", "void setPosition(const vector3&in)", WRAP_MFN_PR(Ogre::Light, setPosition, (const Ogre::Vector3&), void), asCALL_GENERIC); ROR_ASSERT(r >= 0);
     r = engine->RegisterObjectMethod("Light", "const vector3& getPosition() const", WRAP_MFN(Ogre::Light, getPosition), asCALL_GENERIC); ROR_ASSERT(r >= 0);

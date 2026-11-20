@@ -188,7 +188,7 @@ void SkyXManager::UpdateUnderwaterView(bool camUnderwater)
 			mUwSavedFogEnd = sm->getFogEnd();
 			mUwActive = true;
 		}
-		const float point = (-mLight1->getDirection().y + 1.0f) / 2.0f; // same as in UpdateSkyLight()
+		const float point = (-mLight1->getDerivedDirection().y + 1.0f) / 2.0f; // same as in UpdateSkyLight()
 		const Ogre::Vector3 c = mHasWaterColorOverride ? mWaterColorOverride : mWaterGradient.getColor(point);
 		const Ogre::ColourValue water(std::min(c.x, 1.f), std::min(c.y, 1.f), std::min(c.z, 1.f));
 		vp->setBackgroundColour(water);

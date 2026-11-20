@@ -1,0 +1,13 @@
+OGRE_NATIVE_GLSL_VERSION_DIRECTIVE
+// RoR: MyGUI fragment shader for Vulkan (GLSLang plugin, GLSL -> SPIR-V)
+#include <OgreUnifiedShader.h>
+
+SAMPLER2D(sampleTexture, 0);
+
+MAIN_PARAMETERS
+IN(vec4 outUV0, TEXCOORD0)
+IN(vec4 outColor, COLOR)
+MAIN_DECLARATION
+{
+    gl_FragColor = outColor * textureLod(sampleTexture, outUV0.xy, 0.0); // RoR: GUI textures have no mipmaps
+}

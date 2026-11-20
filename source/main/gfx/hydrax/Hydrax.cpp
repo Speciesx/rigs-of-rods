@@ -33,6 +33,17 @@ Contributors:
 
 namespace Hydrax
 {
+	// RoR: RenderTarget::getViewport(0) on a render target without viewport dereferences end() in release
+	// builds (assert only) - happens when water components are toggled and an RTT is (re)created.
+	static Ogre::Viewport* _getRttViewport(RttManager* rtt, RttManager::RttType type)
+	{
+		Ogre::TexturePtr tex = rtt->getTexture(type);
+		if (!tex)
+			return nullptr;
+		Ogre::RenderTarget* rt = tex->getBuffer()->getRenderTarget();
+		return (rt && rt->getNumViewports() > 0) ? rt->getViewport(0) : nullptr;
+	}
+
 
 	Hydrax::Hydrax(Ogre::SceneManager *sm, Ogre::Camera *c, Ogre::Viewport *v)
             : mSceneManager(sm)
@@ -497,13 +508,9 @@ namespace Hydrax
 		}
 		if (!isComponent(HYDRAX_COMPONENT_UNDERWATER) && mCurrentFrameUnderwater)
 		{
-			mRttManager->getTexture(RttManager::RTT_REFRACTION)->
-				getBuffer()->getRenderTarget()->getViewport(0)->
-					 setSkiesEnabled(false);
+			if (Ogre::Viewport* vp = _getRttViewport(mRttManager, RttManager::RTT_REFRACTION)) vp->setSkiesEnabled(false);
 
-			mRttManager->getTexture(RttManager::RTT_REFLECTION)->
-				getBuffer()->getRenderTarget()->getViewport(0)->
-					 setSkiesEnabled(true);
+			if (Ogre::Viewport* vp = _getRttViewport(mRttManager, RttManager::RTT_REFLECTION)) vp->setSkiesEnabled(true);
 		}
 
 		mMesh->setMaterialName("BaseWhiteNoLighting");
@@ -665,15 +672,11 @@ namespace Hydrax
 
 			if (mMesh->getMaterialName() != mMaterialManager->getMaterial(MaterialManager::MAT_UNDERWATER)->getName())
 			{
-				mRttManager->getTexture(RttManager::RTT_REFRACTION)->
-					getBuffer()->getRenderTarget()->getViewport(0)->
-					     setSkiesEnabled(true);
+				if (Ogre::Viewport* vp = _getRttViewport(mRttManager, RttManager::RTT_REFRACTION)) vp->setSkiesEnabled(true);
 
 				if (isComponent(HYDRAX_COMPONENT_UNDERWATER_REFLECTIONS))
 				{
-				    mRttManager->getTexture(RttManager::RTT_REFLECTION)->
-					    getBuffer()->getRenderTarget()->getViewport(0)->
-					         setSkiesEnabled(false);
+				    if (Ogre::Viewport* vp = _getRttViewport(mRttManager, RttManager::RTT_REFLECTION)) vp->setSkiesEnabled(false);
 
 					if (isComponent(HYDRAX_COMPONENT_DEPTH))
 				    {
@@ -707,9 +710,7 @@ namespace Hydrax
 			if (mMesh->getMaterialName() != mMaterialManager->getMaterial(MaterialManager::MAT_WATER)->getName())
 			{
 				// We asume that RefractionRtt/ReflectionRtt are initialized
-				mRttManager->getTexture(RttManager::RTT_REFRACTION)->
-					getBuffer()->getRenderTarget()->getViewport(0)->
-					     setSkiesEnabled(false);
+				if (Ogre::Viewport* vp = _getRttViewport(mRttManager, RttManager::RTT_REFRACTION)) vp->setSkiesEnabled(false);
 
 				if (!isComponent(HYDRAX_COMPONENT_UNDERWATER_REFLECTIONS))
 				{
@@ -717,9 +718,7 @@ namespace Hydrax
 					mMaterialManager->reload(MaterialManager::MAT_WATER);
 				}
 
-				mRttManager->getTexture(RttManager::RTT_REFLECTION)->
-					getBuffer()->getRenderTarget()->getViewport(0)->
-					     setSkiesEnabled(true);
+				if (Ogre::Viewport* vp = _getRttViewport(mRttManager, RttManager::RTT_REFLECTION)) vp->setSkiesEnabled(true);
 
 				if (isComponent(HYDRAX_COMPONENT_DEPTH) && isComponent(HYDRAX_COMPONENT_UNDERWATER_REFLECTIONS))
 				{
@@ -850,13 +849,9 @@ namespace Hydrax
 
 		if (isComponent(HYDRAX_COMPONENT_UNDERWATER_REFLECTIONS) || !_isCurrentFrameUnderwater())
 		{
-			mRttManager->getTexture(RttManager::RTT_REFLECTION)->
-				 getBuffer()->getRenderTarget()->getViewport(0)->
-					 setBackgroundColour(WC);
+			if (Ogre::Viewport* vp = _getRttViewport(mRttManager, RttManager::RTT_REFLECTION)) vp->setBackgroundColour(WC);
 		}
-	    mRttManager->getTexture(RttManager::RTT_REFRACTION)->
-			getBuffer()->getRenderTarget()->getViewport(0)->
-				 setBackgroundColour(WC);
+	    if (Ogre::Viewport* vp = _getRttViewport(mRttManager, RttManager::RTT_REFRACTION)) vp->setBackgroundColour(WC);
 
 		if (!isComponent(HYDRAX_COMPONENT_DEPTH))
         {

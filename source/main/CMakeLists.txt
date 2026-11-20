@@ -548,9 +548,13 @@ if (NOT WIN32)
     set(CFG_COMMENT_RENDERSYSTEM_D3D11 "# ")
 endif ()
 
-if (WIN32)
-    # set(CFG_COMMENT_RENDERSYSTEM_GL "# ")
-    set(CFG_COMMENT_RENDERSYSTEM_GL3PLUS "# ")
+# OGRE 14.6 dependencies build GL3Plus, Vulkan and GLSLang (GLSL -> SPIR-V for Vulkan), but no Cg.
+option(ROR_OGRE_CG_PLUGIN "Load Plugin_CgProgramManager (only if the dependencies were built with Cg)" OFF)
+if (NOT ROR_OGRE_CG_PLUGIN)
+    set(CFG_COMMENT_PLUGIN_CG "# ")
+endif ()
+if (NOT WIN32)
+    set(CFG_COMMENT_RENDERSYSTEM_VULKAN "# ")
 endif ()
 
 if (DEFINED OGRE_PLUGIN_DIR AND NOT WIN32)

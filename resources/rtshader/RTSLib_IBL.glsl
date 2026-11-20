@@ -65,6 +65,7 @@ void evaluateIBL(inout PixelParams pixel,
     r = normalize(mul(invViewMat, vec4(r, 0.0)).xyz);
     r.z *= -1.0;
     shading_normal = normalize(mul(invViewMat, vec4(shading_normal, 0.0)).xyz);
+    shading_normal.z *= -1.0;
 
     // specular layer
     vec3 Fr = E * prefilteredRadiance(iblEnvTex, r, pixel.perceptualRoughness, iblRoughnessOneLevel);
@@ -72,17 +73,19 @@ void evaluateIBL(inout PixelParams pixel,
     vec3 diffuseIrradiance = Irradiance_RoughnessOne(iblEnvTex, shading_normal, iblRoughnessOneLevel);
     vec3 Fd = pixel.diffuseColor * diffuseIrradiance * (1.0 - E);
 
-    Fr *= iblLuminance;
-    Fd *= iblLuminance;
+    Fr *= iblLuminance * pixel.ambientOcclusion;
+    Fd *= iblLuminance * pixel.ambientOcclusion;
 
     // Combine all terms
     // Note: iblLuminance is already premultiplied by the exposure
-
+#ifndef USE_LINEAR_COLOURS
     color = pow(color, vec3_splat(2.2)); // gamma to linear
+#endif
 
     color += Fr + Fd;
 
-    // linear to gamma
-    color = pow(color, vec3_splat(1.0/2.2));
+#ifndef USE_LINEAR_COLOURS
+    color = pow(color, vec3_splat(1.0/2.2)); // linear to gamma
     color = saturate(color);
+#endif
 }
