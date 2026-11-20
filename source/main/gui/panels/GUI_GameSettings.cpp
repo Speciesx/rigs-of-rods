@@ -430,6 +430,7 @@ void GameSettings::DrawGraphicsSettings()
     DrawGCombo(App::gfx_vegetation_mode, _LC("GameSettings", "Vegetation density"),
         m_combo_items_vegetation.c_str());
 
+    DrawGCheckbox(App::gfx_static_objects, _LC("GameSettings", "Batch static terrain objects (next terrain load)"));
     DrawGFloatSlider(App::gfx_lod_range, _LC("GameSettings", "LOD range factor"), 0.5f, 5.f);
     if (ImGui::IsItemHovered())
     {

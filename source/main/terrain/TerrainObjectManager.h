@@ -34,6 +34,8 @@
 
 
 #include <map>
+#include <string>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -72,6 +74,8 @@ public:
     void           LoadPredefinedActors();
     bool           HasPredefinedActors() { return m_has_predefined_actors; };
     bool           UpdateTerrainObjects(float dt);
+    void           BakeStaticObjects();                     //!< Batches the plain .tobj meshes into StaticGeometry (gfx_static_objects)
+    void           UnbakeObject(TerrainEditorObject* obj);  //!< Takes an object out of its batch (it is being moved/destroyed)
 
     void ProcessTree(
         float yawfrom, float yawto,
@@ -145,6 +149,15 @@ protected:
     Ogre::SceneNode*          m_tobj_grouping_node = nullptr; //!< For even more readable scene graph (via inspector script)
     Ogre::SceneNode*          m_angelscript_grouping_node = nullptr; //!< For even more readable scene graph (via inspector script)
 
+
+    // StaticGeometry batches of plain terrain objects, one per (rendering distance, casts shadows, mesh LOD strategy)
+    struct StaticBatch
+    {
+        Ogre::StaticGeometry* geom = nullptr;
+        std::vector<std::pair<TerrainEditorObject*, Ogre::Entity*>> members;
+    };
+    void           RebuildStaticBatch(StaticBatch& batch);
+    std::map<std::tuple<int, bool, std::string>, StaticBatch> m_static_batches;
 
     std::vector<Forests::PagedGeometry*> m_paged_geometry;
     std::vector<std::pair<Ogre::SceneNode*, Ogre::SceneNode*>> m_paged_detached; //!< (node, parent) while detached

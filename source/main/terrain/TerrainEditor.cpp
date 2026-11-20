@@ -481,6 +481,10 @@ void TerrainEditorObjectRefreshActorVisual(TerrainEditorObjectPtr obj)
 
 void TerrainEditorObject::setPosition(Ogre::Vector3 const& pos)
 {
+    if (static_geometry_baked)
+    {
+        App::GetGameContext()->GetTerrain()->getObjectManager()->UnbakeObject(this); // moving: render it on its own again
+    }
     position = pos;
     if (static_object_node)
     {
@@ -494,6 +498,10 @@ void TerrainEditorObject::setPosition(Ogre::Vector3 const& pos)
 
 void TerrainEditorObject::setRotation(Ogre::Vector3 const& rot)
 {
+    if (static_geometry_baked)
+    {
+        App::GetGameContext()->GetTerrain()->getObjectManager()->UnbakeObject(this); // moving: render it on its own again
+    }
     rotation = rot;
     if (static_object_node)
     {

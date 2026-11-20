@@ -468,6 +468,7 @@ void RoR::Terrain::loadTerrainObjects()
     {
         m_object_manager->LoadTObjFile(tobj_filename);
     }
+    m_object_manager->BakeStaticObjects(); // gfx_static_objects
 }
 
 void RoR::Terrain::initTerrainCollisions()

@@ -51,6 +51,8 @@ public:
     std::vector<int> static_collision_tris;
     bool enable_collisions = true;
     int script_handler = -1;
+    bool static_geometry_candidate = false; //!< Plain mesh from a .tobj line (no instance name, animation, particles)
+    bool static_geometry_baked = false;     //!< Rendered through a StaticGeometry batch (gfx_static_objects)
     // ~ only for preloaded actors:
     TObjSpecialObject special_object_type = TObjSpecialObject::NONE;
     ActorInstanceID_t actor_instance_id = ACTORINSTANCEID_INVALID;

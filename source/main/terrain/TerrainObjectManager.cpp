@@ -55,6 +55,7 @@
 #include "GrassLoader.h"
 #include "ImpostorPage.h"
 
+#include <OgreLodStrategy.h>
 #include <RTShaderSystem/OgreRTShaderSystem.h>
 #include <Overlay/OgreFontManager.h>
 
@@ -84,6 +85,13 @@ TerrainObjectManager::TerrainObjectManager(Terrain* terrainManager) :
 
 TerrainObjectManager::~TerrainObjectManager()
 {
+    for (auto& entry : m_static_batches)
+    {
+        if (entry.second.geom)
+            App::GetGfxScene()->GetSceneManager()->destroyStaticGeometry(entry.second.geom);
+    }
+    m_static_batches.clear();
+
     for (MeshObject* mo : m_mesh_objects)
     {
         if (mo)
@@ -530,6 +538,10 @@ void TerrainObjectManager::destroyObject(const String& instancename)
     }
 
     TerrainEditorObjectPtr object = m_editor_objects[id];
+    if (object->static_geometry_baked)
+    {
+        this->UnbakeObject(object.GetRef());
+    }
 
     if (object->getSpecialObjectType() != TObjSpecialObject::NONE)
     {
@@ -690,6 +702,11 @@ bool TerrainObjectManager::LoadTerrainObject(const Ogre::String& name, const Ogr
     object->enable_collisions = enable_collisions;
     object->script_handler = scripthandler;
     object->tobj_cache_id = m_tobj_cache_active_id;
+    // Batchable: plain mesh placed by a .tobj line; scripts address objects by instance name, so those stay separate
+    // (the TObj parser names unnamed lines "auto^<file>(line:N)" - those count as unnamed)
+    object->static_geometry_candidate = mo && mo->getEntity() && !mo->getEntity()->hasSkeleton()
+        && m_tobj_cache_active_id != -1 && (instancename.empty() || instancename.compare(0, 5, "auto^") == 0) && !uniquifyMaterial
+        && odef->animations.empty() && odef->particle_systems.empty();
     m_editor_objects.push_back(object);
 
     if (mo && uniquifyMaterial && !instancename.empty())
@@ -1175,6 +1192,118 @@ void TerrainObjectManager::ProcessODefCollisionBoxes(TerrainEditorObjectPtr obj,
                 params->script_handler);
 
             obj->static_collision_boxes.push_back(boxnum);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Static terrain objects (gfx_static_objects): the plain meshes of the .tobj files (fences, rocks, road pieces...)
+// are merged into OGRE StaticGeometry regions - one draw call per region and material instead of one per object.
+// Objects stay in the editor list with their (hidden) entity; moving or destroying one takes it out of its batch.
+
+void TerrainObjectManager::BakeStaticObjects()
+{
+    if (!App::gfx_static_objects->getBool())
+        return;
+
+    Ogre::SceneManager* sm = App::GetGfxScene()->GetSceneManager();
+    const float lod_range = Ogre::Math::Clamp(App::gfx_lod_range->getFloat(), 0.1f, 10.f);
+    int num_baked = 0;
+
+    for (TerrainEditorObjectPtr& obj : m_editor_objects)
+    {
+        if (!obj->static_geometry_candidate || obj->static_geometry_baked || !obj->static_object_node)
+            continue;
+
+        for (Ogre::MovableObject* mova : obj->static_object_node->getAttachedObjects())
+        {
+            Ogre::Entity* ent = dynamic_cast<Ogre::Entity*>(mova);
+            if (!ent || !ent->getVisible()) // not isVisible(): that also checks the viewport mask (none while loading)
+                continue;
+
+            // One batch per rendering distance (StaticGeometry has a single one), shadow casting
+            // and mesh LOD strategy (a StaticGeometry region refuses to mix strategies)
+            const int dist = (int)ent->getRenderingDistance();
+            const bool shadows = ent->getCastShadows();
+            const Ogre::LodStrategy* lod_strategy = ent->getMesh()->getLodStrategy();
+            const std::string lod_name = lod_strategy ? lod_strategy->getName() : "none";
+            const auto key = std::make_tuple(dist, shadows, lod_name);
+            StaticBatch& batch = m_static_batches[key];
+            if (!batch.geom)
+            {
+                batch.geom = sm->createStaticGeometry(fmt::format("TerrainObjects/{}/{}/{}/{}", (void*)this, dist, shadows ? "s" : "ns", lod_name));
+                batch.geom->setRegionDimensions(Ogre::Vector3(200.f, 1000.f, 200.f));
+                batch.geom->setRenderingDistance((float)dist); // already scaled by gfx_lod_range
+                batch.geom->setCastShadows(shadows);
+            }
+            batch.members.push_back(std::make_pair(obj.GetRef(), ent));
+            ent->setVisible(false);
+            obj->static_geometry_baked = true;
+            num_baked++;
+        }
+    }
+
+    for (auto& entry : m_static_batches)
+    {
+        this->RebuildStaticBatch(entry.second);
+    }
+    LOG(fmt::format("[RoR|Terrain] Static terrain objects: {} meshes in {} batches (LOD range {:.1f})",
+        num_baked, m_static_batches.size(), lod_range));
+}
+
+void TerrainObjectManager::RebuildStaticBatch(StaticBatch& batch)
+{
+    batch.geom->reset();
+    try
+    {
+        for (auto& member : batch.members)
+        {
+            Ogre::SceneNode* node = member.first->static_object_node;
+            node->_update(/*updateChildren=*/false, /*parentHasChanged=*/true);
+            batch.geom->addEntity(member.second, node->_getDerivedPosition(), node->_getDerivedOrientation(), node->_getDerivedScale());
+        }
+        if (!batch.members.empty())
+        {
+            batch.geom->build();
+        }
+    }
+    catch (Ogre::Exception& e)
+    {
+        // Never let batching break the terrain load - fall back to the regular entities
+        LOG(fmt::format("[RoR|Terrain] Static terrain objects: batch '{}' failed ({} meshes), using regular entities. {}",
+            batch.geom->getName(), batch.members.size(), e.getDescription()));
+        batch.geom->reset();
+        for (auto& member : batch.members)
+        {
+            member.second->setVisible(true);
+            member.first->static_geometry_baked = false;
+        }
+        batch.members.clear();
+    }
+}
+
+void TerrainObjectManager::UnbakeObject(TerrainEditorObject* obj)
+{
+    if (!obj->static_geometry_baked)
+        return;
+    obj->static_geometry_baked = false;
+
+    for (auto& entry : m_static_batches)
+    {
+        StaticBatch& batch = entry.second;
+        const size_t before = batch.members.size();
+        auto end = std::remove_if(batch.members.begin(), batch.members.end(),
+            [obj](const std::pair<TerrainEditorObject*, Ogre::Entity*>& m)
+            {
+                if (m.first != obj)
+                    return false;
+                m.second->setVisible(true);
+                return true;
+            });
+        batch.members.erase(end, batch.members.end());
+        if (batch.members.size() != before)
+        {
+            this->RebuildStaticBatch(batch);
         }
     }
 }

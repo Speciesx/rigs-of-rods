@@ -808,6 +808,7 @@ extern CVar* gfx_envmap_rate;
 extern CVar* gfx_skidmarks_mode;
 extern CVar* gfx_sight_range;
 extern CVar* gfx_lod_range;
+extern CVar* gfx_static_objects;
 extern CVar* gfx_camera_height;
 extern CVar* gfx_fov_external;
 extern CVar* gfx_fov_external_default;
