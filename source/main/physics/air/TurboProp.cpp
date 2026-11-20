@@ -168,6 +168,14 @@ Turboprop::Turboprop(
         }
     }
 
+    //heat haze visual
+    hazePS = App::GetGfxScene()->CreateHeatHazeParticle(std::string(propname) + "-heathaze", "tracks/TurbopropHeatHaze");
+    if (hazePS)
+    {
+        hazeNode = App::GetGfxScene()->GetSceneManager()->getRootSceneNode()->createChildSceneNode();
+        hazeNode->attachObject(hazePS);
+    }
+
     reset();
 }
 
@@ -187,6 +195,11 @@ Turboprop::~Turboprop()
     if (smokePS != nullptr)
     {
         smokePS->removeAllEmitters();
+    }
+
+    if (hazePS != nullptr)
+    {
+        hazePS->removeAllEmitters();
     }
 }
 
@@ -230,6 +243,23 @@ void Turboprop::updateVisuals(RoR::GfxActor* gfx_actor)
         }
     }
 
+    //heat haze
+    if (hazeNode)
+    {
+        App::GetGfxScene()->AdjustParticleSystemTimeFactor(hazePS, gfx_actor);
+        hazeNode->setPosition(node_buf[nodeback].AbsPosition);
+        ParticleEmitter* emit = hazePS->getEmitter(0);
+        const bool running = !m_detached && !failed && ignition;
+        emit->setEnabled(running);
+        if (running)
+        {
+            Vector3 dir = node_buf[nodeback].AbsPosition - node_buf[noderef].AbsPosition;
+            emit->setDirection(dir.normalisedCopy());
+            emit->setParticleVelocity(6.f + 10.f * throtle, 9.f + 14.f * throtle);
+            emit->setColour(ColourValue(1.f, 1.f, 1.f, 0.3f + 0.5f * throtle));
+        }
+    }
+
 #ifdef USE_ANGELSCRIPT
     if (failed != failedold)
     {
@@ -243,6 +273,8 @@ void Turboprop::setVisible(bool visible)
 {
     if (smokePS)
         smokePS->setVisible(visible);
+    if (hazePS)
+        hazePS->setVisible(visible);
 }
 
 void Turboprop::updateForces(float dt, int doUpdate)

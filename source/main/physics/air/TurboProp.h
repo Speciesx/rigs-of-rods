@@ -124,6 +124,8 @@ private:
     float regspeed;
     Ogre::ParticleSystem* smokePS;
     Ogre::SceneNode* smokeNode;
+    Ogre::ParticleSystem* hazePS = nullptr; //!< Heat haze, only with gfx_heathaze
+    Ogre::SceneNode* hazeNode = nullptr;
     float twistmap[5];
     double rotenergy;
     float fixed_pitch;

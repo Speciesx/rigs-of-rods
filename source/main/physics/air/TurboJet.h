@@ -40,6 +40,8 @@ public:
 private:
     Ogre::SceneNode*      m_smoke_scenenode;
     Ogre::ParticleSystem* m_smoke_particle;
+    Ogre::SceneNode*      m_haze_scenenode = nullptr;
+    Ogre::ParticleSystem* m_haze_particle = nullptr; //!< Heat haze, only with gfx_heathaze
     Ogre::Entity*         m_flame_entity;
     Ogre::SceneNode*      m_flame_scenenode;
     Ogre::Entity*         m_nozzle_entity;

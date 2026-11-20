@@ -201,6 +201,7 @@ bool RoR::Terrain::initialize()
     this->LoadTelepoints(); // *.terrn2 file feature
 
     App::GetGfxScene()->CreateDustPools(); // Particle effects
+    App::GetGfxScene()->SetupHeatHaze(); // Exhaust heat haze compositor (gfx_heathaze)
 
     loading_window->SetProgress(92, _L("Initializing Overview Map Subsystem"));
     App::GetGuiManager()->SurveyMap.CreateTerrainTextures(); // Should be done before actors are loaded, otherwise they'd show up in the static texture

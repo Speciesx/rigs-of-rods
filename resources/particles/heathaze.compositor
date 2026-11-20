@@ -1,0 +1,49 @@
+// Heat haze compositor (gfx_heathaze), added to the main viewport by GfxScene::SetupHeatHaze().
+// rt_scene and rt_final have the same size and depth pool, so they share one depth buffer:
+// the haze particles drawn into rt_final are hidden behind the geometry rendered into rt_scene.
+
+compositor RoR/HeatHaze
+{
+    technique
+    {
+        texture rt_scene target_width target_height PF_A8R8G8B8
+        texture rt_final target_width target_height PF_A8R8G8B8
+
+        // 1. The scene without haze (render queue 85 is skipped outside rt_final)
+        target rt_scene
+        {
+            input previous
+        }
+
+        // 2. Copy the scene, then draw the haze particles sampling rt_scene with a distortion
+        target rt_final
+        {
+            input none
+            shadows off
+
+            pass render_quad
+            {
+                material RoR/HeatHaze/Copy
+                input 0 rt_scene
+            }
+
+            pass render_scene
+            {
+                first_render_queue 85
+                last_render_queue 85
+            }
+        }
+
+        // 3. To the screen (GUI/overlays are rendered here)
+        target_output
+        {
+            input none
+
+            pass render_quad
+            {
+                material RoR/HeatHaze/Copy
+                input 0 rt_final
+            }
+        }
+    }
+}

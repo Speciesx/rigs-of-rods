@@ -1,0 +1,173 @@
+// Heat haze (gfx_heathaze): particle and fullscreen copy materials for the 'RoR/HeatHaze' compositor.
+
+// ---- Programs: HLSL for D3D9/D3D11, GLSL for GL3+ ----
+
+vertex_program RoR/HeatHaze/Particle_VS_HLSL hlsl
+{
+    source heathaze.hlsl
+    entry_point HeatHaze_vp
+    target vs_3_0
+    default_params
+    {
+        param_named_auto worldViewProj worldviewproj_matrix
+    }
+}
+
+fragment_program RoR/HeatHaze/Particle_PS_HLSL hlsl
+{
+    source heathaze.hlsl
+    entry_point HeatHaze_fp
+    target ps_3_0
+    default_params
+    {
+        param_named_auto time time_0_x 100
+        param_named strength float 0.02
+    }
+}
+
+vertex_program RoR/HeatHaze/Particle_VS_GLSL glsl
+{
+    source heathaze_vp.glsl
+    default_params
+    {
+        param_named_auto worldViewProj worldviewproj_matrix
+    }
+}
+
+fragment_program RoR/HeatHaze/Particle_PS_GLSL glsl
+{
+    source heathaze_fp.glsl
+    default_params
+    {
+        param_named sceneMap int 0
+        param_named noiseMap int 1
+        param_named_auto time time_0_x 100
+        param_named strength float 0.02
+    }
+}
+
+vertex_program RoR/HeatHaze/Copy_VS_HLSL hlsl
+{
+    source heathaze.hlsl
+    entry_point HeatHazeCopy_vp
+    target vs_3_0
+    default_params
+    {
+        param_named_auto worldViewProj worldviewproj_matrix
+    }
+}
+
+fragment_program RoR/HeatHaze/Copy_PS_HLSL hlsl
+{
+    source heathaze.hlsl
+    entry_point HeatHazeCopy_fp
+    target ps_3_0
+}
+
+vertex_program RoR/HeatHaze/Copy_VS_GLSL glsl
+{
+    source heathaze_copy_vp.glsl
+    default_params
+    {
+        param_named_auto worldViewProj worldviewproj_matrix
+    }
+}
+
+fragment_program RoR/HeatHaze/Copy_PS_GLSL glsl
+{
+    source heathaze_copy_fp.glsl
+    default_params
+    {
+        param_named srcMap int 0
+    }
+}
+
+vertex_program RoR/HeatHaze/Particle_VS unified
+{
+    delegate RoR/HeatHaze/Particle_VS_GLSL
+    delegate RoR/HeatHaze/Particle_VS_HLSL
+}
+
+fragment_program RoR/HeatHaze/Particle_PS unified
+{
+    delegate RoR/HeatHaze/Particle_PS_GLSL
+    delegate RoR/HeatHaze/Particle_PS_HLSL
+}
+
+vertex_program RoR/HeatHaze/Copy_VS unified
+{
+    delegate RoR/HeatHaze/Copy_VS_GLSL
+    delegate RoR/HeatHaze/Copy_VS_HLSL
+}
+
+fragment_program RoR/HeatHaze/Copy_PS unified
+{
+    delegate RoR/HeatHaze/Copy_PS_GLSL
+    delegate RoR/HeatHaze/Copy_PS_HLSL
+}
+
+// ---- Materials ----
+
+// Haze particle: samples the scene (texture set by GfxScene from the compositor's 'rt_scene')
+material RoR/HeatHaze/Particle
+{
+    receive_shadows off
+    technique
+    {
+        pass
+        {
+            lighting off
+            scene_blend alpha_blend
+            depth_write off
+            cull_hardware none
+            fog_override true
+
+            vertex_program_ref RoR/HeatHaze/Particle_VS
+            {
+            }
+            fragment_program_ref RoR/HeatHaze/Particle_PS
+            {
+            }
+
+            texture_unit sceneMap
+            {
+                tex_address_mode clamp
+                filtering bilinear
+            }
+            texture_unit noiseMap
+            {
+                texture heathaze_noise.png
+                tex_address_mode wrap
+                filtering bilinear
+            }
+        }
+    }
+}
+
+// Fullscreen copy (compositor render_quad)
+material RoR/HeatHaze/Copy
+{
+    technique
+    {
+        pass
+        {
+            lighting off
+            depth_check off
+            depth_write off
+            cull_hardware none
+
+            vertex_program_ref RoR/HeatHaze/Copy_VS
+            {
+            }
+            fragment_program_ref RoR/HeatHaze/Copy_PS
+            {
+            }
+
+            texture_unit
+            {
+                tex_address_mode clamp
+                filtering none
+            }
+        }
+    }
+}

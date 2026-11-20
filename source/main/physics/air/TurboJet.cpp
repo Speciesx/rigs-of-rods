@@ -98,7 +98,15 @@ void TurbojetVisual::SetupVisuals(RigDef::Turbojet & def, int num, std::string c
         m_smoke_scenenode->attachObject(m_smoke_particle);
         m_smoke_particle->setCastShadows(false);
     }
-    
+
+    //heat haze visual
+    m_haze_particle = App::GetGfxScene()->CreateHeatHazeParticle("HeatHaze-" + propname, "tracks/JetHeatHaze");
+    if (m_haze_particle)
+    {
+        m_haze_scenenode = App::GetGfxScene()->GetSceneManager()->getRootSceneNode()->createChildSceneNode();
+        m_haze_scenenode->attachObject(m_haze_particle);
+        m_haze_particle->setDefaultDimensions(m_radius * 2.5f, m_radius * 2.5f);
+    }
 }
 
 void TurbojetVisual::SetNodes(NodeNum_t front, NodeNum_t back, NodeNum_t ref)
@@ -136,6 +144,11 @@ TurbojetVisual::~TurbojetVisual()
     if (m_smoke_particle != nullptr)
     {
         m_smoke_particle->removeAllEmitters();
+    }
+
+    if (m_haze_particle != nullptr)
+    {
+        m_haze_particle->removeAllEmitters();
     }
 }
 
@@ -214,12 +227,32 @@ void TurbojetVisual::UpdateVisuals(RoR::GfxActor* gfx_actor)
             emit->setTimeToLive(0.1 / 0.1);
         }
     }
+
+    //heat haze
+    if (m_haze_particle)
+    {
+        App::GetGfxScene()->AdjustParticleSystemTimeFactor(m_haze_particle, gfx_actor);
+        m_haze_scenenode->setPosition(node_buf[m_node_back].AbsPosition);
+        ParticleEmitter* emit = m_haze_particle->getEmitter(0);
+        const bool running = !ae_buf.simbuf_ae_detached && !ae_buf.simbuf_ae_failed && ae_buf.simbuf_ae_ignition;
+        emit->setEnabled(running);
+        if (running)
+        {
+            const float throttle = ae_buf.simbuf_ae_throttle;
+            const float boost = ae_buf.simbuf_tj_afterburn ? 1.5f : 1.0f;
+            emit->setDirection(-laxis);
+            emit->setParticleVelocity(10.f + 25.f * throttle * boost, 15.f + 35.f * throttle * boost);
+            emit->setColour(ColourValue(1.f, 1.f, 1.f, std::min(1.f, (0.35f + 0.65f * throttle) * boost)));
+        }
+    }
 }
 
 void TurbojetVisual::SetVisible(bool visible)
 {
     m_visible = visible;
     m_smoke_particle->setVisible(visible);
+    if (m_haze_particle)
+        m_haze_particle->setVisible(visible);
     m_nozzle_scenenode->setVisible(visible);
     if (!visible)
     {

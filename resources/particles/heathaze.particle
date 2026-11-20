@@ -1,0 +1,67 @@
+// Heat haze behind jet and turboprop engines (gfx_heathaze).
+// The particles are rendered by the 'RoR/HeatHaze' compositor (render queue 85), not in the scene itself.
+// Emitter direction, velocity and colour alpha (= haze strength) are set by the engine code every frame.
+
+particle_system tracks/JetHeatHaze
+{
+    material        RoR/HeatHaze/Particle
+    particle_width  1.0
+    particle_height 1.0
+    cull_each       false
+    quota           80
+    billboard_type  point
+    sorted          false
+
+    emitter Point
+    {
+        angle           4
+        emission_rate   40
+        time_to_live    0.6
+        direction       0 0 1
+        velocity_min    15
+        velocity_max    25
+        colour          1 1 1 1
+    }
+
+    affector Scaler
+    {
+        rate    2.5
+    }
+
+    affector ColourFader
+    {
+        alpha   -1.6
+    }
+}
+
+particle_system tracks/TurbopropHeatHaze
+{
+    material        RoR/HeatHaze/Particle
+    particle_width  0.8
+    particle_height 0.8
+    cull_each       false
+    quota           60
+    billboard_type  point
+    sorted          false
+
+    emitter Point
+    {
+        angle           6
+        emission_rate   30
+        time_to_live    0.7
+        direction       0 0 1
+        velocity_min    6
+        velocity_max    10
+        colour          1 1 1 1
+    }
+
+    affector Scaler
+    {
+        rate    1.5
+    }
+
+    affector ColourFader
+    {
+        alpha   -1.4
+    }
+}

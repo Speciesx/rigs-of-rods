@@ -47,6 +47,131 @@
 using namespace Ogre;
 using namespace RoR;
 
+// ---------------------------------------------------------------------------------------------
+// Heat haze: the scene is rendered into 'rt_scene', copied into 'rt_final' (which shares the depth
+// buffer), then the haze particles (own render queue) are drawn into 'rt_final' sampling 'rt_scene'
+// with a noise offset, and 'rt_final' is copied to the screen. See resources/particles/heathaze.*
+
+static const Ogre::uint8 HEATHAZE_RENDER_QUEUE = 85; // between RENDER_QUEUE_8 (80) and RENDER_QUEUE_9 (90)
+
+class RoR::HeatHazeListener: public Ogre::RenderQueueListener, public Ogre::CompositorInstance::Listener
+{
+public:
+    Ogre::CompositorInstance* instance = nullptr;
+    Ogre::RenderTarget*       target = nullptr; //!< 'rt_final' - the only place where the haze queue is rendered
+
+    // Haze particles are only drawn by the compositor pass, never in the scene itself or other RTTs
+    void renderQueueStarted(Ogre::uint8 queueGroupId, const Ogre::String& invocation, bool& skipThisInvocation) override
+    {
+        if (queueGroupId != HEATHAZE_RENDER_QUEUE)
+            return;
+        Ogre::Viewport* vp = App::GetGfxScene()->GetSceneManager()->getCurrentViewport();
+        if (!target || !vp || vp->getTarget() != target)
+            skipThisInvocation = true;
+    }
+
+    void notifyResourcesCreated(bool forResizeOnly) override
+    {
+        target = instance->getRenderTarget("rt_final");
+        Ogre::TexturePtr scene_tex = instance->getTextureInstance("rt_scene", 0);
+        Ogre::MaterialPtr mat = Ogre::MaterialManager::getSingleton().getByName("RoR/HeatHaze/Particle");
+        if (!mat || !scene_tex)
+            return;
+        for (Ogre::Technique* tech : mat->getTechniques())
+        {
+            for (Ogre::Pass* pass : tech->getPasses())
+            {
+                Ogre::TextureUnitState* tus = pass->getTextureUnitState("sceneMap");
+                if (tus)
+                    tus->setTexture(scene_tex);
+            }
+        }
+    }
+
+    void notifyResourcesReleased(bool forResizeOnly) override
+    {
+        target = nullptr;
+    }
+};
+
+void GfxScene::SetupHeatHaze()
+{
+    if (m_heathaze_compositor || !App::gfx_heathaze->getBool())
+        return;
+
+    Ogre::Viewport* vp = App::GetAppContext()->GetViewport();
+    if (!vp)
+        return;
+
+    try
+    {
+        if (!Ogre::CompositorManager::getSingleton().resourceExists("RoR/HeatHaze"))
+        {
+            LOG("[RoR|HeatHaze] Compositor 'RoR/HeatHaze' not found, heat haze disabled");
+            return;
+        }
+        m_heathaze_compositor = Ogre::CompositorManager::getSingleton().addCompositor(vp, "RoR/HeatHaze");
+        if (!m_heathaze_compositor)
+        {
+            LOG("[RoR|HeatHaze] Compositor 'RoR/HeatHaze' not supported, heat haze disabled");
+            return;
+        }
+        m_heathaze_listener = new HeatHazeListener();
+        m_heathaze_listener->instance = m_heathaze_compositor;
+        m_heathaze_compositor->addListener(m_heathaze_listener);
+        m_scene_manager->addRenderQueueListener(m_heathaze_listener);
+        m_heathaze_compositor->setAlive(true); // create the textures now, keep them while disabled
+        m_heathaze_compositor->setEnabled(false); // enabled by UpdateHeatHaze() while haze particles exist
+        LOG("[RoR|HeatHaze] Compositor set up");
+    }
+    catch (Ogre::Exception& e)
+    {
+        LOG("[RoR|HeatHaze] Setup failed: " + e.getDescription());
+        m_heathaze_compositor = nullptr;
+    }
+}
+
+Ogre::ParticleSystem* GfxScene::CreateHeatHazeParticle(std::string const& name, std::string const& templ)
+{
+    if (!m_heathaze_compositor || !App::gfx_heathaze->getBool())
+        return nullptr;
+
+    Ogre::ParticleSystem* psys = nullptr;
+    try
+    {
+        psys = m_scene_manager->createParticleSystem(name, templ);
+    }
+    catch (Ogre::Exception& e)
+    {
+        LOG("[RoR|HeatHaze] Cannot create particle system '" + name + "': " + e.getDescription());
+        return nullptr;
+    }
+    psys->setRenderQueueGroup(HEATHAZE_RENDER_QUEUE);
+    psys->setVisibilityFlags(DEPTHMAP_DISABLED); // not in the Hydrax depth map
+    psys->setCastShadows(false);
+    m_heathaze_psys.push_back(psys);
+    return psys;
+}
+
+void GfxScene::UpdateHeatHaze()
+{
+    if (!m_heathaze_compositor)
+        return;
+
+    // The compositor costs two fullscreen copies - only run it while there is something to distort
+    bool active = false;
+    for (Ogre::ParticleSystem* psys : m_heathaze_psys)
+    {
+        if (psys->isVisible() && psys->getNumParticles() > 0)
+        {
+            active = true;
+            break;
+        }
+    }
+    if (active != m_heathaze_compositor->getEnabled())
+        m_heathaze_compositor->setEnabled(active);
+}
+
 void GfxScene::CreateDustPools()
 {
     ROR_ASSERT(m_dustpools.size() == 0);
@@ -67,6 +192,11 @@ void GfxScene::ClearScene()
         delete itor.second;
     }
     m_dustpools.clear();
+
+    // Heat haze particles are destroyed by the scene wipe below
+    m_heathaze_psys.clear();
+    if (m_heathaze_compositor)
+        m_heathaze_compositor->setEnabled(false);
 
     // Delete game elements
     m_all_gfx_actors.clear();
@@ -97,6 +227,8 @@ void GfxScene::UpdateScene(float dt)
 {
     // NOTE: The `dt` parameter here is simulation time (0 when paused), not real time!
     // ================================================================================
+
+    this->UpdateHeatHaze();
 
     // Actors - start threaded tasks
     for (GfxActor* gfx_actor: m_live_gfx_actors)

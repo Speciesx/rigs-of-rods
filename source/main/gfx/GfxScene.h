@@ -38,6 +38,8 @@
 
 namespace RoR {
 
+class HeatHazeListener;
+
 /// @addtogroup Gfx
 /// @{
 
@@ -52,6 +54,8 @@ public:
     /// @name Particles
     /// @{
     void           CreateDustPools();
+    void           SetupHeatHaze(); //!< Adds the heat haze compositor to the main viewport (gfx_heathaze), once.
+    Ogre::ParticleSystem* CreateHeatHazeParticle(std::string const& name, std::string const& templ); //!< nullptr if heat haze is off
     DustPool*      GetDustPool(const char* name);
     void           AdjustParticleSystemTimeFactor(Ogre::ParticleSystem* psys, GfxActor* gfx_actor = nullptr);
     void           SetParticlesVisible(bool visible);
@@ -96,6 +100,12 @@ private:
     RoR::GfxEnvmap                    m_envmap;
     GameContextSB                     m_simbuf;
     SkidmarkConfig                    m_skidmark_conf;
+
+    // Heat haze (exhaust shimmer behind jet/turboprop engines):
+    void                              UpdateHeatHaze();
+    std::vector<Ogre::ParticleSystem*> m_heathaze_psys;
+    Ogre::CompositorInstance*         m_heathaze_compositor = nullptr;
+    HeatHazeListener*                 m_heathaze_listener = nullptr;
 
     // Free beams GFX:
     std::vector<FreeBeamGfx>          m_gfx_freebeams;
