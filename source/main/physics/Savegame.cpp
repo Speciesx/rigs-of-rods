@@ -30,6 +30,7 @@
 #include "Console.h"
 #include "Engine.h"
 #include "GameContext.h"
+#include "GfxScene.h"
 #include "GUIManager.h"
 #include "GUI_MessageBox.h"
 #include "InputEngine.h"
@@ -1036,4 +1037,9 @@ void ActorManager::RestoreSavedState(ActorPtr actor, rapidjson::Value const& j_e
     actor->UpdateBoundingBoxes();
     actor->calculateAveragePosition();
     actor->m_avg_node_position_prev = actor->m_avg_node_position;
+
+    // Sleeping actors get no visual updates until woken up - refresh the visuals once with the restored
+    // node positions, otherwise cab mesh, flexbodies and beams stay invisible (never built) after loading a savegame.
+    actor->GetGfxActor()->UpdateSimDataBuffer();
+    App::GetGfxScene()->ForceUpdateSingleGfxActor(actor->GetGfxActor());
 }
