@@ -142,6 +142,7 @@ set(SOURCE_FILES
         gui/panels/GUI_MultiplayerClientList.{h,cpp}
         gui/panels/GUI_NodeBeamUtils.{h,cpp}
         gui/panels/GUI_AirDashboard.{h,cpp}
+        gui/panels/GUI_BoatDashboard.{h,cpp}
         gui/panels/GUI_VehicleInfoTPanel.{h,cpp}
         gui/panels/GUI_ScriptMonitor.{h,cpp}
         gui/panels/GUI_SimPerfStats.{h,cpp}

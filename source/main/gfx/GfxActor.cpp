@@ -45,6 +45,7 @@
 #include "RoRnet.h"
 #include "ActorSpawner.h"
 #include "SlideNode.h"
+#include "ScrewProp.h"
 #include "SoundScriptManager.h"
 #include "Terrain.h"
 #include "TurboJet.h"
@@ -2013,6 +2014,14 @@ void RoR::GfxActor::UpdateSimDataBuffer()
     }
 
     // Elements: Aeroengines
+    // Screwprops: rudder/throttle animations and the boat dashboard read these (the vector was never filled)
+    m_simbuf.simbuf_screwprops.resize(m_actor->ar_num_screwprops);
+    for (int i = 0; i < m_actor->ar_num_screwprops; ++i)
+    {
+        m_simbuf.simbuf_screwprops[i].simbuf_sp_throttle = m_actor->ar_screwprops[i]->getThrottle();
+        m_simbuf.simbuf_screwprops[i].simbuf_sp_rudder   = m_actor->ar_screwprops[i]->getRudder();
+    }
+
     m_simbuf.simbuf_aeroengines.resize(m_actor->ar_num_aeroengines);
     for (int i = 0; i < m_actor->ar_num_aeroengines; ++i)
     {

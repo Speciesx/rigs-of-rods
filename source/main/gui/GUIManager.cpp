@@ -202,6 +202,7 @@ void GUIManager::DrawSimGuiBuffered(GfxActor* player_gfx_actor)
     {
         this->VehicleInfoTPanel.Draw(player_gfx_actor);
         this->AirDashboard.Draw(player_gfx_actor);
+        this->BoatDashboard.Draw(player_gfx_actor);
     }
 
     if (!this->ConsoleWindow.IsVisible())

@@ -377,6 +377,16 @@ void OverlayWrapper::showDashboardOverlays(bool show, ActorPtr actor)
 
     m_dashboard_visible = show;
 
+    // Boats: the built-in ImGui dashboard (GUI_BoatDashboard), if it is selected as default boat dashboard in the Loader
+    const bool boat_imgui = GUI::BoatDashboard::IsUsedBy(actor);
+    App::GetGuiManager()->BoatDashboard.SetVisible(show && boat_imgui);
+    if (boat_imgui)
+    {
+        m_marine_dashboard_needles_overlay->hide();
+        m_marine_dashboard_overlay->hide();
+        return;
+    }
+
     // check if we use the new style dashboards
     if (actor && actor->ar_dashboard && actor->ar_dashboard->wasDashboardHudLoaded())
     {
