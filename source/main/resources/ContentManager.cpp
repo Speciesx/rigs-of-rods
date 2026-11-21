@@ -56,6 +56,7 @@
 #include "D3D11ShaderFix.h"
 #include "FfpFragmentFix.h"
 #include <regex>
+#include <set>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include <sstream>
@@ -373,6 +374,122 @@ static bool IsD3D11Active()
     return rs && rs->getName().find("Direct3D11") != Ogre::String::npos;
 }
 
+static bool IsD3D9Active()
+{
+    Ogre::RenderSystem* rs = Ogre::Root::getSingleton().getRenderSystem();
+    return rs && rs->getName().find("Direct3D9") != Ogre::String::npos;
+}
+
+/// D3D9 without the Cg plugin (OGRE 14.6 dependencies are built without Cg): Cg programs are compiled
+/// by the D3D9 HLSL compiler instead - the Cg sources are D3D9-style HLSL (see D3D11ShaderFix::CgToHlsl()).
+static bool IsCgViaHlslOnD3D9()
+{
+    return IsD3D9Active() && !Ogre::HighLevelGpuProgramManager::getSingleton().isLanguageSupported("cg");
+}
+
+/// D3D9, Cg compiled as HLSL: Cg silently accepts partially written outputs (`VS_OUTPUT OUT; OUT.pos = ...; return OUT;`),
+/// the HLSL compiler rejects them (error X4000: variable 'OUT' used without having been completely initialized).
+/// Zero-initialize local variables of every struct type declared in the source: `T name;` -> `T name = (T)0;`
+static Ogre::String ZeroInitStructLocals(const Ogre::String& src)
+{
+    static const std::regex structDecl(R"(\bstruct\s+([A-Za-z_]\w*))");
+    std::set<std::string> types;
+    for (std::sregex_iterator it(src.begin(), src.end(), structDecl), end; it != end; ++it)
+        types.insert((*it)[1].str());
+    if (types.empty())
+        return src;
+
+    // Walk the source statement by statement; only touch statements at brace depth >= 1 that are not inside a struct body.
+    static const std::regex localDecl(R"(^(\s*)([A-Za-z_]\w*)(\s+)([A-Za-z_]\w*)\s*$)");
+    Ogre::String out;
+    out.reserve(src.size() + 256);
+    std::vector<bool> braceIsStruct; // stack: true = struct body
+    size_t stmtStart = 0;
+    for (size_t i = 0; i < src.size(); ++i)
+    {
+        const char c = src[i];
+        if (c == '/' && i + 1 < src.size() && (src[i + 1] == '/' || src[i + 1] == '*')) // skip comments
+        {
+            const size_t e = (src[i + 1] == '/') ? src.find('\n', i) : src.find("*/", i + 2);
+            i = (e == Ogre::String::npos) ? src.size() - 1 : (src[i + 1] == '/' ? e : e + 1);
+            continue;
+        }
+        if (c != '{' && c != '}' && c != ';')
+            continue;
+
+        const std::string stmt = src.substr(stmtStart, i - stmtStart);
+        out += stmt;
+        const size_t nl = stmt.find_last_of('\n');
+        const std::string last = (nl == std::string::npos) ? stmt : stmt.substr(nl + 1); // skips comments/preprocessor lines before it
+        std::smatch m;
+        bool inStruct = false;
+        for (bool b : braceIsStruct) inStruct |= b;
+        if (c == ';' && !braceIsStruct.empty() && !inStruct
+            && std::regex_match(last, m, localDecl) && types.count(m[2].str()))
+        {
+            out += " = (" + m[2].str() + ")0";
+        }
+        out += c;
+        stmtStart = i + 1;
+
+        if (c == '{')
+        {
+            braceIsStruct.push_back(std::regex_search(stmt, structDecl));
+        }
+        else if (c == '}' && !braceIsStruct.empty())
+            braceIsStruct.pop_back();
+    }
+    out += src.substr(stmtStart);
+    return out;
+}
+
+/// D3D9, Cg compiled as HLSL: the Cg profile list (`profiles vs_1_1 arbvp1`) becomes an HLSL `target`.
+/// Always shader model 3: Cg profiles like fp30/arbfp1 allow far more instructions than ps_2_0, and
+/// D3D9 requires vs_3_0 and ps_3_0 to be used together. `compile_arguments -DNAME` become `preprocessor_defines`.
+static void ConvertCgProfilesForD3D9(Ogre::ConcreteNodeList& nodes)
+{
+    for (auto it = nodes.begin(); it != nodes.end(); ++it)
+    {
+        if ((*it)->token == "profiles" && !(*it)->children.empty())
+        {
+            Ogre::String chosen;
+            for (auto& value : (*it)->children)
+            {
+                const Ogre::String& p = value->token;
+                if (p.compare(0, 3, "vs_") == 0 || p.find("vp") != Ogre::String::npos || p == "glslv")
+                    chosen = "vs_3_0";
+                else if (p.compare(0, 3, "ps_") == 0 || p.find("fp") != Ogre::String::npos || p == "glslf")
+                    chosen = "ps_3_0";
+                if (!chosen.empty())
+                    break;
+            }
+            if (!chosen.empty())
+            {
+                RoR::LogFormat("[RoR|D3D9] Cg profiles -> HLSL target '%s' (%s:%d)", chosen.c_str(), (*it)->file.c_str(), (int)(*it)->line);
+                (*it)->token = "target";
+                (*it)->children.front()->token = chosen;
+                (*it)->children.erase(std::next((*it)->children.begin()), (*it)->children.end());
+            }
+        }
+        else if ((*it)->token == "compile_arguments" && !(*it)->children.empty())
+        {
+            Ogre::String defines;
+            for (auto& value : (*it)->children)
+            {
+                if (value->token.compare(0, 2, "-D") == 0 && value->token.size() > 2)
+                    defines += (defines.empty() ? "" : ";") + value->token.substr(2);
+            }
+            if (!defines.empty())
+            {
+                (*it)->token = "preprocessor_defines";
+                (*it)->children.front()->token = defines;
+                (*it)->children.erase(std::next((*it)->children.begin()), (*it)->children.end());
+            }
+        }
+        ConvertCgProfilesForD3D9((*it)->children);
+    }
+}
+
 // D3D11 knows no shader model 1.x/2.x: scripts written for D3D9 use `target vs_1_1` / `ps_2_0` (SkyX, Hydrax, ...).
 // Upgrade them to shader model 3 - D3D11 maps it to 4.0 when 'enable_backwards_compatibility' is set (see handleEvent()).
 static void UpgradeLegacyShaderTargets(Ogre::ConcreteNodeList& nodes)
@@ -442,6 +559,10 @@ void ContentManager::preConversion(Ogre::ScriptCompiler *compiler, Ogre::Concret
     {
         UpgradeLegacyShaderTargets(*nodes);
     }
+    else if (IsCgViaHlslOnD3D9())
+    {
+        ConvertCgProfilesForD3D9(*nodes);
+    }
 }
 
 bool ContentManager::handleEvent(ScriptCompiler *compiler, ScriptCompilerEvent *evt, void *retval)
@@ -507,6 +628,35 @@ bool ContentManager::handleEvent(ScriptCompiler *compiler, ScriptCompilerEvent *
                 }
             }
             prog->setParameter("enable_backwards_compatibility", "true");
+        }
+        *static_cast<GpuProgram**>(retval) = prog.get(); // Script properties (entry_point, target...) are applied afterwards.
+        return true;
+    }
+    else if (evt->mType == CreateGpuProgramScriptCompilerEvent::eventType && IsCgViaHlslOnD3D9())
+    {
+        // D3D9 without the Cg plugin: compile Cg programs with the D3D9 HLSL compiler under the same name,
+        // so materials and mods keep working unchanged. D3D9 links VS and PS by semantic - no signature fixes needed.
+        auto* progEvent = static_cast<CreateGpuProgramScriptCompilerEvent*>(evt);
+        if (progEvent->mSyntax != "cg")
+            return false;
+        RoR::LogFormat("[RoR|D3D9] compiling Cg program '%s' as HLSL (no Cg plugin)", progEvent->mName.c_str());
+
+        HighLevelGpuProgramPtr prog = HighLevelGpuProgramManager::getSingleton().createProgram(
+            progEvent->mName, progEvent->mResourceGroup, "hlsl", progEvent->mProgramType);
+        if (prog) // Null if duplicate, see `resourceCollision()`
+        {
+            if (!progEvent->mSource.empty())
+            {
+                try
+                {
+                    DataStreamPtr stream = ResourceGroupManager::getSingleton().openResource(progEvent->mSource, progEvent->mResourceGroup);
+                    prog->setSource(ZeroInitStructLocals(RoR::D3D11ShaderFix::CgToHlsl(stream->getAsString())));
+                }
+                catch (Ogre::Exception&)
+                {
+                    prog->setSourceFile(progEvent->mSource);
+                }
+            }
         }
         *static_cast<GpuProgram**>(retval) = prog.get(); // Script properties (entry_point, target...) are applied afterwards.
         return true;
