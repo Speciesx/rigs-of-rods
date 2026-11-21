@@ -24,6 +24,7 @@
 #include "Application.h"
 #include "GameContext.h"
 #include "GfxScene.h"
+#include "HydraxWater.h"
 #include "IGfxWater.h"
 #include "Terrain.h"
 #include "TerrainObjectManager.h"
@@ -48,6 +49,15 @@ SurveyMapTextureCreator::~SurveyMapTextureCreator()
         mRttTex->removeAllViewports();
     if (mCamera)
         App::GetGfxScene()->GetSceneManager()->destroyCamera(mCamera);
+    if (mWaterPlane)
+    {
+        Ogre::SceneNode* node = mWaterPlane->getParentSceneNode();
+        App::GetGfxScene()->GetSceneManager()->destroyManualObject(mWaterPlane);
+        if (node)
+            App::GetGfxScene()->GetSceneManager()->destroySceneNode(node);
+    }
+    if (mWaterPlaneMat)
+        Ogre::MaterialManager::getSingleton().remove(mWaterPlaneMat);
     if (mTexture)
         Ogre::TextureManager::getSingleton().remove(mTexture);
 }
@@ -78,6 +88,11 @@ bool SurveyMapTextureCreator::init(int res, int fsaa)
     // Finite far plane: an orthographic camera can't have an infinite one (OGRE only avoids the division by zero
     // then), the camera sits mTerrainHeight above sea level looking straight down.
     mCamera->setFarClipDistance(mTerrainHeight + 1000.0f);
+    // Full terrain detail for the map: the coarse terrain LOD levels come out as long streaks in the top-down map
+    // (the map camera picks LOD per tile from its distance, and the coarser the levels, the more streaks).
+    // LOD bias also scales OGRE's terrain pixel error, so a large bias selects the full-detail level everywhere.
+    // It is a one-off render, the extra triangles don't matter.
+    mCamera->setLodBias(1000.f);
 
     Ogre::SceneNode* mCamera_snode = App::GetGfxScene()->GetSceneManager()->getRootSceneNode()->createChildSceneNode();
     mCamera_snode->attachObject(mCamera);
@@ -90,7 +105,45 @@ bool SurveyMapTextureCreator::init(int res, int fsaa)
     mViewport->setShadowsEnabled(false);
     mViewport->setSkiesEnabled(false);
 
+    this->createHydraxStandIn();
+
     return true;
+}
+
+void SurveyMapTextureCreator::createHydraxStandIn()
+{
+    HydraxWater* hydrax = App::GetGameContext()->GetTerrain()->getHydraxManager();
+    if (!hydrax || !hydrax->GetHydrax())
+        return;
+
+    // Flat, unshaded plane in the Hydrax water colour (self-illumination only, so it looks the same on every render system)
+    const Ogre::Vector3 col = hydrax->GetHydrax()->getWaterColor();
+    mWaterPlaneMat = Ogre::MaterialManager::getSingleton().create("MapRttWaterMat-" + TOSTRING(counter),
+        Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
+    Ogre::Pass* pass = mWaterPlaneMat->getTechnique(0)->getPass(0);
+    pass->setLightingEnabled(true);
+    pass->setAmbient(Ogre::ColourValue::Black);
+    pass->setDiffuse(Ogre::ColourValue::Black);
+    pass->setSpecular(Ogre::ColourValue::Black);
+    pass->setSelfIllumination(Ogre::ColourValue(col.x, col.y, col.z));
+
+    const Ogre::Vector3 size = App::GetGameContext()->GetTerrain()->getMaxTerrainSize();
+    const float margin = std::max(size.x, size.z); // also covers the sea around the terrain
+    const float y = App::GetGameContext()->GetTerrain()->getWaterHeight();
+    const float x0 = -margin, x1 = size.x + margin, z0 = -margin, z1 = size.z + margin;
+
+    Ogre::SceneManager* scm = App::GetGfxScene()->GetSceneManager();
+    mWaterPlane = scm->createManualObject("MapRttWater-" + TOSTRING(counter));
+    mWaterPlane->begin(mWaterPlaneMat->getName(), Ogre::RenderOperation::OT_TRIANGLE_LIST, mWaterPlaneMat->getGroup());
+    mWaterPlane->position(x0, y, z0); mWaterPlane->normal(Ogre::Vector3::UNIT_Y);
+    mWaterPlane->position(x0, y, z1); mWaterPlane->normal(Ogre::Vector3::UNIT_Y);
+    mWaterPlane->position(x1, y, z1); mWaterPlane->normal(Ogre::Vector3::UNIT_Y);
+    mWaterPlane->position(x1, y, z0); mWaterPlane->normal(Ogre::Vector3::UNIT_Y);
+    mWaterPlane->quad(0, 1, 2, 3);
+    mWaterPlane->end();
+    mWaterPlane->setCastShadows(false);
+    mWaterPlane->setVisible(false); // only while the map is rendered
+    scm->getRootSceneNode()->createChildSceneNode()->attachObject(mWaterPlane);
 }
 
 void SurveyMapTextureCreator::update(Vector2 center, Vector2 size)
@@ -110,6 +163,21 @@ void SurveyMapTextureCreator::preRenderTargetUpdate(const RenderTargetEvent &evt
     if (App::GetGameContext()->GetTerrain()->getObjectManager())
         App::GetGameContext()->GetTerrain()->getObjectManager()->SetPagedGeometryAttached(false);
 
+    // Hydrax draws a projected grid built for the player's perspective camera, textured with the player's
+    // refraction/reflection images - seen through the orthographic map camera that smears the player's view
+    // across the map in long streaks. Hide it and draw the flat stand-in plane instead.
+    HydraxWater* hydrax = App::GetGameContext()->GetTerrain()->getHydraxManager();
+    if (hydrax && hydrax->GetHydrax())
+    {
+        // Only the mesh node: Hydrax::setVisible() would tear down and rebuild its RTTs
+        mHydraxWasVisible = hydrax->GetHydrax()->isVisible() && hydrax->GetHydrax()->getMesh()->getSceneNode();
+        if (mHydraxWasVisible)
+            hydrax->GetHydrax()->getMesh()->getSceneNode()->setVisible(false);
+        if (mWaterPlane)
+            mWaterPlane->setVisible(mHydraxWasVisible);
+        return;
+    }
+
     auto water = App::GetGameContext()->GetTerrain()->getGfxWater();
     if (water)
     {
@@ -124,6 +192,16 @@ void SurveyMapTextureCreator::postRenderTargetUpdate(const RenderTargetEvent &ev
 {
     if (App::GetGameContext()->GetTerrain()->getObjectManager())
         App::GetGameContext()->GetTerrain()->getObjectManager()->SetPagedGeometryAttached(true);
+
+    HydraxWater* hydrax = App::GetGameContext()->GetTerrain()->getHydraxManager();
+    if (hydrax && hydrax->GetHydrax())
+    {
+        if (mWaterPlane)
+            mWaterPlane->setVisible(false);
+        if (mHydraxWasVisible)
+            hydrax->GetHydrax()->getMesh()->getSceneNode()->setVisible(true);
+        return;
+    }
 
     auto water = App::GetGameContext()->GetTerrain()->getGfxWater();
     if (water)

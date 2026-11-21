@@ -40,6 +40,7 @@ protected:
 
     void preRenderTargetUpdate(const Ogre::RenderTargetEvent &evt);
     void postRenderTargetUpdate(const Ogre::RenderTargetEvent &evt);
+    void createHydraxStandIn();
 
     Ogre::Real mTerrainHeight;
     Ogre::String mTextureName;
@@ -47,6 +48,11 @@ protected:
     Ogre::Camera* mCamera;
     Ogre::TexturePtr mTexture;
     Ogre::RenderTarget* mRttTex;
+
+    // Hydrax can't render for the map camera (see preRenderTargetUpdate()) - a flat plane stands in for it.
+    Ogre::ManualObject* mWaterPlane = nullptr;
+    Ogre::MaterialPtr mWaterPlaneMat;
+    bool mHydraxWasVisible = false;
 };
 
 } // namespace RoR

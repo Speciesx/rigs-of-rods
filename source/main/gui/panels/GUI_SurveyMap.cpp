@@ -94,6 +94,19 @@ void SurveyMap::Draw()
         {
             view_size.x = view_size.y;
         }
+
+        // The size above follows the screen width only - on wide or short screens the map got taller than the screen.
+        // Shrink it (keeping the aspect ratio) to what fits between the screen edges.
+        const ImVec2 edge = App::GetGuiManager()->GetTheme().screen_edge_padding;
+        const float frame = 2 * WINDOW_PADDING * ImGui::GetFontSize();
+        const float avail_x = ImGui::GetIO().DisplaySize.x - (2 * edge.x) - frame - view_padding.x;
+        const float avail_y = ImGui::GetIO().DisplaySize.y - (2 * edge.y) - frame - view_padding.y;
+        if (view_size.x > 0.f && view_size.y > 0.f && avail_x > 0.f && avail_y > 0.f)
+        {
+            const float scale = std::min(1.f, std::min(avail_x / view_size.x, avail_y / view_size.y));
+            view_size.x *= scale;
+            view_size.y *= scale;
+        }
     }
     else if (mMapMode == SurveyMapMode::SMALL)
     {
