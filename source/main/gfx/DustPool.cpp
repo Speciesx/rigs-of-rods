@@ -312,7 +312,25 @@ void DustPool::update()
             emit->setEmissionRate(rates[i]);
             // Drips stop on the water surface (the deflector plane of the script sits at y=0 - they used to sink
             // to the sea floor and show up as a bright column under the boat).
-            set_deflector((water != nullptr) ? water->CalcWavesHeight(positions[i]) : 0.f);
+            const float surface = (water != nullptr) ? water->CalcWavesHeight(positions[i]) : 0.f;
+            set_deflector(surface);
+            if (water != nullptr)
+            {
+                // The deflector plane alone doesn't hold them: it is shared by all slots and follows the waves,
+                // so drops resting on it end up below it when it moves up, and sink. Let each drop die when it
+                // reaches the surface instead - fall time from the drip point with the script's gravity (9.8).
+                const float height = positions[i].y - surface;
+                if (height <= 0.f)
+                {
+                    emit->setEnabled(false); // drip point is under water: no drops
+                }
+                else
+                {
+                    const float g = 9.8f;
+                    const float vy = velocities[i].y; // drops start with the node velocity
+                    emit->setTimeToLive((vy + std::sqrt(vy * vy + 2.f * g * height)) / g);
+                }
+            }
         }
         else if (types[i] == DUST_SPLASH)
         {
