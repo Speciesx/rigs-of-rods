@@ -115,6 +115,7 @@ public:
     bool                LoadTerrain(std::string const& filename_part);
     void                UnloadTerrain();
     const TerrainPtr&   GetTerrain() { return m_terrain; }
+    bool                LoadRaceTrack(std::string const& filename_part);
     bool                GetSkyTimeFrozen() const { return m_sky_time_frozen; }
     void                SetSkyTimeFrozen(bool frozen) { m_sky_time_frozen = frozen; }
 
@@ -169,6 +170,7 @@ public:
     /// @{
 
     RaceSystem&         GetRaceSystem() { return m_race_system; }
+    void                ResetRaceSystem() { m_race_system = RaceSystem(); }
     RepairMode&         GetRepairMode() { return m_recovery_mode; }
     SceneMouse&         GetSceneMouse() { return m_scene_mouse; }
     void                TeleportPlayer(float x, float z);

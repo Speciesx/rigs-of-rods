@@ -72,7 +72,6 @@ protected:
     void setMapZoom(float zoom);
     void setMapZoomRelative(float dt);
     const char* getTypeByDriveable(const ActorPtr& actor);
-    const char* getAIType(const ActorPtr& actor);
 
     void CacheMapIcon(SurveyMapEntity& e);
 
