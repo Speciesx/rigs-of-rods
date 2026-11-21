@@ -84,6 +84,16 @@ bool Wavefield::GetHydraxWaveHeight(Vec3 pos, float& out_height)
     return terrain->getGfxWater()->GetWaveHeightAt(pos.x, pos.z, out_height);
 }
 
+float Wavefield::GetHydraxMaxWaveAmplitude()
+{
+    const TerrainPtr& terrain = App::GetGameContext()->GetTerrain();
+    if (!terrain || terrain->getWater() != this || terrain->getGfxWater() == nullptr)
+    {
+        return -1.f;
+    }
+    return terrain->getGfxWater()->GetMaxWaveAmplitude();
+}
+
 float Wavefield::GetStaticWaterHeight()
 {
     return m_water_height;
@@ -145,6 +155,18 @@ bool Wavefield::IsUnderWater(Vec3 pos)
 {
     if (RoR::App::mp_state->getEnum<MpState>() != RoR::MpState::CONNECTED)
     {
+        // Called for every node on every physics step (2 kHz): only look up the wave height
+        // where the surface can actually be - above the highest crest or below the lowest trough
+        // the answer doesn't depend on the waves.
+        const float hydrax_ampl = this->GetHydraxMaxWaveAmplitude();
+        if (hydrax_ampl >= 0.f)
+        {
+            if (pos.y > m_water_height + hydrax_ampl)
+                return false;
+            if (pos.y < m_water_height - hydrax_ampl)
+                return true;
+        }
+
         float hydrax_height = 0.f;
         if (this->GetHydraxWaveHeight(pos, hydrax_height))
         {

@@ -364,6 +364,18 @@ bool HydraxWater::GetWaveHeightAt(float x, float z, float& out_height)
     return true;
 }
 
+float HydraxWater::GetMaxWaveAmplitude()
+{
+    if (mHydrax == nullptr || !mHydrax->isCreated() || mModule == nullptr)
+    {
+        return -1.f;
+    }
+    // ProjectedGrid::_getWaveHeight() = Perlin noise * Strength (only ever flattened towards the shore).
+    // The Perlin noise stays within +-2: base noise is 4*(rand - 0.5), each octave blends three frames with
+    // weights summing to 1, and the octave weights are normalized to 1. Small reserve for rounding.
+    return std::abs(mModule->getOptions().Strength) * 2.f + 0.1f;
+}
+
 void HydraxWater::FrameStepWater(float dt)
 {
     const TerrainPtr& terrain = App::GetGameContext()->GetTerrain();
