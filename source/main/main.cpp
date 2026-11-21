@@ -120,6 +120,71 @@ static void SaveShaderMicrocodeCache()
     }
 }
 
+namespace {
+
+/// Performance log (diag_perf_log): splits `renderOneFrame()` by render target. Every scene render (main window,
+/// shadow maps, water RTTs, envmap, videocameras, compositor scene passes) starts with `preFindVisibleObjects()`;
+/// the time until the next one is booked to that target. Compositor quad passes count to the preceding target.
+/// The time between `frameRenderingQueued()` and `frameEnded()` is the buffer swap (includes waiting for the GPU).
+class PerfRenderListener: public Ogre::SceneManager::Listener, public Ogre::FrameListener
+{
+public:
+    void preFindVisibleObjects(Ogre::SceneManager*, Ogre::SceneManager::IlluminationRenderStage, Ogre::Viewport* vp) override
+    {
+        Ogre::RenderTarget* target = vp ? vp->getTarget() : nullptr;
+        if (target == m_current_target && target != nullptr)
+            return; // another viewport/pass of the same target
+        this->Mark(target ? target->getName() : std::string("?"), target);
+    }
+    bool frameStarted(const Ogre::FrameEvent&) override
+    {
+        m_current.clear();
+        this->Mark("(frame start)");
+        return true;
+    }
+    bool frameRenderingQueued(const Ogre::FrameEvent&) override { this->Mark("(swap buffers / GPU wait)"); return true; }
+    bool frameEnded(const Ogre::FrameEvent&) override { this->Mark(""); return true; }
+
+private:
+    void Mark(const std::string& next, Ogre::RenderTarget* next_target = nullptr)
+    {
+        const auto now = RoR::PerfNow();
+        if (!m_current.empty() && RoR::App::diag_perf_log->getBool())
+        {
+            RoR::g_perf_render_ms[m_current] += std::chrono::duration<double, std::milli>(now - m_last).count();
+            // A target rendered nested in another one (shadow maps inside the main view) is finished here,
+            // so its statistics are complete. The main window's are complete at frameRenderingQueued().
+            if (m_current_target && m_current_target != next_target)
+                RoR::g_perf_render_batches[m_current] += (double)m_current_target->getStatistics().batchCount;
+        }
+        m_current = next;
+        m_current_target = next_target;
+        m_last = now;
+    }
+    std::string m_current;
+    Ogre::RenderTarget* m_current_target = nullptr;
+    std::chrono::steady_clock::time_point m_last;
+};
+
+void UpdatePerfRenderListener()
+{
+    static PerfRenderListener s_listener;
+    static Ogre::SceneManager* s_scene_manager = nullptr;
+    if (!RoR::App::diag_perf_log->getBool() || !RoR::App::GetGfxScene()->GetSceneManager())
+        return;
+    if (s_scene_manager == nullptr) // Registered once, stays (inactive while diag_perf_log is off)
+    {
+        RoR::App::GetAppContext()->GetOgreRoot()->addFrameListener(&s_listener);
+    }
+    if (s_scene_manager != RoR::App::GetGfxScene()->GetSceneManager())
+    {
+        s_scene_manager = RoR::App::GetGfxScene()->GetSceneManager();
+        s_scene_manager->addListener(&s_listener);
+    }
+}
+
+} // namespace
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -2383,6 +2448,7 @@ int main(int argc, char *argv[])
             }
             else
             {
+                UpdatePerfRenderListener();
                 const auto perf_render = PerfNow();
                 App::GetAppContext()->GetOgreRoot()->renderOneFrame();
                 PerfAdd(PERF_RENDER, perf_render);

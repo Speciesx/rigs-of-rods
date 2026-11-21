@@ -407,6 +407,8 @@ void DestroyInputEngine()
 } // namespace App
 
 double g_perf_main_ms[PERF_SLOT_COUNT] = {};
+std::map<std::string, double> g_perf_render_ms;
+std::map<std::string, double> g_perf_render_batches;
 
 // ------------------------------------------------------------------------------------------------
 // Global exception handling

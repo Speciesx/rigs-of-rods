@@ -61,6 +61,7 @@
 
 #include <fmt/format.h>
 #include <chrono>
+#include <algorithm>
 
 using namespace Ogre;
 using namespace RoR;
@@ -1129,6 +1130,8 @@ void ActorManager::UpdatePerfLog(double frame_ms)
     {
         m_perf = PerfStats();
         std::fill(std::begin(g_perf_main_ms), std::end(g_perf_main_ms), 0.0);
+        g_perf_render_ms.clear();
+        g_perf_render_batches.clear();
         return;
     }
 
@@ -1165,7 +1168,32 @@ void ActorManager::UpdatePerfLog(double frame_ms)
         mt[PERF_SCENE] / f, mt[PERF_SCENE_ACTORS] / f, mt[PERF_SCENE_TASK_WAIT] / f, mt[PERF_SCENE_ENVMAP] / f,
         mt[PERF_SCENE_VIDCAM] / f, mt[PERF_SCENE_HUD] / f, mt[PERF_SCENE_TERRAIN] / f,
         mt[PERF_RENDER] / f, (m_perf.elapsed_ms - main_sum) / f));
+
+    // Render breakdown, most expensive first; small entries summed up
+    std::vector<std::pair<double, std::string>> targets;
+    for (auto& entry: g_perf_render_ms)
+        targets.push_back(std::make_pair(entry.second / f, entry.first));
+    std::sort(targets.rbegin(), targets.rend());
+    std::string line;
+    double small_ms = 0;
+    for (auto& t: targets)
+    {
+        if (t.first >= 0.1)
+        {
+            auto batches = g_perf_render_batches.find(t.second);
+            if (batches != g_perf_render_batches.end())
+                line += fmt::format(" | {} {:.2f} ({:.0f} batches)", t.second, t.first, batches->second / f);
+            else
+                line += fmt::format(" | {} {:.2f}", t.second, t.first);
+        }
+        else
+            small_ms += t.first;
+    }
+    LOG(fmt::format("[RoR|Perf] render ms/frame:{} | (others) {:.2f}", line, small_ms));
+
     std::fill(std::begin(g_perf_main_ms), std::end(g_perf_main_ms), 0.0);
+    g_perf_render_ms.clear();
+    g_perf_render_batches.clear();
     m_perf = PerfStats();
 }
 
