@@ -628,6 +628,34 @@ ODefDocument* TerrainObjectManager::FetchODef(std::string const & odef_name)
     }
 }
 
+/// Semi-transparent passes (alpha blending) must not write depth: with depth writes they can hide the terrain
+/// and objects behind them depending on the draw order - Auriga's ice plate (AurigaTestTrackIce) showed the
+/// Hydrax water / the background through the asphalt with shadows on. Applied to all techniques, including
+/// RTSS-generated ones (logged once per material - later objects find nothing left to change).
+static void DisableTransparentDepthWrite(Ogre::Entity* ent)
+{
+    for (unsigned int i = 0; i < ent->getNumSubEntities(); i++)
+    {
+        const Ogre::MaterialPtr& mat = ent->getSubEntity(i)->getMaterial();
+        if (!mat)
+            continue;
+        int changed = 0;
+        for (Ogre::Technique* tech : mat->getTechniques())
+        {
+            for (Ogre::Pass* pass : tech->getPasses())
+            {
+                if (pass->isTransparent() && pass->getDepthWriteEnabled())
+                {
+                    pass->setDepthWriteEnabled(false);
+                    changed++;
+                }
+            }
+        }
+        if (changed)
+            LOG(fmt::format("[RoR|Terrain] Material '{}': depth write disabled for {} semi-transparent pass(es)", mat->getName(), changed));
+    }
+}
+
 bool TerrainObjectManager::LoadTerrainObject(const Ogre::String& name, const Ogre::Vector3& pos, const Ogre::Vector3& rot, const Ogre::String& instancename, const Ogre::String& type, float rendering_distance /* = 0 */, bool enable_collisions /* = true */, EvHandlerFuncID_t scripthandler /* = EVHANDLERFUNCID_INVALID */, bool uniquifyMaterial /* = false */)
 {
     if (type == "grid")
@@ -669,6 +697,7 @@ bool TerrainObjectManager::LoadTerrainObject(const Ogre::String& name, const Ogr
             mo->getEntity()->setCastShadows(odef->header.cast_shadows);
             // 0 = unlimited; otherwise scaled by the LOD range factor (gfx_lod_range)
             mo->getEntity()->setRenderingDistance(rendering_distance * Ogre::Math::Clamp(App::gfx_lod_range->getFloat(), 0.1f, 10.f));
+            DisableTransparentDepthWrite(mo->getEntity());
             m_mesh_objects.push_back(mo);
         }
         else
