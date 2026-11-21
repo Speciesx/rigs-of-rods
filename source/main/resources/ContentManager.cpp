@@ -53,9 +53,11 @@
 #include <OgreFileSystem.h>
 #include <OgreHighLevelGpuProgramManager.h>
 #include <OgreScriptCompiler.h>
+#include "CgToGlsl.h"
 #include "D3D11ShaderFix.h"
 #include "FfpFragmentFix.h"
 #include <regex>
+#include <map>
 #include <set>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
@@ -387,6 +389,136 @@ static bool IsCgViaHlslOnD3D9()
     return IsD3D9Active() && !Ogre::HighLevelGpuProgramManager::getSingleton().isLanguageSupported("cg");
 }
 
+/// OpenGL / OpenGL 3+ without the Cg plugin: Cg programs are translated to GLSL (see CgToGlsl.h).
+/// Returns the GLSL version to translate to, 0 if not applicable.
+static int GetCgViaGlslVersion()
+{
+    Ogre::RenderSystem* rs = Ogre::Root::getSingleton().getRenderSystem();
+    if (!rs || Ogre::HighLevelGpuProgramManager::getSingleton().isLanguageSupported("cg"))
+        return 0;
+    const Ogre::String& name = rs->getName();
+    if (name.find("OpenGL") == Ogre::String::npos || name.find("ES") != Ogre::String::npos)
+        return 0;
+    return (name.find("3+") != Ogre::String::npos) ? 330 : 120;
+}
+
+/// Cg program name -> translated GLSL source, filled in `preConversion()`, consumed in `handleEvent()`.
+static std::map<Ogre::String, Ogre::String> g_cg_glsl_sources;
+
+static Ogre::ConcreteNodePtr MakeScriptNode(Ogre::ConcreteNode* parent, const Ogre::String& token, Ogre::ConcreteNodeType type)
+{
+    Ogre::ConcreteNodePtr node = std::make_shared<Ogre::ConcreteNode>();
+    node->token = token;
+    node->file = parent->file;
+    node->line = parent->line;
+    node->type = type;
+    node->parent = parent;
+    return node;
+}
+
+/// Finds the `{` child of an object node (`vertex_program x cg { ... }` or `default_params { ... }`).
+static Ogre::ConcreteNode* FindScriptBody(Ogre::ConcreteNode* obj)
+{
+    for (auto& child : obj->children)
+        if (child->type == Ogre::CNT_LBRACE) return child.get();
+    return nullptr;
+}
+
+/// OpenGL without the Cg plugin: translates Cg vertex/fragment programs to GLSL while the script is parsed -
+/// the entry point and sampler units are only known here. The program properties GLSL does not know
+/// (`entry_point`, `profiles`) are removed, `compile_arguments -DX` become `preprocessor_defines`,
+/// and every used sampler gets `param_named <sampler> int <unit>` (GLSL has no `TEXUNITn`/`register(sN)`).
+static void ConvertCgProgramsForGL(Ogre::ConcreteNodeList& nodes, const Ogre::String& group, int glslVersion)
+{
+    for (auto& node : nodes)
+    {
+        const bool vp = (node->token == "vertex_program"), fp = (node->token == "fragment_program");
+        if (!(vp || fp) || node->children.size() < 3)
+            continue;
+        auto childIt = node->children.begin();
+        const Ogre::String progName = (*childIt)->token;
+        if ((*std::next(childIt))->token != "cg")
+            continue;
+        Ogre::ConcreteNode* body = FindScriptBody(node.get());
+        if (!body)
+            continue;
+
+        Ogre::String source, entry = "main", defines;
+        Ogre::ConcreteNode* defaultParams = nullptr;
+        for (auto& prop : body->children)
+        {
+            if (prop->token == "source" && !prop->children.empty())
+                source = prop->children.front()->token;
+            else if (prop->token == "entry_point" && !prop->children.empty())
+                entry = prop->children.front()->token;
+            else if (prop->token == "compile_arguments")
+            {
+                for (auto& arg : prop->children)
+                    if (arg->token.compare(0, 2, "-D") == 0 && arg->token.size() > 2)
+                        defines += (defines.empty() ? "" : ";") + arg->token.substr(2);
+            }
+            else if (prop->token == "default_params")
+                defaultParams = prop.get();
+        }
+        if (source.empty())
+            continue;
+
+        RoR::CgToGlsl::Result res;
+        try
+        {
+            Ogre::DataStreamPtr stream = Ogre::ResourceGroupManager::getSingleton().openResource(source, group);
+            res = RoR::CgToGlsl::Translate(stream->getAsString(), entry, fp, glslVersion);
+        }
+        catch (Ogre::Exception& e)
+        {
+            res.error = e.getDescription();
+        }
+        if (!res.ok)
+        {
+            RoR::LogFormat("[RoR|GL] Cannot translate Cg program '%s' (%s, entry '%s') to GLSL: %s",
+                progName.c_str(), source.c_str(), entry.c_str(), res.error.c_str());
+            continue;
+        }
+        g_cg_glsl_sources[progName] = res.glsl;
+
+        body->children.remove_if([](const Ogre::ConcreteNodePtr& prop)
+            { return prop->token == "entry_point" || prop->token == "profiles" || prop->token == "compile_arguments" || prop->token == "target"; });
+        if (!defines.empty())
+        {
+            Ogre::ConcreteNodePtr prop = MakeScriptNode(body, "preprocessor_defines", Ogre::CNT_WORD);
+            prop->children.push_back(MakeScriptNode(prop.get(), defines, Ogre::CNT_WORD));
+            body->children.push_back(prop);
+        }
+
+        if (!res.samplers.empty() && !defaultParams)
+        {
+            Ogre::ConcreteNodePtr dp = MakeScriptNode(body, "default_params", Ogre::CNT_WORD);
+            dp->children.push_back(MakeScriptNode(dp.get(), "{", Ogre::CNT_LBRACE));
+            dp->children.push_back(MakeScriptNode(dp.get(), "}", Ogre::CNT_RBRACE));
+            body->children.push_back(dp);
+            defaultParams = dp.get();
+        }
+        Ogre::ConcreteNode* dpBody = defaultParams ? FindScriptBody(defaultParams) : nullptr;
+        for (const auto& sampler : res.samplers)
+        {
+            if (!dpBody)
+                break;
+            bool present = false;
+            for (auto& param : dpBody->children)
+                present |= (param->token == "param_named" && !param->children.empty() && param->children.front()->token == sampler.name);
+            if (present)
+                continue;
+            Ogre::ConcreteNodePtr param = MakeScriptNode(dpBody, "param_named", Ogre::CNT_WORD);
+            param->children.push_back(MakeScriptNode(param.get(), sampler.name, Ogre::CNT_WORD));
+            param->children.push_back(MakeScriptNode(param.get(), "int", Ogre::CNT_WORD));
+            param->children.push_back(MakeScriptNode(param.get(), std::to_string(sampler.unit), Ogre::CNT_WORD));
+            dpBody->children.push_back(param);
+        }
+        RoR::LogFormat("[RoR|GL] Cg program '%s' (%s, entry '%s') translated to GLSL %d, %d sampler(s)",
+            progName.c_str(), source.c_str(), entry.c_str(), glslVersion, (int)res.samplers.size());
+    }
+}
+
 /// D3D9, Cg compiled as HLSL: Cg silently accepts partially written outputs (`VS_OUTPUT OUT; OUT.pos = ...; return OUT;`),
 /// the HLSL compiler rejects them (error X4000: variable 'OUT' used without having been completely initialized).
 /// Zero-initialize local variables of every struct type declared in the source: `T name;` -> `T name = (T)0;`
@@ -563,6 +695,10 @@ void ContentManager::preConversion(Ogre::ScriptCompiler *compiler, Ogre::Concret
     {
         ConvertCgProfilesForD3D9(*nodes);
     }
+    else if (const int glslVersion = GetCgViaGlslVersion())
+    {
+        ConvertCgProgramsForGL(*nodes, compiler->getResourceGroup(), glslVersion);
+    }
 }
 
 bool ContentManager::handleEvent(ScriptCompiler *compiler, ScriptCompilerEvent *evt, void *retval)
@@ -659,6 +795,24 @@ bool ContentManager::handleEvent(ScriptCompiler *compiler, ScriptCompilerEvent *
             }
         }
         *static_cast<GpuProgram**>(retval) = prog.get(); // Script properties (entry_point, target...) are applied afterwards.
+        return true;
+    }
+    else if (evt->mType == CreateGpuProgramScriptCompilerEvent::eventType && GetCgViaGlslVersion())
+    {
+        // OpenGL without the Cg plugin: create the GLSL program translated in `preConversion()` under the Cg program's name.
+        auto* progEvent = static_cast<CreateGpuProgramScriptCompilerEvent*>(evt);
+        auto found = g_cg_glsl_sources.find(progEvent->mName);
+        if (progEvent->mSyntax != "cg" || found == g_cg_glsl_sources.end())
+            return false;
+
+        HighLevelGpuProgramPtr prog = HighLevelGpuProgramManager::getSingleton().createProgram(
+            progEvent->mName, progEvent->mResourceGroup, "glsl", progEvent->mProgramType);
+        if (prog) // Null if duplicate, see `resourceCollision()`
+        {
+            prog->setSource(found->second);
+        }
+        g_cg_glsl_sources.erase(found);
+        *static_cast<GpuProgram**>(retval) = prog.get(); // Script properties (default_params...) are applied afterwards.
         return true;
     }
 #if OGRE_VERSION < 0x010C08 // OGRE 1.12.8+ does this itself, see `D3D9HLSLProgram::getTarget()`
