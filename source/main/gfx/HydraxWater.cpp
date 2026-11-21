@@ -22,15 +22,19 @@
 
 #include "Actor.h"
 #include "AppContext.h"
+#include "Application.h"
 #include "CameraManager.h"
 #include "GameContext.h"
+#include "GfxActor.h"
 #include "GfxScene.h"
 #include "SkyXManager.h"
 #include "Terrain.h"
+#include "ThreadPool.h"
 
 #include "Perlin.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <cstdio>
@@ -90,6 +94,12 @@ void HydraxWater::InitHydrax()
     for (size_t i = 0; i < mHeightCacheSize; ++i)
         mHeightCache[i].store(0, std::memory_order_relaxed);
     mHydrax->setTerrainHeightFunction([this](Ogre::Real x, Ogre::Real z) { return this->SampleTerrainHeight(x, z); });
+
+    // Bow and stern waves: drawn on top of the Hydrax waves, the physics does not see them
+    mWake.SetTerrainFunction([this](float x, float z) { return this->SampleTerrainHeight(x, z); });
+    mWake.SetParallel([](std::vector<std::function<void()>>& tasks) { App::GetThreadPool()->Parallelize(tasks); },
+        (App::GetThreadPool() != nullptr) ? std::min(std::max(App::app_num_workers->getInt(), 1), 4) : 1);
+    mModule->setVisualHeightFunction([this](Ogre::Real x, Ogre::Real z) { return mWake.GetHeight(x, z); });
 
     // Large 'PlanesError' values (maps use up to 10.5) put land above the waterline into the refraction map,
     // which shows as stretched streaks on slopes at the shore. Keep it small.
@@ -398,8 +408,85 @@ void HydraxWater::FrameStepWater(float dt)
             // Same fade distance as ProjectedGrid::_getWaveHeight(), plus a little reserve
             mDeepMargin = std::max(std::abs(mModule->getOptions().Strength) * 0.5f, 0.5f) + 0.5f;
         }
+        this->UpdateWakes(dt);
         mHydrax->update(dt);
     }
     this->UpdateWater();
+}
+
+void HydraxWater::UpdateWakes(float dt)
+{
+    if (mModule == nullptr || !mHydrax->isCreated())
+        return;
+    const auto t0 = std::chrono::steady_clock::now();
+
+    const Ogre::Vector3 cam = App::GetCameraManager()->GetCamera()->getDerivedPosition();
+    mWake.BeginFrame(cam.x, cam.z, waterHeight);
+
+    // Nodes below this level are under water for sure, nodes above it are dry for sure
+    const float amp = std::abs(mModule->getOptions().Strength) * 2.f;
+    const float band_top = waterHeight + amp + 0.3f;
+    const float band_bottom = waterHeight - amp - 0.3f;
+    const float reach = HydraxWake::N * HydraxWake::DX * 0.5f + 200.f;
+
+    for (GfxActor* gfx_actor: App::GetGfxScene()->GetGfxActors())
+    {
+        const ActorSB& sb = gfx_actor->GetSimDataBuffer();
+        const Ogre::AxisAlignedBox& box = sb.simbuf_aabb;
+        if (sb.simbuf_nodes.empty() || box.isNull() || box.isInfinite())
+            continue;
+        if (box.getMinimum().y > band_top)
+            continue; // Not in the water
+        if (box.getMaximum().x < cam.x - reach || box.getMinimum().x > cam.x + reach ||
+            box.getMaximum().z < cam.z - reach || box.getMinimum().z > cam.z + reach)
+            continue; // Outside the wake area
+
+        // Slow hulls make small waves (and the waves would pile up at the wave speed of ~3 m/s)
+        const float hspeed = Ogre::Vector2(sb.simbuf_node0_velo.x, sb.simbuf_node0_velo.z).length();
+        const float speed_factor = Ogre::Math::Clamp(hspeed / 8.f, 0.f, 1.f);
+
+        // The footprint of the hull is the outline of all submerged nodes; the draft makes big ships push more water
+        mWake.BeginActor(gfx_actor->GetActorId(), sb.simbuf_pos.x, sb.simbuf_pos.z);
+        float draft = 0.f;
+        for (const NodeSB& node: sb.simbuf_nodes)
+        {
+            const Ogre::Vector3& p = node.AbsPosition;
+            if (p.y > band_top)
+                continue;
+            float depth = waterHeight - p.y;
+            if (p.y > band_bottom)
+            {
+                depth = mHydrax->getHeigth(Ogre::Vector2(p.x, p.z)) - p.y; // near the surface: the actual (wavy) surface
+                if (depth < 0.05f)
+                    continue;
+            }
+            draft = std::max(draft, depth);
+            mWake.AddNode(p.x, p.z);
+        }
+        const float size_factor = Ogre::Math::Clamp(std::sqrt(draft / 1.5f), 0.7f, 2.5f);
+        mWake.EndActor(speed_factor * size_factor);
+    }
+    mWake.EndFrame(dt);
+    mModule->setVisualHeightActive(mWake.IsActive());
+
+    // Perf log, every 10 s while there are wakes
+    mWakeTimeMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+    mWakeFrames++;
+    mWakeActiveFrames += mWake.IsActive() ? 1 : 0;
+    mWakeMaxNodes = std::max(mWakeMaxNodes, mWake.GetNumNodes());
+    mWakeLogTimer += dt;
+    if (mWakeLogTimer >= 10.f)
+    {
+        if (mWakeActiveFrames > 0)
+        {
+            char buf[200];
+            snprintf(buf, sizeof(buf), "[RoR|Hydrax] Boat wakes: %.3f ms/frame avg over %d frames (active in %d), up to %d submerged nodes",
+                mWakeTimeMs / std::max(mWakeFrames, 1), mWakeFrames, mWakeActiveFrames, mWakeMaxNodes);
+            Ogre::LogManager::getSingleton().logMessage(buf);
+        }
+        mWakeTimeMs = 0.0;
+        mWakeFrames = mWakeActiveFrames = mWakeMaxNodes = 0;
+        mWakeLogTimer = 0.f;
+    }
 }
 

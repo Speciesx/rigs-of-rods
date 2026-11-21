@@ -877,7 +877,7 @@ namespace Hydrax
 						if (cFoam)
 						{
 							FragmentProgramData += Ogre::String(
-							    "float hmap = iPosition.y/uFoamRange*foamVisibility;\n") +
+							    "float hmap = iPosition.y/max(uFoamRange,0.5)*foamVisibility;\n") +
 								"float2 foamTex=iWorldPosition.xz*uFoamScale+pixelNormalModified;\n" +
 								"float foam=tex2D(uFoamMap,foamTex).r;\n" +
 								"float foamTransparency=saturate(hmap-uFoamStart)*uFoamTransparency;\n" +
@@ -1089,7 +1089,7 @@ namespace Hydrax
                                 if (cFoam)
                                 {
                                     FragmentProgramData += Ogre::String(
-                                    "float hmap = Position_.y/uFoamRange*foamVisibility;\n") +
+                                    "float hmap = Position_.y/max(uFoamRange,0.5)*foamVisibility;\n") +
                                     "vec2 foamTex=WorldPosition.xz*uFoamScale+pixelNormalModified;\n" +
                                     "float foam=texture2D(uFoamMap,foamTex).x;\n" +
                                     "float foamTransparency=clamp(hmap-uFoamStart, 0.0, 1.0)*uFoamTransparency;\n" +
@@ -2426,7 +2426,7 @@ namespace Hydrax
                                 if (cFoam)
                                 {
                                     FragmentProgramData += Ogre::String(
-                                    "float hmap = iPosition.y/uFoamRange*foamVisibility;\n") +
+                                    "float hmap = iPosition.y/max(uFoamRange,0.5)*foamVisibility;\n") +
                                     "float2 foamTex=iWorldPosition.xz*uFoamScale+pixelNormalModified;\n" +
                                     "float foam=tex2D(uFoamMap,foamTex).r;\n" +
                                     "float foamTransparency=saturate(hmap-uFoamStart)*uFoamTransparency;\n" +
@@ -2666,7 +2666,7 @@ namespace Hydrax
                                 if (cFoam)
                                 {
                                     FragmentProgramData += Ogre::String(
-                                    "float hmap = Position_.y/uFoamRange*foamVisibility;\n") +
+                                    "float hmap = Position_.y/max(uFoamRange,0.5)*foamVisibility;\n") +
                                     "vec2 foamTex=WorldPosition.xz*uFoamScale+pixelNormalModified;\n" +
                                     "float foam=texture2D(uFoamMap,foamTex).x;\n" +
                                     "float foamTransparency=clamp(hmap-uFoamStart, 0.0, 1.0)*uFoamTransparency;\n" +

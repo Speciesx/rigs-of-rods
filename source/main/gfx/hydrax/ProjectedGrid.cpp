@@ -360,7 +360,8 @@ namespace Hydrax{namespace Module
 							{
 								Vertices[i] = mVerticesChoppyBuffer[i];
 							}
-							Vertices[i].y = baseY + _getWaveHeight(RenderingCameraPos.x + Vertices[i].x, RenderingCameraPos.z + Vertices[i].z);
+							const Ogre::Real wx = RenderingCameraPos.x + Vertices[i].x, wz = RenderingCameraPos.z + Vertices[i].z;
+							Vertices[i].y = baseY + _getWaveHeight(wx, wz) + _getVisualHeight(wx, wz);
 						}
 					};
 					PGParallelFor(total, 4096, heights);
@@ -372,7 +373,8 @@ namespace Hydrax{namespace Module
 					{
 						for (int i = begin; i < end; i++)
 						{
-							Vertices[i].y = baseY + _getWaveHeight(RenderingCameraPos.x + Vertices[i].x, RenderingCameraPos.z + Vertices[i].z);
+							const Ogre::Real wx = RenderingCameraPos.x + Vertices[i].x, wz = RenderingCameraPos.z + Vertices[i].z;
+							Vertices[i].y = baseY + _getWaveHeight(wx, wz) + _getVisualHeight(wx, wz);
 						}
 					};
 					PGParallelFor(total, 4096, heights);
@@ -426,7 +428,8 @@ namespace Hydrax{namespace Module
 
 			mHydrax->getMesh()->updateGeometry(mOptions.Complexity*mOptions.Complexity, mVertices);
 
-			mFlatDone = (mOptions.Strength == 0.f);
+			// A wake keeps the surface moving even without waves
+			mFlatDone = (mOptions.Strength == 0.f && !mVisualHeightActive);
 		}
 
 		mLastPosition = RenderingCameraPos;
@@ -487,7 +490,7 @@ namespace Hydrax{namespace Module
 				rz *= inv;
 				outX = rx;
 				outZ = rz;
-				outY = baseY + _getWaveHeight(WorldPos.x + rx, WorldPos.z + rz);
+				outY = baseY + _getWaveHeight(WorldPos.x + rx, WorldPos.z + rz) + _getVisualHeight(WorldPos.x + rx, WorldPos.z + rz);
 			};
 
 			if (getNormalMode() == MaterialManager::NM_VERTEX)

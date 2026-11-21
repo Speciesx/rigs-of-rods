@@ -21,6 +21,7 @@
 #pragma once
 
 #include "Hydrax.h"
+#include "HydraxWake.h"
 #include "IGfxWater.h"
 #include "Perlin.h"
 #include "ProjectedGrid.h"
@@ -76,6 +77,15 @@ protected:
     size_t mCellMaxCacheSize = 0;
     float mDeepMargin = 6.f; //!< Terrain this far below the water does not influence the waves (the fade distance of the wave height)
     void SaveMapDefaults();
+
+    /// Bow and stern waves of everything that moves through the water (visual only)
+    void UpdateWakes(float dt);
+    HydraxWake mWake;
+    double mWakeTimeMs = 0.0;   //!< Perf log: time spent in UpdateWakes() since the last log line
+    int mWakeFrames = 0;
+    int mWakeActiveFrames = 0;
+    int mWakeMaxNodes = 0;
+    float mWakeLogTimer = 0.f;
 
     /// Water state right after the map was loaded
     struct MapDefaults

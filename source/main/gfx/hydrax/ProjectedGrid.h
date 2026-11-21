@@ -37,6 +37,8 @@ http://www.cnblogs.com/ArenAK/archive/2007/11/07/951713.html
 #include "Mesh.h"
 #include "Module.h"
 
+#include <functional>
+
 /// @addtogroup Gfx
 /// @{
 
@@ -279,11 +281,21 @@ namespace Hydrax{ namespace Module
 		bool mFlatDone = false;
 
 	public:
+		/// RIGSOFRODS: extra height that is only drawn (boat wakes); getHeigth() and the physics do not see it
+		void setVisualHeightFunction(std::function<Ogre::Real(Ogre::Real, Ogre::Real)> f) { mVisualHeight = std::move(f); }
+		/// RIGSOFRODS: switch the visual height off while it is 0 everywhere (saves the per-vertex call)
+		void setVisualHeightActive(bool active) { mVisualHeightActive = active && mVisualHeight; }
+		bool isVisualHeightActive() const { return mVisualHeightActive; }
+
 		/// RIGSOFRODS: the wave height loops run on the thread pool (default); switch off to compute them on the calling thread only
 		static void setMultithreaded(bool enabled) { sMultithreaded = enabled; }
 		static bool isMultithreaded() { return sMultithreaded; }
 	private:
 		static bool sMultithreaded;
+
+		Ogre::Real _getVisualHeight(Ogre::Real x, Ogre::Real z) const { return mVisualHeightActive ? mVisualHeight(x, z) : 0.f; }
+		std::function<Ogre::Real(Ogre::Real, Ogre::Real)> mVisualHeight;
+		bool mVisualHeightActive = false;
 
 		/// Our projected grid options
 		Options mOptions;
