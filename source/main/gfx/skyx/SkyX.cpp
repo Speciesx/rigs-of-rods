@@ -48,6 +48,7 @@ namespace SkyX
 		, mStarfield(true)
 		, mTimeMultiplier(0.1f)
 		, mTimeOffset(0.0f)
+		, mCfgFileManager(0)
 	{
 		// Need to be instanced here, when SkyX::mSceneManager is valid
 		mVCloudsManager = new VCloudsManager(this);
