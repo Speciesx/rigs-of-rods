@@ -51,6 +51,8 @@ public:
 
     /// Visible wave surface height at (x, z); lets physics (character, vehicles) follow the rendered waves. Returns false if not supported.
     virtual bool           GetWaveHeightAt(float /*x*/, float /*z*/, float& /*out_height*/) { return false; }
+    /// Upper bound of |GetWaveHeightAt() - static water level|, lets physics skip the lookup far above/below the surface. Negative = unknown.
+    virtual float          GetMaxWaveAmplitude() { return -1.f; }
 
     // Only used by class Water for SurveyMap texture creation
     virtual void           SetForcedCameraTransform(Ogre::Radian /*fovy*/, Ogre::Vector3 /*pos*/, Ogre::Quaternion /*rot*/) {};

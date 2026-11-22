@@ -42,6 +42,7 @@ public:
     void  FrameStepWaveField(float dt);
     bool  IsUnderWater(Vec3 pos);
     bool  GetHydraxWaveHeight(Vec3 pos, float& out_height); //!< Height of the rendered Hydrax wave surface, false if Hydrax isn't the active water
+    float GetHydraxMaxWaveAmplitude(); //!< Upper bound of the Hydrax wave height around the static level, negative if Hydrax isn't the active water
     float GetWaveHeight(Vec3 pos);
 
 private:

@@ -32,6 +32,8 @@
 #include <Caelum.h>
 #endif // USE_CAELUM
 
+#include <cmath>
+
 using namespace Ogre;
 using namespace RoR;
 
@@ -136,6 +138,18 @@ bool HydraxWater::GetWaveHeightAt(float x, float z, float& out_height)
     }
     out_height = mHydrax->getHeigth(Ogre::Vector2(x, z));
     return true;
+}
+
+float HydraxWater::GetMaxWaveAmplitude()
+{
+    if (mHydrax == nullptr || !mHydrax->isCreated() || mModule == nullptr)
+    {
+        return -1.f;
+    }
+    // ProjectedGrid::getHeigth() = Perlin noise * Strength.
+    // The Perlin noise stays within +-2: base noise is 4*(rand - 0.5), each octave blends three frames with
+    // weights summing to 1, and the octave weights are normalized to 1. Small reserve for rounding.
+    return std::abs(mModule->getOptions().Strength) * 2.f + 0.1f;
 }
 
 void HydraxWater::FrameStepWater(float dt)

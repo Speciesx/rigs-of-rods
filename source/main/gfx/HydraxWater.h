@@ -43,6 +43,7 @@ public:
     void FrameStepWater(float dt) override;
     void UpdateWater() override;
     bool GetWaveHeightAt(float x, float z, float& out_height) override;
+    float GetMaxWaveAmplitude() override;
 
     Hydrax::Hydrax* GetHydrax() { return mHydrax; }
 
