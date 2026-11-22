@@ -25,6 +25,9 @@
 #include "ProjectedGrid.h"
 
 #include <Ogre.h>
+#include <atomic>
+#include <cstdint>
+#include <memory>
 
 namespace RoR {
 
@@ -51,8 +54,18 @@ protected:
 
     void InitHydrax();
 
-    /// Terrain height; used by Hydrax to flatten the waves at the shore.
+    /// Terrain height with a small cache; used by Hydrax to flatten the waves at the shore.
     float SampleTerrainHeight(float x, float z);
+    float CachedTerrainHeight(Terrain* terrain, int ix, int iz);
+    /// Lock-free cache (one 64 bit word per entry: key + height), safe to use from the physics threads and the wave worker threads
+    std::unique_ptr<std::atomic<uint64_t>[]> mHeightCache;
+    size_t mHeightCacheSize = 0;
+
+    /// Upper bound of the terrain height in 8 m cells (lazily filled, lock-free): where it is far below the water, the exact height is not needed
+    float CellMaxHeight(Terrain* terrain, int cx, int cz);
+    std::unique_ptr<std::atomic<uint64_t>[]> mCellMaxCache;
+    size_t mCellMaxCacheSize = 0;
+    float mDeepMargin = 6.f; //!< Terrain this far below the water does not influence the waves (the fade distance of the wave height)
 
     Hydrax::Hydrax* mHydrax;
     float waveHeight;

@@ -32,7 +32,9 @@
 #include <Caelum.h>
 #endif // USE_CAELUM
 
+#include <algorithm>
 #include <cmath>
+#include <cstring>
 
 using namespace Ogre;
 using namespace RoR;
@@ -80,6 +82,14 @@ void HydraxWater::InitHydrax()
     mHydrax->loadCfg(CurrentConfigFile);
 
     // Waves must not rise over the beach: Hydrax flattens them where the water is shallow
+    mCellMaxCacheSize = 1u << 16;
+    mCellMaxCache.reset(new std::atomic<uint64_t>[mCellMaxCacheSize]);
+    for (size_t i = 0; i < mCellMaxCacheSize; ++i)
+        mCellMaxCache[i].store(0, std::memory_order_relaxed);
+    mHeightCacheSize = 1u << 17;
+    mHeightCache.reset(new std::atomic<uint64_t>[mHeightCacheSize]);
+    for (size_t i = 0; i < mHeightCacheSize; ++i)
+        mHeightCache[i].store(0, std::memory_order_relaxed);
     mHydrax->setTerrainHeightFunction([this](Ogre::Real x, Ogre::Real z) { return this->SampleTerrainHeight(x, z); });
 
     // Large 'PlanesError' values (maps use up to 10.5) put land above the waterline into the refraction map,
@@ -133,14 +143,96 @@ void HydraxWater::WaterSetSunPosition(Ogre::Vector3 pos)
         mHydrax->setSunPosition(pos);
 }
 
+// Key layout of both caches: bit 30 = 'valid', 15 bits per coordinate. Value: the float bits in the upper 32 bits.
+// Readers and writers only use relaxed atomic loads/stores of the whole 64 bit word, so a reader never sees a key
+// with the height of another key. A lost update just means the height is computed again.
+float HydraxWater::CachedTerrainHeight(Terrain* terrain, int ix, int iz)
+{
+    const float cell = 2.f;
+    const int LIMIT = 16384; // 15 bit per coordinate
+    if (ix < -LIMIT || ix >= LIMIT || iz < -LIMIT || iz >= LIMIT)
+    {
+        return terrain->getHeightAt(ix * cell, iz * cell);
+    }
+    const size_t mask = mHeightCacheSize - 1;
+    const size_t idx = (static_cast<size_t>(static_cast<unsigned>(ix) * 73856093u) ^ static_cast<size_t>(static_cast<unsigned>(iz) * 19349663u)) & mask;
+    const uint32_t key = (1u << 30) | (static_cast<uint32_t>(ix + LIMIT) << 15) | static_cast<uint32_t>(iz + LIMIT);
+    const uint64_t cur = mHeightCache[idx].load(std::memory_order_relaxed);
+    if (static_cast<uint32_t>(cur & 0xFFFFFFFFu) == key)
+    {
+        const uint32_t bits = static_cast<uint32_t>(cur >> 32);
+        float h;
+        std::memcpy(&h, &bits, sizeof(h));
+        return h;
+    }
+    const float h = terrain->getHeightAt(ix * cell, iz * cell);
+    uint32_t bits;
+    std::memcpy(&bits, &h, sizeof(bits));
+    mHeightCache[idx].store((static_cast<uint64_t>(bits) << 32) | key, std::memory_order_relaxed);
+    return h;
+}
+
+float HydraxWater::CellMaxHeight(Terrain* terrain, int cx, int cz)
+{
+    const int LIMIT = 16384;
+    const size_t mask = mCellMaxCacheSize - 1;
+    const size_t idx = (static_cast<size_t>(static_cast<unsigned>(cx) * 73856093u) ^ static_cast<size_t>(static_cast<unsigned>(cz) * 19349663u)) & mask;
+    const bool cacheable = (cx >= -LIMIT && cx < LIMIT && cz >= -LIMIT && cz < LIMIT);
+    const uint32_t key = (1u << 30) | (static_cast<uint32_t>(cx + LIMIT) << 15) | static_cast<uint32_t>(cz + LIMIT);
+    if (cacheable)
+    {
+        const uint64_t cur = mCellMaxCache[idx].load(std::memory_order_relaxed);
+        if (static_cast<uint32_t>(cur & 0xFFFFFFFFu) == key)
+        {
+            const uint32_t bits = static_cast<uint32_t>(cur >> 32);
+            float h;
+            std::memcpy(&h, &bits, sizeof(h));
+            return h;
+        }
+    }
+    // An 8 m cell covers 2 m grid points 4*cx .. 4*cx+4 (the bilinear lookup of SampleTerrainHeight never leaves their range)
+    float max_h = -1.0e9f;
+    for (int iz = 4 * cz; iz <= 4 * cz + 4; ++iz)
+    {
+        for (int ix = 4 * cx; ix <= 4 * cx + 4; ++ix)
+        {
+            max_h = std::max(max_h, this->CachedTerrainHeight(terrain, ix, iz));
+        }
+    }
+    if (cacheable)
+    {
+        uint32_t bits;
+        std::memcpy(&bits, &max_h, sizeof(bits));
+        mCellMaxCache[idx].store((static_cast<uint64_t>(bits) << 32) | key, std::memory_order_relaxed);
+    }
+    return max_h;
+}
+
 float HydraxWater::SampleTerrainHeight(float x, float z)
 {
     const TerrainPtr& terrain = App::GetGameContext()->GetTerrain();
-    if (!terrain)
+    if (!terrain || mHeightCacheSize == 0)
     {
         return -1.0e9f; // no terrain: treat as deep water (full waves)
     }
-    return terrain->getHeightAt(x, z);
+    Terrain* const t = terrain.GetRef();
+    // Open water: if the terrain is far below the surface, the waves are not flattened and any upper bound of its height gives
+    // the same result as the exact height, so skip the bilinear lookup
+    {
+        const float cell_max = this->CellMaxHeight(t, static_cast<int>(std::floor(x / 8.f)), static_cast<int>(std::floor(z / 8.f)));
+        if (cell_max <= waterHeight - mDeepMargin)
+        {
+            return cell_max;
+        }
+    }
+    // Bilinear lookup in a 2 m grid of cached terrain heights (the wave grid asks for tens of thousands of points per frame)
+    const float cell = 2.f;
+    const float fx = x / cell, fz = z / cell;
+    const int ix = static_cast<int>(std::floor(fx)), iz = static_cast<int>(std::floor(fz));
+    const float tx = fx - ix, tz = fz - iz;
+    const float h00 = CachedTerrainHeight(t, ix, iz),     h10 = CachedTerrainHeight(t, ix + 1, iz);
+    const float h01 = CachedTerrainHeight(t, ix, iz + 1), h11 = CachedTerrainHeight(t, ix + 1, iz + 1);
+    return (h00 * (1 - tx) + h10 * tx) * (1 - tz) + (h01 * (1 - tx) + h11 * tx) * tz;
 }
 
 bool HydraxWater::GetWaveHeightAt(float x, float z, float& out_height)
@@ -183,6 +275,11 @@ void HydraxWater::FrameStepWater(float dt)
     }
     if (mHydrax)
     {
+        if (mModule != nullptr)
+        {
+            // Same fade distance as ProjectedGrid::_getWaveHeight(), plus a little reserve
+            mDeepMargin = std::max(std::abs(mModule->getOptions().Strength) * 0.5f, 0.5f) + 0.5f;
+        }
         mHydrax->update(dt);
     }
     this->UpdateWater();
