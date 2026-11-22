@@ -48,12 +48,9 @@
 #include "GUI_MainSelector.h"
 #include "GUI_NodeBeamUtils.h"
 #include "GUI_DirectionArrow.h"
-#include "GUI_AirDashboard.h"
-#include "GUI_BoatDashboard.h"
 #include "GUI_VehicleInfoTPanel.h"
 #include "GUI_SimPerfStats.h"
 #include "GUI_TyrePressure.h"
-#include "GUI_TrainPanel.h"
 #include "GUI_SurveyMap.h"
 #include "GUI_TextureToolWindow.h"
 #include "GUI_GameControls.h"
@@ -125,11 +122,8 @@ public:
     GUI::GameAbout              GameAbout;
     GUI::GameSettings           GameSettings;
     GUI::VehicleInfoTPanel      VehicleInfoTPanel;
-    GUI::AirDashboard           AirDashboard;
-    GUI::BoatDashboard          BoatDashboard;
     GUI::SimPerfStats           SimPerfStats;
     GUI::TyrePressure           TyrePressure;
-    GUI::TrainPanel             TrainPanel;
     GUI::MessageBoxDialog       MessageBoxDialog;
     GUI::MultiplayerSelector    MultiplayerSelector;
     GUI::MainSelector           MainSelector;
