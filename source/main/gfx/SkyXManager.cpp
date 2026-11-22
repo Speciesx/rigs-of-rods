@@ -47,7 +47,8 @@ SkyXManager::SkyXManager(Ogre::String configFile)
 
 	mSkyX->create();
 
-	RoR::App::GetAppContext()->GetOgreRoot()->addFrameListener(mSkyX);
+	// No Ogre frame listener: SkyX is updated once per frame from SkyXManager::update() (via GfxScene).
+	// With both, SkyX::update() ran twice per frame - the day passed twice as fast as configured.
 	RoR::App::GetAppContext()->GetRenderWindow()->addListener(mSkyX);
 }
 

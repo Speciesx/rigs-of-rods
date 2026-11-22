@@ -1327,25 +1327,26 @@ void GameContext::UpdateSkyInputEvents(float dt)
     if (App::gfx_sky_mode->getEnum<GfxSkyMode>() == GfxSkyMode::SKYX &&
         m_terrain->getSkyXManager())
     {
+        // SkyX used to be updated twice per frame, so these values are doubled to keep the speeds players know.
         if (RoR::App::GetInputEngine()->getEventBoolValue(EV_SKY_INCREASE_TIME))
-        {
-            m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(1.0f);
-        }
-        else if (RoR::App::GetInputEngine()->getEventBoolValue(EV_SKY_INCREASE_TIME_FAST))
         {
             m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(2.0f);
         }
-        else if (RoR::App::GetInputEngine()->getEventBoolValue(EV_SKY_DECREASE_TIME))
+        else if (RoR::App::GetInputEngine()->getEventBoolValue(EV_SKY_INCREASE_TIME_FAST))
         {
-            m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(-1.0f);
+            m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(4.0f);
         }
-        else if (RoR::App::GetInputEngine()->getEventBoolValue(EV_SKY_DECREASE_TIME_FAST))
+        else if (RoR::App::GetInputEngine()->getEventBoolValue(EV_SKY_DECREASE_TIME))
         {
             m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(-2.0f);
         }
+        else if (RoR::App::GetInputEngine()->getEventBoolValue(EV_SKY_DECREASE_TIME_FAST))
+        {
+            m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(-4.0f);
+        }
         else
         {
-            m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(0.01f);
+            m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(0.02f);
         }
     }
 }
