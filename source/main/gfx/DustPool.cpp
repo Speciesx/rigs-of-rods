@@ -324,11 +324,20 @@ void DustPool::update()
         }
         else if (types[i] == DUST_SPLASH)
         {
+            // Particles born below the water surface are not caught by the deflector plane and sink:
+            // spawn them just above the surface.
+            const float surface = (water != nullptr) ? water->CalcWavesHeight(positions[i]) : 0.f;
+            if (positions[i].y < surface + 0.05f)
+            {
+                positions[i].y = surface + 0.05f;
+                sns[i]->setPosition(positions[i]);
+            }
+
             if (ndir.y < 0)
                 ndir.y = -ndir.y / 2.0;
 
             emit->setDirection(ndir);
-            SetDeflectorHeight(pss[i], (water != nullptr) ? water->CalcWavesHeight(positions[i]) : 0.f);
+            SetDeflectorHeight(pss[i], surface);
 
             col.a = sqrt(vel) * 0.04;
             col.b = 0.9;

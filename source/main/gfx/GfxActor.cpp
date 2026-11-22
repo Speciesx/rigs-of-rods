@@ -2037,7 +2037,7 @@ void RoR::GfxActor::UpdateCParticles()
     for (CParticle& cparticle: m_cparticles)
     {
         App::GetGfxScene()->AdjustParticleSystemTimeFactor(cparticle.psys, this);
-        const Ogre::Vector3 pos = m_simbuf.simbuf_nodes[cparticle.emitterNode].AbsPosition;
+        Ogre::Vector3 pos = m_simbuf.simbuf_nodes[cparticle.emitterNode].AbsPosition;
 
         // The water particle scripts (e.g. boat jets) have their deflector plane at world y=0: on maps with another water level
         // the spray fell through the sea. Put the plane on the water surface if the emitter is at the water.
@@ -2047,6 +2047,11 @@ void RoR::GfxActor::UpdateCParticles()
             if (pos.y < surface + 5.f)
             {
                 DustPool::SetDeflectorHeight(cparticle.psys, surface);
+                // Particles born below the plane are not deflected and sink: emit from the surface instead.
+                if (pos.y < surface + 0.05f)
+                {
+                    pos.y = surface + 0.05f;
+                }
             }
         }
         const Ogre::Vector3 dir = fast_normalise(pos - m_simbuf.simbuf_nodes[cparticle.directionNode].AbsPosition);
