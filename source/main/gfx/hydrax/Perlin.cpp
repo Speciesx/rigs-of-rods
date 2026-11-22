@@ -37,7 +37,6 @@ namespace Hydrax{namespace Noise
 	Perlin::Perlin()
 		: Noise("Perlin", true)
 		, time(0)
-		, r_noise(0)
 		, magnitude(n_dec_magn * 0.085f)
 		, mGPUNormalMapManager(0)
 	{
@@ -47,7 +46,6 @@ namespace Hydrax{namespace Noise
 		: Noise("Perlin", true)
 		, mOptions(Options)
 		, time(0)
-		, r_noise(0)
 		, magnitude(n_dec_magn * Options.Scale)
 		, mGPUNormalMapManager(0)
 	{
@@ -447,7 +445,6 @@ namespace Hydrax{namespace Noise
 	void Perlin::_calculeNoise()
 	{
 		int i, o, v, u,
-			multitable[max_octaves],
 			amount[3],
 			iImage;
 
@@ -470,11 +467,6 @@ namespace Hydrax{namespace Noise
 			f_multitable[i] /= sum;
 		}
 
-		for(i=0; i<mOptions.Octaves; i++)
-		{
-			multitable[i] = scale_magnitude*f_multitable[i];
-		}
-
 		double r_timemulti = 1.0;
 		const float PI_3 = Ogre::Math::PI/3;
 
@@ -483,9 +475,13 @@ namespace Hydrax{namespace Noise
 			fraction = modf(time*r_timemulti,&dImage);
 			iImage = static_cast<int>(dImage);
 
-			amount[0] = scale_magnitude*f_multitable[o]*(pow(sin((fraction+2)*PI_3),2)/1.5);
-			amount[1] = scale_magnitude*f_multitable[o]*(pow(sin((fraction+1)*PI_3),2)/1.5);
-			amount[2] = scale_magnitude*f_multitable[o]*(pow(sin((fraction  )*PI_3),2)/1.5);
+			const double s0 = sin((fraction+2)*PI_3);
+			const double s1 = sin((fraction+1)*PI_3);
+			const double s2 = sin((fraction  )*PI_3);
+
+			amount[0] = scale_magnitude*f_multitable[o]*((s0*s0)/1.5);
+			amount[1] = scale_magnitude*f_multitable[o]*((s1*s1)/1.5);
+			amount[2] = scale_magnitude*f_multitable[o]*((s2*s2)/1.5);
 
 			image[0] = (iImage  ) & noise_frames_m1;
 			image[1] = (iImage+1) & noise_frames_m1;
@@ -523,7 +519,7 @@ namespace Hydrax{namespace Noise
 		}
 	}
 
-	int Perlin::_readTexelLinearDual(const int &u, const int &v,const int &o)
+	int Perlin::_readTexelLinearDual(const int *r_noise, const int &u, const int &v,const int &o) const
 	{
 		int iu, iup, iv, ivp, fu, fv,
 			ut01, ut23, ut;
@@ -546,8 +542,8 @@ namespace Hydrax{namespace Noise
 
 	float Perlin::_getHeigthDual(float u, float v)
 	{
-		// Pointer to the current noise source octave
-		r_noise = p_noise;
+		// Pointer to the current noise source octave (local, so getValue() is thread safe)
+		const int *r_noise = p_noise;
 
 		int ui = u*magnitude,
 		    vi = v*magnitude,
@@ -557,7 +553,7 @@ namespace Hydrax{namespace Noise
 
 		for(i=0; i<hoct; i++)
 		{
-			value += _readTexelLinearDual(ui,vi,0);
+			value += _readTexelLinearDual(r_noise,ui,vi,0);
 			ui = ui << n_packsize;
 			vi = vi << n_packsize;
 			r_noise += np_size_sq;

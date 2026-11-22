@@ -247,7 +247,7 @@ namespace Hydrax{ namespace Noise
 			@param o Octave
 			@return int
 		 */
-	    int _readTexelLinearDual(const int &u, const int &v, const int &o);
+	    int _readTexelLinearDual(const int *noiseOctave, const int &u, const int &v, const int &o) const;
 
 		/** Read texel linear
 		    @param u u
@@ -269,7 +269,6 @@ namespace Hydrax{ namespace Noise
 		int noise[n_size_sq*noise_frames];
 		int o_noise[n_size_sq*max_octaves];
 		int p_noise[np_size_sq*(max_octaves>>(n_packsize-1))];
-		int *r_noise;
 		float magnitude;
 
 		/// Elapsed time
