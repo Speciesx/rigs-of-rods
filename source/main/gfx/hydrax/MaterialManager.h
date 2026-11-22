@@ -382,6 +382,9 @@ namespace Hydrax
         unsigned int mCausticsAnimCurrentFrame = 0;
         /// Time spent on current animation frame, cumulative.
         float mCausticsAnimCurrentFrameElapsedTime = 0.f;
+        /// Distortion animation time of the underwater compositor (uTime), advanced in updateAnimatedTextures()
+        float mDistortTime = 0.f;
+        Ogre::GpuProgramParametersSharedPtr mDistortTimeParams;
 	};
 };
 

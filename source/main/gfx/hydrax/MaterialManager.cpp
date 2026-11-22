@@ -28,6 +28,7 @@ Contributors:
 */
 
 #include <algorithm>
+#include <cmath>
 #include <OgreString.h>
 
 #include <MaterialManager.h>
@@ -166,6 +167,7 @@ namespace Hydrax
 			}
 			mCompositorsEnable[COMP_UNDERWATER] = false;
 			mCompositors[COMP_UNDERWATER].reset();
+			mDistortTimeParams.reset();
 
 			Ogre::CompositorManager::getSingleton().remove(_def_Underwater_Compositor_Name);
 
@@ -1572,6 +1574,13 @@ namespace Hydrax
 
     void MaterialManager::updateAnimatedTextures(float dt)
     {
+        // Underwater distortion: wrapped, so the float keeps its precision in long sessions
+        mDistortTime = std::fmod(mDistortTime + dt * 0.1f, 1000.f);
+        if (mDistortTimeParams)
+        {
+            mDistortTimeParams->setNamedConstant("uTime", mDistortTime);
+        }
+
         mCausticsAnimCurrentFrameElapsedTime += dt;
         while (mCausticsAnimCurrentFrameElapsedTime > CAUSTICS_FRAME_DURATION)
         {
@@ -3083,7 +3092,10 @@ namespace Hydrax
             VP_Parameters->setNamedAutoConstant("uWorldViewProj", Ogre::GpuProgramParameters::ACT_WORLDVIEWPROJ_MATRIX);
         }
 
-		FP_Parameters->setNamedConstantFromTime("uTime", 0.1f);
+		// Not setNamedConstantFromTime(): that time grows without limit (losing float precision) and kept
+		// the distortion moving while the simulation was paused. See updateAnimatedTextures().
+		FP_Parameters->setNamedConstant("uTime", mDistortTime);
+		mDistortTimeParams = FP_Parameters;
         FP_Parameters->setNamedConstant("uWaterColor", mHydrax->getWaterColor());
 
 		if (cCaustics)
