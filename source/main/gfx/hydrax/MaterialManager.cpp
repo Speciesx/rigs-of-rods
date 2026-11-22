@@ -27,6 +27,7 @@ Contributors:
 --------------------------------------------------------------------------------
 */
 
+#include <algorithm>
 #include <OgreString.h>
 
 #include <MaterialManager.h>
@@ -97,6 +98,12 @@ namespace Hydrax
 
 		if (Ogre::MaterialManager::getSingleton().resourceExists(_def_Depth_Material_Name))
 		{
+			// Forget the animated caustics texture units of the depth material that is about to be destroyed,
+			// otherwise updateAnimatedTextures() would use dangling pointers after the components were changed
+			mCausticsAnimTexVec.erase(std::remove_if(mCausticsAnimTexVec.begin(), mCausticsAnimTexVec.end(),
+				[](Ogre::TextureUnitState* tus) { return tus->getParent()->getParent()->getParent()->getName() == _def_Depth_Material_Name; }),
+				mCausticsAnimTexVec.end());
+
 			Ogre::MaterialManager::getSingleton().remove(_def_Depth_Material_Name);
 
 			Ogre::HighLevelGpuProgramManager::getSingleton().unload(_def_Depth_Shader_VP_Name);
@@ -148,7 +155,18 @@ namespace Hydrax
 	{
 		if (Ogre::MaterialManager::getSingleton().resourceExists(_def_Underwater_Compositor_Material_Name))
 		{
-			setCompositorEnable(COMP_UNDERWATER, false);
+			// The compositor must also leave the viewport's compositor chain. Removing only the resource left a dead
+			// instance in the chain, and the next enable/disable call crashed (e.g. after Hydrax was re-created).
+			Ogre::CompositorManager& cm = Ogre::CompositorManager::getSingleton();
+			Ogre::Viewport* vp = mHydrax->getViewport();
+			if (vp != nullptr && cm.hasCompositorChain(vp) && cm.getCompositorChain(vp)->getCompositor(_def_Underwater_Compositor_Name) != nullptr)
+			{
+				cm.setCompositorEnabled(vp, _def_Underwater_Compositor_Name, false);
+				cm.removeCompositor(vp, _def_Underwater_Compositor_Name);
+			}
+			mCompositorsEnable[COMP_UNDERWATER] = false;
+			mCompositors[COMP_UNDERWATER].reset();
+
 			Ogre::CompositorManager::getSingleton().remove(_def_Underwater_Compositor_Name);
 
 			Ogre::MaterialManager::getSingleton().remove(_def_Underwater_Compositor_Material_Name);
@@ -210,8 +228,7 @@ namespace Hydrax
 		{
 			if (!(*TechIt))
 			{
-				mDepthTechniques.erase(TechIt);
-				// TechIt-- ?
+				// (erase(TechIt) here invalidated the loop iterator - null entries are just skipped)
 				continue;
 			}
 
@@ -3422,6 +3439,11 @@ namespace Hydrax
 			_createDepthMaterial(mComponents, mOptions);
 		}
 
+		// The passes (and their animated caustics texture units) are destroyed below
+		mCausticsAnimTexVec.erase(std::remove_if(mCausticsAnimTexVec.begin(), mCausticsAnimTexVec.end(),
+			[Technique](Ogre::TextureUnitState* tus) { return tus->getParent()->getParent() == Technique; }),
+			mCausticsAnimTexVec.end());
+
 		Technique->removeAllPasses();
 		Technique->createPass();
 		Technique->setName("_Hydrax_Depth_Technique");
@@ -3478,6 +3500,11 @@ namespace Hydrax
 		{
 			_createDepthTextureGPUPrograms(mComponents, mOptions, AlphaChannel);
 		}
+
+		// The passes (and their animated caustics texture units) are destroyed below
+		mCausticsAnimTexVec.erase(std::remove_if(mCausticsAnimTexVec.begin(), mCausticsAnimTexVec.end(),
+			[Technique](Ogre::TextureUnitState* tus) { return tus->getParent()->getParent() == Technique; }),
+			mCausticsAnimTexVec.end());
 
 		Technique->removeAllPasses();
 		Technique->createPass();
@@ -3615,7 +3642,7 @@ namespace Hydrax
 			{
 				if (!(*TechIt))
 				{
-					mDepthTechniques.erase(TechIt);
+					// (erase(TechIt) here invalidated the loop iterator - null entries are just skipped)
 					continue;
 				}
 
@@ -3675,7 +3702,7 @@ namespace Hydrax
 			{
 				if (!(*TechIt))
 				{
-					mDepthTechniques.erase(TechIt);
+					// (erase(TechIt) here invalidated the loop iterator - null entries are just skipped)
 					continue;
 				}
 
@@ -3737,7 +3764,7 @@ namespace Hydrax
 			{
 				if (!(*TechIt))
 				{
-					mDepthTechniques.erase(TechIt);
+					// (erase(TechIt) here invalidated the loop iterator - null entries are just skipped)
 					continue;
 				}
 
