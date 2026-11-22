@@ -333,10 +333,14 @@ void DustPool::update()
                 sns[i]->setPosition(positions[i]);
             }
 
-            if (ndir.y < 0)
-                ndir.y = -ndir.y / 2.0;
+            // Spray: thrown up (and a bit along the movement), not shot ahead with the full boat speed
+            ndir.y = 0.0;
+            ndir = ndir * 0.5;
+            ndir.y = 1.0;
+            ndir.normalise();
 
             emit->setDirection(ndir);
+            emit->setParticleVelocity(std::min<Real>(std::max<Real>(vel * 0.3, 1.0), 6.0));
             SetDeflectorHeight(pss[i], surface);
 
             col.a = sqrt(vel) * 0.04;
@@ -344,7 +348,7 @@ void DustPool::update()
             col.g = 0.9;
             col.r = 0.9;
 
-            emit->setTimeToLive(vel * 0.025 / 0.1);
+            emit->setTimeToLive(std::min<Real>(vel * 0.025 / 0.1, 1.5));
         }
         else if (types[i] == DUST_RIPPLE)
         {
