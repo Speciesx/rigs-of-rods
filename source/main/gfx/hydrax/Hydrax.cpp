@@ -684,10 +684,7 @@ namespace Hydrax
 					mRttManager->remove(RttManager::RTT_REFLECTION);
 				}
 
-				if (isComponent(HYDRAX_COMPONENT_DEPTH) && isComponent(HYDRAX_COMPONENT_UNDERWATER_REFLECTIONS))
-				{
-				    mRttManager->initialize(RttManager::RTT_DEPTH_REFLECTION);
-				}
+				// (the depth reflection RTT is already initialized above - a second initialize() recreated the texture)
 
 				mMaterialManager->reload(MaterialManager::MAT_UNDERWATER);
 
