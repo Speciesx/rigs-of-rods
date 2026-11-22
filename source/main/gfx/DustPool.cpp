@@ -27,6 +27,7 @@
 #include "GfxScene.h"
 #include "Terrain.h"
 #include "GfxWater.h"
+#include "Wavefield.h"
 
 using namespace Ogre;
 using namespace RoR;
@@ -200,8 +201,24 @@ void DustPool::AdjustDustPoolSpeedFactor(GfxActor* gfx_actor /* = nullptr */)
     }
 }
 
+/// The 'DeflectorPlane' affector of the water particle scripts sits at world y=0. On maps with another water level (or with waves)
+/// the particles used to fall through the water surface; this moves the plane to the current water surface.
+void DustPool::SetDeflectorHeight(Ogre::ParticleSystem* ps, float height)
+{
+    for (unsigned short a = 0; a < ps->getNumAffectors(); a++)
+    {
+        Ogre::ParticleAffector* affector = ps->getAffector(a);
+        if (affector->getType() == "DeflectorPlane")
+        {
+            affector->setParameter("plane_point", "0 " + Ogre::StringConverter::toString(height) + " 0");
+        }
+    }
+}
+
 void DustPool::update()
 {
+    Wavefield* water = (RoR::App::GetGameContext()->GetTerrain() != nullptr) ? RoR::App::GetGameContext()->GetTerrain()->getWater() : nullptr;
+
     for (int i = 0; i < allocated; i++)
     {
         ParticleEmitter* emit = pss[i]->getEmitter(0);
@@ -268,6 +285,9 @@ void DustPool::update()
         else if (types[i] == DUST_DRIP)
         {
             emit->setEmissionRate(rates[i]);
+            // Drips stop on the water surface (the deflector plane of the script sits at y=0 - they used to sink
+            // to the sea floor and show up as a bright column under the boat).
+            SetDeflectorHeight(pss[i], (water != nullptr) ? water->CalcWavesHeight(positions[i]) : 0.f);
         }
         else if (types[i] == DUST_SPLASH)
         {
@@ -275,6 +295,7 @@ void DustPool::update()
                 ndir.y = -ndir.y / 2.0;
 
             emit->setDirection(ndir);
+            SetDeflectorHeight(pss[i], (water != nullptr) ? water->CalcWavesHeight(positions[i]) : 0.f);
 
             col.a = sqrt(vel) * 0.04;
             col.b = 0.9;
@@ -285,8 +306,9 @@ void DustPool::update()
         }
         else if (types[i] == DUST_RIPPLE)
         {
-            positions[i].y = RoR::App::GetGameContext()->GetTerrain()->getWater()->GetStaticWaterHeight() - 0.02;
+            positions[i].y = ((water != nullptr) ? water->CalcWavesHeight(positions[i]) : 0.f) - 0.02;
             sns[i]->setPosition(positions[i]);
+            SetDeflectorHeight(pss[i], positions[i].y);
 
             col.a = vel * 0.04;
             col.b = 0.9;
