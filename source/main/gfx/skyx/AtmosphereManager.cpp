@@ -77,7 +77,7 @@ namespace SkyX
 			mOptions.RayleighMultiplier = NewOptions.RayleighMultiplier;
 
 			float Kr4PI  = mOptions.RayleighMultiplier * 4.0f * Ogre::Math::PI,
-				  KrESun = mOptions.RayleighMultiplier * mOptions.SunIntensity;
+				  KrESun = mOptions.RayleighMultiplier * NewOptions.SunIntensity;
 
             mGPUManager->setGpuProgramParameter(GPUManager::GPUP_VERTEX, "uKr4PI", Kr4PI);
 			mGPUManager->setGpuProgramParameter(GPUManager::GPUP_VERTEX, "uKrESun", KrESun);
@@ -90,11 +90,15 @@ namespace SkyX
 			mOptions.MieMultiplier = NewOptions.MieMultiplier;
 
 			float Km4PI  = mOptions.MieMultiplier * 4.0f * Ogre::Math::PI,
-				  KmESun = mOptions.MieMultiplier * mOptions.SunIntensity;
+				  KmESun = mOptions.MieMultiplier * NewOptions.SunIntensity;
 
             mGPUManager->setGpuProgramParameter(GPUManager::GPUP_VERTEX, "uKm4PI", Km4PI);
 			mGPUManager->setGpuProgramParameter(GPUManager::GPUP_VERTEX, "uKmESun", KmESun, false);
 		}
+
+		// Both blocks above compare against the stored SunIntensity, so it may only be stored after them.
+		// Before, it was never stored: getOptions() kept returning the old value.
+		mOptions.SunIntensity = NewOptions.SunIntensity;
 
 		if (NewOptions.NumberOfSamples != mOptions.NumberOfSamples ||
 			ForceToUpdateAll)
