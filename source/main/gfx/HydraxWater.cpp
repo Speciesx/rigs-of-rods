@@ -74,6 +74,14 @@ void HydraxWater::InitHydrax()
 
     mHydrax->loadCfg(CurrentConfigFile);
 
+    // Large 'PlanesError' values (maps use up to 10.5) put land above the waterline into the refraction map,
+    // which shows as stretched streaks on slopes at the shore. Keep it small.
+    const float MAX_PLANES_ERROR = 3.5f;
+    if (mHydrax->getPlanesError() > MAX_PLANES_ERROR)
+    {
+        mHydrax->setPlanesError(MAX_PLANES_ERROR);
+    }
+
     // Choose shader language based on renderer (HLSL=0, CG=1, GLSL=2)
     if (Root::getSingleton().getRenderSystem()->getName() == "Direct3D9 Rendering Subsystem" || Root::getSingleton().getRenderSystem()->getName() == "Direct3D11 Rendering Subsystem")
     {

@@ -759,6 +759,14 @@ namespace Hydrax
     void Hydrax::setPlanesError(const Ogre::Real &PlanesError)
     {
         mPlanesError = PlanesError;
+
+        // The depth shaders got the value when they were created, keep them in sync with the reflection/refraction planes
+        if (mCreated && isComponent(HYDRAX_COMPONENT_DEPTH))
+        {
+            mMaterialManager->setGpuProgramParameter(
+                MaterialManager::GPUP_VERTEX, MaterialManager::MAT_DEPTH,
+                "uPlanesError", static_cast<float>(PlanesError));
+        }
     }
 
     void Hydrax::_setStrength(const Ogre::Real &Strength)
