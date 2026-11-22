@@ -231,7 +231,7 @@ namespace SkyX { namespace VClouds
 		{
 			for (v = 0; v < ny; v++)
 			{
-				for (w = 1; w < nz; w++)
+				for (w = 0; w < nz; w++)
 				{
 					c[u][v][w].act = false;
 					c[u][v][w].cld = false;
