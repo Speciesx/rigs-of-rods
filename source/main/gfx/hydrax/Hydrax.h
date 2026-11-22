@@ -25,6 +25,7 @@ http://www.gnu.org/copyleft/lesser.txt.
 #ifndef _Hydrax_Hydrax_H_
 #define _Hydrax_Hydrax_H_
 
+#include <functional>
 #include "Prerequisites.h"
 #include "Application.h"
 
@@ -420,6 +421,21 @@ namespace Hydrax
             return mPosition;
         }
 
+        /// Terrain height lookup (world x, world z) -> height
+        typedef std::function<Ogre::Real(Ogre::Real, Ogre::Real)> TerrainHeightFunction;
+
+        /** Optional: lets the wave generator flatten the waves where the water is shallow, so that wave crests
+            don't rise over the beach and hide characters/objects standing at the shore. */
+        inline void setTerrainHeightFunction(const TerrainHeightFunction& Function)
+        {
+            mTerrainHeightFunction = Function;
+        }
+
+        inline const TerrainHeightFunction& getTerrainHeightFunction() const
+        {
+            return mTerrainHeightFunction;
+        }
+
 		/** Get current clip planes error
 		    @return Current clip planes error
 		 */
@@ -684,6 +700,9 @@ namespace Hydrax
         HydraxComponent mComponents;
 		/// Current shader mode
 		MaterialManager::ShaderMode mShaderMode;
+
+		/// Terrain height lookup used to flatten the waves at the shore
+		TerrainHeightFunction mTerrainHeightFunction;
 
 		/// Device listener
 		DeviceListener mDeviceListener;

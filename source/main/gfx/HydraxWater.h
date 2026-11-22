@@ -50,6 +50,10 @@ public:
 protected:
 
     void InitHydrax();
+
+    /// Terrain height; used by Hydrax to flatten the waves at the shore.
+    float SampleTerrainHeight(float x, float z);
+
     Hydrax::Hydrax* mHydrax;
     float waveHeight;
     float waterHeight;

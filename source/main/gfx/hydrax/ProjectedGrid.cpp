@@ -296,14 +296,14 @@ namespace Hydrax{namespace Module
 					for(int i = 0; i < mOptions.Complexity*mOptions.Complexity; i++)
 		            {
 			            Vertices[i] = mVerticesChoppyBuffer[i];
-						Vertices[i].y = -mBasePlane.d + mNoise->getValue(RenderingCameraPos.x + Vertices[i].x, RenderingCameraPos.z + Vertices[i].z)*mOptions.Strength;
+						Vertices[i].y = -mBasePlane.d + _getWaveHeight(RenderingCameraPos.x + Vertices[i].x, RenderingCameraPos.z + Vertices[i].z);
 		            }
 				}
 				else
 				{
 					for(int i = 0; i < mOptions.Complexity*mOptions.Complexity; i++)
 		            {
-						Vertices[i].y = -mBasePlane.d + mNoise->getValue(RenderingCameraPos.x + Vertices[i].x, RenderingCameraPos.z + Vertices[i].z)*mOptions.Strength;
+						Vertices[i].y = -mBasePlane.d + _getWaveHeight(RenderingCameraPos.x + Vertices[i].x, RenderingCameraPos.z + Vertices[i].z);
 		            }
 				}
 			}
@@ -313,7 +313,7 @@ namespace Hydrax{namespace Module
 
 				for(int i = 0; i < mOptions.Complexity*mOptions.Complexity; i++)
 		        {
-				    Vertices[i].y = -mBasePlane.d + mNoise->getValue(RenderingCameraPos.x + Vertices[i].x, RenderingCameraPos.z + Vertices[i].z)*mOptions.Strength;
+				    Vertices[i].y = -mBasePlane.d + _getWaveHeight(RenderingCameraPos.x + Vertices[i].x, RenderingCameraPos.z + Vertices[i].z);
 		        }
 			}
 
@@ -407,7 +407,7 @@ namespace Hydrax{namespace Module
 
 					Vertices[i].x = result.x;
 					Vertices[i].z = result.z;
-					Vertices[i].y = -mBasePlane.d + mNoise->getValue(WorldPos.x + result.x, WorldPos.z + result.z)*mOptions.Strength;
+					Vertices[i].y = -mBasePlane.d + _getWaveHeight(WorldPos.x + result.x, WorldPos.z + result.z);
 
 					i++;
 					u += du;
@@ -445,7 +445,7 @@ namespace Hydrax{namespace Module
 
 					Vertices[i].x = result.x;
 					Vertices[i].z = result.z;
-					Vertices[i].y = -mBasePlane.d + mNoise->getValue(WorldPos.x + result.x, WorldPos.z + result.z)*mOptions.Strength;
+					Vertices[i].y = -mBasePlane.d + _getWaveHeight(WorldPos.x + result.x, WorldPos.z + result.z);
 
 					i++;
 					u += du;
@@ -835,8 +835,26 @@ namespace Hydrax{namespace Module
 		mLowerBoundPlane = Ogre::Plane( mNormal, mPos - Amplitude * mNormal);
 	}
 
+	Ogre::Real ProjectedGrid::_getWaveHeight(const Ogre::Real& x, const Ogre::Real& z)
+	{
+		Ogre::Real h = mNoise->getValue(x, z) * mOptions.Strength;
+
+		const auto& TerrainHeight = mHydrax->getTerrainHeightFunction();
+		if (TerrainHeight)
+		{
+			// Water depth at this point. The waves fade out over half of the wave height (at least 0.5 m) so that they
+			// vanish where the water gets shallow and never rise above the beach.
+			const Ogre::Real depth = (mHydrax->getPosition().y - mBasePlane.d) - TerrainHeight(x, z);
+			const Ogre::Real fade = Ogre::Math::Abs(mOptions.Strength) * 0.5f > 0.5f ? Ogre::Math::Abs(mOptions.Strength) * 0.5f : 0.5f;
+			const Ogre::Real k = depth <= 0 ? 0 : (depth >= fade ? 1 : depth / fade);
+			h *= k * k * (3 - 2 * k); // smoothstep
+		}
+
+		return h;
+	}
+
 	float ProjectedGrid::getHeigth(const Ogre::Vector2 &Position)
 	{
-		return mHydrax->getPosition().y + mNoise->getValue(Position.x, Position.y)*mOptions.Strength;
+		return mHydrax->getPosition().y + _getWaveHeight(Position.x, Position.y);
 	}
 }}

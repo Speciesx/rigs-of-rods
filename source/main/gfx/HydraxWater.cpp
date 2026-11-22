@@ -79,6 +79,9 @@ void HydraxWater::InitHydrax()
 
     mHydrax->loadCfg(CurrentConfigFile);
 
+    // Waves must not rise over the beach: Hydrax flattens them where the water is shallow
+    mHydrax->setTerrainHeightFunction([this](Ogre::Real x, Ogre::Real z) { return this->SampleTerrainHeight(x, z); });
+
     // Large 'PlanesError' values (maps use up to 10.5) put land above the waterline into the refraction map,
     // which shows as stretched streaks on slopes at the shore. Keep it small.
     const float MAX_PLANES_ERROR = 3.5f;
@@ -128,6 +131,16 @@ void HydraxWater::WaterSetSunPosition(Ogre::Vector3 pos)
 {
     if (mHydrax)
         mHydrax->setSunPosition(pos);
+}
+
+float HydraxWater::SampleTerrainHeight(float x, float z)
+{
+    const TerrainPtr& terrain = App::GetGameContext()->GetTerrain();
+    if (!terrain)
+    {
+        return -1.0e9f; // no terrain: treat as deep water (full waves)
+    }
+    return terrain->getHeightAt(x, z);
 }
 
 bool HydraxWater::GetWaveHeightAt(float x, float z, float& out_height)
