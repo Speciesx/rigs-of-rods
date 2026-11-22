@@ -52,6 +52,22 @@ SkyXManager::SkyXManager(Ogre::String configFile)
 	// No Ogre frame listener: SkyX is updated once per frame from SkyXManager::update() (via GfxScene).
 	// With both, SkyX::update() ran twice per frame - the day passed twice as fast as configured.
 	RoR::App::GetAppContext()->GetRenderWindow()->addListener(mSkyX);
+
+	// Lightning bolts should end on the ground (terrain or water), not in mid-air
+	if (mSkyX->getVCloudsManager()->getVClouds() != nullptr)
+	{
+		mSkyX->getVCloudsManager()->getVClouds()->getLightningManager()->setGroundHeightFunction(
+			[](Ogre::Real x, Ogre::Real z) -> Ogre::Real
+			{
+				const TerrainPtr& terrain = App::GetGameContext()->GetTerrain();
+				if (terrain == nullptr)
+					return 0.f;
+				float h = terrain->getHeightAt(x, z);
+				if (terrain->getWater() != nullptr)
+					h = std::max(h, terrain->getWater()->GetStaticWaterHeight());
+				return h;
+			});
+	}
 }
 
 SkyXManager::~SkyXManager()
