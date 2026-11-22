@@ -39,7 +39,7 @@ SkyXManager::SkyXManager(Ogre::String configFile)
 
 	//Ogre::ResourceGroupManager::getSingleton().addResourceLocation("..\\resource\\SkyX\\","FileSystem", "SkyX",true); //Temp
 
-	mBasicController = new SkyX::BasicController();
+	mBasicController = new SkyX::BasicController(/*deleteBySkyX=*/false); // deleted in ~SkyXManager()
 	mSkyX = new SkyX::SkyX(App::GetGfxScene()->GetSceneManager(), mBasicController);
 
 	mCfgFileManager = new SkyX::CfgFileManager(mSkyX, mBasicController, App::GetCameraManager()->GetCamera());
@@ -57,6 +57,10 @@ SkyXManager::~SkyXManager()
     RoR::App::GetAppContext()->GetRenderWindow()->removeListener(mSkyX);
     mSkyX->remove();
 
+    delete mCfgFileManager;
+    mCfgFileManager = nullptr;
+
+    delete mSkyX;
     mSkyX = nullptr;
 
     delete mBasicController;
