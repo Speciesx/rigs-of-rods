@@ -52,7 +52,7 @@ namespace Hydrax
 
 	Image::~Image()
 	{
-		delete mData;
+		delete [] mData;
 	}
 
 	const float& Image::getValue(const int &x, const int &y, const int &c) const
