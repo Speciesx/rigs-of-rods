@@ -20,6 +20,8 @@
 
 #include "DustPool.h"
 
+#include <algorithm>
+
 #include <Ogre.h>
 
 #include "Application.h"
@@ -215,9 +217,22 @@ void DustPool::SetDeflectorHeight(Ogre::ParticleSystem* ps, float height)
     }
 }
 
+// The particle materials are unlit ('lighting off'): without this, smoke/dust/spray glow white at night.
+// Uses the SkyX ambient light ('Light1'); maps without SkyX keep full brightness.
+static float CalcParticleBrightness()
+{
+    Ogre::SceneManager* sm = App::GetGfxScene()->GetSceneManager();
+    if (sm == nullptr || !sm->hasLight("Light1"))
+        return 1.f;
+    const Ogre::ColourValue c = sm->getLight("Light1")->getDiffuseColour();
+    const float lum = std::min(std::max((c.r + c.g + c.b) / 3.f, 0.f), 1.f);
+    return 0.12f + 0.88f * lum;
+}
+
 void DustPool::update()
 {
     Wavefield* water = (RoR::App::GetGameContext()->GetTerrain() != nullptr) ? RoR::App::GetGameContext()->GetTerrain()->getWater() : nullptr;
+    const float brightness = CalcParticleBrightness();
 
     for (int i = 0; i < allocated; i++)
     {
@@ -336,6 +351,12 @@ void DustPool::update()
             emit->setTimeToLive(vel * 0.04 / 0.1);
         }
 
+        if (types[i] != DUST_SPARKS) // sparks glow by themselves
+        {
+            col.r *= brightness;
+            col.g *= brightness;
+            col.b *= brightness;
+        }
         emit->setColour(col);
     }
     for (int i = allocated; i < size; i++)
