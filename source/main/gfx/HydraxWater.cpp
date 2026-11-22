@@ -92,6 +92,9 @@ void HydraxWater::InitHydrax()
         mHydrax->setShaderMode(static_cast<Hydrax::MaterialManager::ShaderMode>(2));
     }
 
+    // Objects with other visibility flags (paged vegetation, particles, flares) are not rendered into the depth maps
+    mHydrax->setDepthVisibilityMask(DEPTHMAP_ENABLED | HIDE_MIRROR);
+
     mHydrax->create();
     mHydrax->setPosition(Ogre::Vector3(0, waterHeight, 0));
 }

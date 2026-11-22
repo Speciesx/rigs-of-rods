@@ -571,6 +571,8 @@ namespace Hydrax
     {
 		Hydrax *mHydrax = mRttManager->mHydrax;
 
+		evt.source->getViewport(0)->setVisibilityMask(mHydrax->getDepthVisibilityMask());
+
         Ogre::SceneManager::MovableObjectIterator EntityIterator = 
 			mHydrax->getSceneManager()->getMovableObjectIterator("Entity");
         Ogre::Entity* CurrentEntity;
@@ -665,6 +667,8 @@ namespace Hydrax
 	void RttManager::CDepthReflectionListener::preRenderTargetUpdate(const Ogre::RenderTargetEvent& evt)
     {
 		Hydrax *mHydrax = mRttManager->mHydrax;
+
+		evt.source->getViewport(0)->setVisibilityMask(mHydrax->getDepthVisibilityMask());
 
 		mHydrax->getMesh()->getEntity()->setVisible(false);
 

@@ -423,6 +423,22 @@ namespace Hydrax
 			return mPlanesError;
 		}
 
+		/** Set the visibility mask of the depth map viewports (Ogre::Viewport::setVisibilityMask),
+			objects whose visibility flags do not match are not rendered into the depth maps
+			@param Mask Visibility mask (default: all objects)
+		 */
+		inline void setDepthVisibilityMask(const Ogre::uint32& Mask)
+		{
+			mDepthVisibilityMask = Mask;
+		}
+
+		/** Get the visibility mask of the depth map viewports
+		 */
+		inline const Ogre::uint32& getDepthVisibilityMask() const
+		{
+			return mDepthVisibilityMask;
+		}
+
 		/** Get the current heigth at a especified world-space point
 		    @param Position X/Z World position
 			@return Heigth at the given position in y-World coordinates, if it's outside of the water return -1
@@ -673,6 +689,8 @@ namespace Hydrax
         Ogre::Vector3 mPosition;
         /// Planes error, y axis clipplanes displacement
         Ogre::Real mPlanesError;
+        /// Visibility mask of the depth map viewports
+        Ogre::uint32 mDepthVisibilityMask = 0xFFFFFFFF;
 
         /// Full reflection distance param
         Ogre::Real mFullReflectionDistance;

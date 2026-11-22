@@ -38,6 +38,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 #include <OgreTechnique.h>
 
 #include "StaticBillboardSet.h"
+#include "Application.h"
 
 using namespace Ogre;
 using namespace Forests;
@@ -522,6 +523,7 @@ void StaticBillboardSet::build()
       // Create an entity for the mesh
       mpEntity = mpSceneMgr->createEntity(mEntityName, mPtrMesh->getName(), mPtrMesh->getGroup());
       mpEntity->setCastShadows(false);
+      mpEntity->setVisibilityFlags(RoR::DEPTHMAP_VEGETATION); // keep out of the Hydrax depth map
       mpEntity->setMaterial(mFadeEnabled ? mPtrFadeMaterial : mPtrMaterial);
 
       // Add to scene
