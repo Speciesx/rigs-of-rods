@@ -202,8 +202,11 @@ namespace SkyX
 	{
 		mRenderQueueGroups = rqg;
 
-		mVCloudsManager->getVClouds()->setRenderQueueGroups(
-			VClouds::VClouds::RenderQueueGroups(mRenderQueueGroups.vclouds, mRenderQueueGroups.vcloudsLightningsUnder, mRenderQueueGroups.vcloudsLightningsOver));
+		if (mVCloudsManager->getVClouds())
+		{
+			mVCloudsManager->getVClouds()->setRenderQueueGroups(
+				VClouds::VClouds::RenderQueueGroups(mRenderQueueGroups.vclouds, mRenderQueueGroups.vcloudsLightningsUnder, mRenderQueueGroups.vcloudsLightningsOver));
+		}
 
 		if (!mCreated)
 		{
