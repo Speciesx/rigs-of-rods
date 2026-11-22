@@ -1101,7 +1101,9 @@ namespace Hydrax
 		fillGpuProgramsToPass(WM_Technique0_Pass0, GpuProgramNames, Options.SM, EntryPoints, GpuProgramsData);
 
 		Ogre::GpuProgramParametersSharedPtr VP_Parameters = WM_Technique0_Pass0->getVertexProgramParameters();
+		VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 		Ogre::GpuProgramParametersSharedPtr FP_Parameters = WM_Technique0_Pass0->getFragmentProgramParameters();
+		FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
         if(Options.SM != SM_GLSL)
         {
@@ -1504,7 +1506,9 @@ namespace Hydrax
 		fillGpuProgramsToPass(DM_Technique0_Pass0, GpuProgramNames, Options.SM, EntryPoints, GpuProgramsData);
 
 		Ogre::GpuProgramParametersSharedPtr VP_Parameters = DM_Technique0_Pass0->getVertexProgramParameters();
+		VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 		Ogre::GpuProgramParametersSharedPtr FP_Parameters = DM_Technique0_Pass0->getFragmentProgramParameters();
+		FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
         if(Options.SM != SM_GLSL)
         {
@@ -2658,7 +2662,9 @@ namespace Hydrax
 		fillGpuProgramsToPass(UM_Technique0_Pass0, GpuProgramNames, Options.SM, EntryPoints, GpuProgramsData);
 
 		Ogre::GpuProgramParametersSharedPtr VP_Parameters = UM_Technique0_Pass0->getVertexProgramParameters();
+		VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 		Ogre::GpuProgramParametersSharedPtr FP_Parameters = UM_Technique0_Pass0->getFragmentProgramParameters();
+		FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
         if(Options.SM != SM_GLSL)
         {
@@ -3046,7 +3052,9 @@ namespace Hydrax
 		fillGpuProgramsToPass(DM_Technique0_Pass0, GpuProgramNames, Options.SM, EntryPoints, GpuProgramsData);
 
 		Ogre::GpuProgramParametersSharedPtr VP_Parameters = DM_Technique0_Pass0->getVertexProgramParameters();
+		VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 		Ogre::GpuProgramParametersSharedPtr FP_Parameters = DM_Technique0_Pass0->getFragmentProgramParameters();
+		FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
         if(Options.SM != SM_GLSL)
         {
@@ -3218,7 +3226,9 @@ namespace Hydrax
 				}
 
 				Ogre::GpuProgramParametersSharedPtr VP_Parameters = M_Technique0_Pass0->getVertexProgramParameters();
+				VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 				Ogre::GpuProgramParametersSharedPtr FP_Parameters = M_Technique0_Pass0->getFragmentProgramParameters();
+				FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
                 if(mOptions.SM != SM_GLSL)
                 {
@@ -3266,7 +3276,9 @@ namespace Hydrax
 				Ogre::Pass *M_Technique0_Pass0 = Mat->getTechnique(0)->getPass(0);
 
 				Ogre::GpuProgramParametersSharedPtr VP_Parameters = M_Technique0_Pass0->getVertexProgramParameters();
+				VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 				Ogre::GpuProgramParametersSharedPtr FP_Parameters = M_Technique0_Pass0->getFragmentProgramParameters();
+				FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
                 if(mOptions.SM != SM_GLSL)
                 {
@@ -3332,7 +3344,9 @@ namespace Hydrax
 				}
 
 				Ogre::GpuProgramParametersSharedPtr VP_Parameters = M_Technique0_Pass0->getVertexProgramParameters();
+				VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 				Ogre::GpuProgramParametersSharedPtr FP_Parameters = M_Technique0_Pass0->getFragmentProgramParameters();
+				FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
                 if(mOptions.SM != SM_GLSL)
                 {
@@ -3413,7 +3427,9 @@ namespace Hydrax
 		DM_Technique_Pass0->setFragmentProgram(_def_Depth_Shader_FP_Name);
 
 		Ogre::GpuProgramParametersSharedPtr VP_Parameters = DM_Technique_Pass0->getVertexProgramParameters();
+		VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 		Ogre::GpuProgramParametersSharedPtr FP_Parameters = DM_Technique_Pass0->getFragmentProgramParameters();
+		FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
         if(mOptions.SM != SM_GLSL)
         {
@@ -3475,7 +3491,9 @@ namespace Hydrax
 		DM_Technique_Pass0->setDepthWriteEnabled(false);
 
 		Ogre::GpuProgramParametersSharedPtr VP_Parameters = DM_Technique_Pass0->getVertexProgramParameters();
+		VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 		Ogre::GpuProgramParametersSharedPtr FP_Parameters = DM_Technique_Pass0->getFragmentProgramParameters();
+		FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
         if(mOptions.SM != SM_GLSL)
         {
@@ -3579,6 +3597,8 @@ namespace Hydrax
 			break;
 		}
 
+		// A uniform can be missing when the shader compiler optimized it out (e.g. GLSL), don't throw then
+		Parameters->setIgnoreMissingParams(true);
 		Parameters->setNamedConstant(Name, Value);
 
 		if (MType == MAT_DEPTH)
@@ -3608,6 +3628,8 @@ namespace Hydrax
 				    break;
 			    }
 
+				// A uniform can be missing when the shader compiler optimized it out (e.g. GLSL), don't throw then
+				Parameters->setIgnoreMissingParams(true);
 				Parameters->setNamedConstant(Name, Value);
 			}
 		}
@@ -3666,6 +3688,8 @@ namespace Hydrax
 				    break;
 			    }
 
+				// A uniform can be missing when the shader compiler optimized it out (e.g. GLSL), don't throw then
+				Parameters->setIgnoreMissingParams(true);
 				Parameters->setNamedConstant(Name, Value_, 1, 2);
 			}
 		}
@@ -3695,6 +3719,8 @@ namespace Hydrax
 			break;
 		}
 
+		// A uniform can be missing when the shader compiler optimized it out (e.g. GLSL), don't throw then
+		Parameters->setIgnoreMissingParams(true);
 		Parameters->setNamedConstant(Name, Value);
 
 		if (MType == MAT_DEPTH)
@@ -3724,6 +3750,8 @@ namespace Hydrax
 				    break;
 			    }
 
+				// A uniform can be missing when the shader compiler optimized it out (e.g. GLSL), don't throw then
+				Parameters->setIgnoreMissingParams(true);
 				Parameters->setNamedConstant(Name, Value);
 			}
 		}
@@ -3745,6 +3773,7 @@ namespace Hydrax
 		UnderwaterCompositor->getTechnique(0)->getTargetPass(0)->getPass(0)->setClearColour(Ogre::ColourValue(WC.x, WC.y, WC.z));
 
 		Ogre::GpuProgramParametersSharedPtr FP_Parameters = mat->getTechnique(0)->getPass(0)->getFragmentProgramParameters();
+		FP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
 		if (mMaterialManager->mHydrax->isComponent(HYDRAX_COMPONENT_DEPTH))
 		{
@@ -3772,6 +3801,7 @@ namespace Hydrax
 		    FP_Parameters->setNamedConstant("uHGg", mMaterialManager->mHydrax->getGodRaysExposure());
 
 			Ogre::GpuProgramParametersSharedPtr VP_Parameters = mat->getTechnique(0)->getPass(0)->getVertexProgramParameters();
+			VP_Parameters->setIgnoreMissingParams(true); // uniforms depend on the enabled components
 
 		    // FAR_LEFT_TOP
 		    VP_Parameters->
