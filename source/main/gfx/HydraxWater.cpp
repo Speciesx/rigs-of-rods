@@ -127,10 +127,19 @@ void HydraxWater::WaterSetSunPosition(Ogre::Vector3 pos)
 
 void HydraxWater::FrameStepWater(float dt)
 {
-    const float curWaterHeight = App::GetGameContext()->GetTerrain()->getWater()->GetStaticWaterHeight();
-    if (waterHeight != curWaterHeight)
+    const TerrainPtr& terrain = App::GetGameContext()->GetTerrain();
+    if (terrain && terrain->getWater() != nullptr)
     {
-        waterHeight = curWaterHeight;
+        const float curWaterHeight = terrain->getWater()->GetStaticWaterHeight();
+        if (waterHeight != curWaterHeight)
+        {
+            waterHeight = curWaterHeight;
+            // Move the water plane too - before, a new water level (script, terrain editor) only changed the physics
+            if (mHydrax)
+            {
+                mHydrax->setPosition(Ogre::Vector3(0, waterHeight, 0));
+            }
+        }
     }
     if (mHydrax)
     {
