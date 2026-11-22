@@ -931,6 +931,22 @@ namespace Hydrax
 		}
     }
 
+    void Hydrax::setBrightness(Ogre::Real Brightness)
+    {
+        if (Brightness == mBrightness)
+        {
+            return;
+        }
+        mBrightness = Brightness;
+        if (!mCreated)
+        {
+            return;
+        }
+        mMaterialManager->setGpuProgramParameter(
+            MaterialManager::GPUP_FRAGMENT, MaterialManager::MAT_WATER,
+            "uBrightness", mBrightness);
+    }
+
     void Hydrax::setSunArea(const Ogre::Real &SunArea)
     {
         if (!isComponent(HYDRAX_COMPONENT_SUN))

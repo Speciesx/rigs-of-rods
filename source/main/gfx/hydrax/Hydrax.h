@@ -178,6 +178,11 @@ namespace Hydrax
          */
         void setSunStrength(const Ogre::Real &SunStrength);
 
+        /** Overall brightness of the water surface (1 = day, <1 darkens, used for night)
+         */
+        void setBrightness(Ogre::Real Brightness);
+        inline Ogre::Real getBrightness() const { return mBrightness; }
+
         /** Set sun area
             @param SunArea Sun area
          */
@@ -705,6 +710,8 @@ namespace Hydrax
         Ogre::Vector3 mSunPosition;
         /// Sun strength param
         Ogre::Real mSunStrength;
+        /// Overall water brightness (night dimming)
+        Ogre::Real mBrightness = 1.f;
         /// Sun area
         Ogre::Real mSunArea;
         /// Sun color

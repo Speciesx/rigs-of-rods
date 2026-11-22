@@ -666,7 +666,8 @@ namespace Hydrax
 	                            "uniform float3       uEyePosition,\n" +
 	                            "uniform float        uFullReflectionDistance,\n" +
 	                            "uniform float        uGlobalTransparency,\n" +
-	                            "uniform float        uNormalDistortion,\n";
+	                            "uniform float        uNormalDistortion,\n" +
+	                            "uniform float        uBrightness,\n";
 
 						if (cDepth)
 						{
@@ -858,6 +859,7 @@ namespace Hydrax
 						}
 
 						FragmentProgramData +=
+							"oColor.xyz *= uBrightness;\n"
 							"}\n";
 					}
 					break;
@@ -869,6 +871,7 @@ namespace Hydrax
                             "uniform float uFullReflectionDistance;\n" +
                             "uniform float uGlobalTransparency;\n" +
                             "uniform float uNormalDistortion;\n" +
+                            "uniform float uBrightness;\n" +
                             "uniform vec3  uWaterColor;\n";
 
                             if (cSmooth)
@@ -1066,6 +1069,7 @@ namespace Hydrax
                                         "gl_FragColor.xyz = mix(texture2D(uRefractionMap,ProjectionCoord.xy).xyz,gl_FragColor.xyz,clamp((1.0-texture2D(uDepthMap,ProjectionCoord.xy).x)*uSmoothPower, 0.0, 1.0));\n";
                                 }
                             FragmentProgramData +=
+							"gl_FragColor.xyz *= uBrightness;\n"
 							"}\n";
 					break;
 				}
@@ -1118,6 +1122,7 @@ namespace Hydrax
 		FP_Parameters->setNamedConstant("uFullReflectionDistance", mHydrax->getFullReflectionDistance());
 		FP_Parameters->setNamedConstant("uGlobalTransparency",     mHydrax->getGlobalTransparency());
 		FP_Parameters->setNamedConstant("uNormalDistortion",       mHydrax->getNormalDistortion());
+		FP_Parameters->setNamedConstant("uBrightness",             mHydrax->getBrightness());
 
         FP_Parameters->setNamedConstant("uWaterColor", mHydrax->getWaterColor());
 		if (cSmooth)
@@ -3243,6 +3248,7 @@ namespace Hydrax
 				FP_Parameters->setNamedConstant("uFullReflectionDistance", mHydrax->getFullReflectionDistance());
 				FP_Parameters->setNamedConstant("uGlobalTransparency",     mHydrax->getGlobalTransparency());
 				FP_Parameters->setNamedConstant("uNormalDistortion",       mHydrax->getNormalDistortion());
+				FP_Parameters->setNamedConstant("uBrightness",             mHydrax->getBrightness());
 
                 FP_Parameters->setNamedConstant("uWaterColor", mHydrax->getWaterColor());
 				if (cSmooth)

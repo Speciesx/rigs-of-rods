@@ -30,6 +30,8 @@
 #include "Terrain.h"
 #include "TerrainGeometryManager.h"
 
+#include <algorithm>
+
 using namespace Ogre;
 using namespace RoR;
 
@@ -119,6 +121,16 @@ bool SkyXManager::UpdateSkyLight()
 	if (App::GetGameContext()->GetTerrain()->getWater()) App::GetGameContext()->GetTerrain()->getWater()->setFadeColour(Ogre::ColourValue(sunCol.x, sunCol.y, sunCol.z));
 	*/
 	Ogre::Vector3 ambientCol = mAmbientGradient.getColor(point);
+
+	// Water surface: reflection, refraction and sun glint are not lit by the scene lights, so the water
+	// stayed bright at night. Dim it while the sun is below the horizon (point 0.5 = horizon, below = night).
+	if (App::GetGameContext()->GetTerrain()->getHydraxManager())
+	{
+		float nightWeight = 1.f - std::min(std::max((point - 0.42f) / 0.08f, 0.f), 1.f);
+		nightWeight = nightWeight * nightWeight * (3.f - 2.f * nightWeight); // smoothstep
+		const float WATER_NIGHT_BRIGHTNESS = 0.15f;
+		App::GetGameContext()->GetTerrain()->getHydraxManager()->GetHydrax()->setBrightness(1.f + (WATER_NIGHT_BRIGHTNESS - 1.f) * nightWeight);
+	}
 	mLight1->setDiffuseColour(ambientCol.x, ambientCol.y, ambientCol.z);
 	mLight1->setPosition(100,100,100);
 
