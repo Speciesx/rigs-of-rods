@@ -30,6 +30,11 @@ http://www.cnblogs.com/ArenAK/archive/2007/11/07/951713.html
 
 #include <ProjectedGrid.h>
 
+#if defined(__SSE2__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 2)
+#	include <emmintrin.h>
+#	define HYDRAX_PG_SSE2 1
+#endif
+
 #include <algorithm>
 #include <functional>
 #include <vector>
@@ -536,32 +541,54 @@ namespace Hydrax{namespace Module
 			return;
 		}
 
-		int v, u;
-		Ogre::Vector3 vec1, vec2, normal;
+		const int n = mOptions.Complexity;
 
 		Mesh::POS_NORM_VERTEX* Vertices = static_cast<Mesh::POS_NORM_VERTEX*>(mVertices);
 
-		for(v=1; v<(mOptions.Complexity-1); v++)
+		// Each row only writes its own normals and reads positions, so rows can be processed independently
+		auto rows = [&](int begin, int end)
 		{
-			for(u=1; u<(mOptions.Complexity-1); u++)
+			for(int v=begin; v<end; v++)
 			{
-				vec1 = Ogre::Vector3(
-					Vertices[v*mOptions.Complexity + u + 1].x-Vertices[v*mOptions.Complexity + u - 1].x,
-					Vertices[v*mOptions.Complexity + u + 1].y-Vertices[v*mOptions.Complexity + u - 1].y,
-					Vertices[v*mOptions.Complexity + u + 1].z-Vertices[v*mOptions.Complexity + u - 1].z);
+				const Mesh::POS_NORM_VERTEX* prev = Vertices + (v-1)*n;
+				Mesh::POS_NORM_VERTEX*       row  = Vertices + v*n;
+				const Mesh::POS_NORM_VERTEX* next = Vertices + (v+1)*n;
 
-				vec2 = Ogre::Vector3(
-					Vertices[(v+1)*mOptions.Complexity + u].x - Vertices[(v-1)*mOptions.Complexity + u].x,
-					Vertices[(v+1)*mOptions.Complexity + u].y - Vertices[(v-1)*mOptions.Complexity + u].y,
-					Vertices[(v+1)*mOptions.Complexity + u].z - Vertices[(v-1)*mOptions.Complexity + u].z);
+				for(int u=1; u<(n-1); u++)
+				{
+#ifdef HYDRAX_PG_SSE2
+					// x,y,z of a vertex as (x, y, z, 0) - doesn't touch the normal, which other threads may be writing
+					auto load3 = [](const float* p) { return _mm_movelh_ps(_mm_loadl_pi(_mm_setzero_ps(), reinterpret_cast<const __m64*>(p)), _mm_load_ss(p + 2)); };
+					const __m128 v1 = _mm_sub_ps(load3(&row[u+1].x), load3(&row[u-1].x)); // right - left
+					const __m128 v2 = _mm_sub_ps(load3(&next[u].x), load3(&prev[u].x));   // next row - previous row
+					// normal = v2 x v1, same operations as Ogre::Vector3::crossProduct
+					const __m128 a = _mm_mul_ps(_mm_shuffle_ps(v2, v2, _MM_SHUFFLE(3,0,2,1)), _mm_shuffle_ps(v1, v1, _MM_SHUFFLE(3,1,0,2)));
+					const __m128 b = _mm_mul_ps(_mm_shuffle_ps(v2, v2, _MM_SHUFFLE(3,1,0,2)), _mm_shuffle_ps(v1, v1, _MM_SHUFFLE(3,0,2,1)));
+					const __m128 nrm = _mm_sub_ps(a, b);
+					_mm_storel_pi(reinterpret_cast<__m64*>(&row[u].nx), nrm);            // nx, ny
+					_mm_store_ss(&row[u].nz, _mm_movehl_ps(nrm, nrm));                   // nz
+#else
+					// vec1 = right - left, vec2 = next row - previous row
+					const float v1x = row[u+1].x - row[u-1].x;
+					const float v1y = row[u+1].y - row[u-1].y;
+					const float v1z = row[u+1].z - row[u-1].z;
 
-				normal = vec2.crossProduct(vec1);
+					const float v2x = next[u].x - prev[u].x;
+					const float v2y = next[u].y - prev[u].y;
+					const float v2z = next[u].z - prev[u].z;
 
-				Vertices[v*mOptions.Complexity + u].nx = normal.x;
-				Vertices[v*mOptions.Complexity + u].ny = normal.y;
-				Vertices[v*mOptions.Complexity + u].nz = normal.z;
+					// normal = vec2 x vec1 (same operations as Ogre::Vector3::crossProduct)
+					row[u].nx = v2y*v1z - v2z*v1y;
+					row[u].ny = v2z*v1x - v2x*v1z;
+					row[u].nz = v2x*v1y - v2y*v1x;
+#endif
+				}
 			}
-		}
+		};
+
+		// Rows 1 .. n-2: split into the range [0, n-2) shifted by one
+		auto shifted = [&](int begin, int end) { rows(begin + 1, end + 1); };
+		PGParallelFor(n - 2, 16, shifted);
 	}
 
 	void ProjectedGrid::_performChoppyWaves()
