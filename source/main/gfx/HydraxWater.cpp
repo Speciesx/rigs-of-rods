@@ -50,8 +50,11 @@ HydraxWater::HydraxWater(float water_height, Ogre::String conf_file):
 
 HydraxWater::~HydraxWater()
 {
-    mHydrax->remove();
+    // ~Hydrax() calls remove() and also deletes the module (ProjectedGrid) and its noise (Perlin)
+    delete mHydrax;
     mHydrax = nullptr;
+    mModule = nullptr;
+    waternoise = nullptr;
 }
 
 void HydraxWater::InitHydrax()
