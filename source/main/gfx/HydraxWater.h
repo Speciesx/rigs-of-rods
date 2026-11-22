@@ -42,6 +42,7 @@ public:
     void WaterSetSunPosition(Ogre::Vector3) override;
     void FrameStepWater(float dt) override;
     void UpdateWater() override;
+    bool GetWaveHeightAt(float x, float z, float& out_height) override;
 
     Hydrax::Hydrax* GetHydrax() { return mHydrax; }
 

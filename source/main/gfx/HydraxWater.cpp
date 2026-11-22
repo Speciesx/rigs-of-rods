@@ -128,6 +128,16 @@ void HydraxWater::WaterSetSunPosition(Ogre::Vector3 pos)
         mHydrax->setSunPosition(pos);
 }
 
+bool HydraxWater::GetWaveHeightAt(float x, float z, float& out_height)
+{
+    if (mHydrax == nullptr || !mHydrax->isCreated())
+    {
+        return false;
+    }
+    out_height = mHydrax->getHeigth(Ogre::Vector2(x, z));
+    return true;
+}
+
 void HydraxWater::FrameStepWater(float dt)
 {
     const TerrainPtr& terrain = App::GetGameContext()->GetTerrain();

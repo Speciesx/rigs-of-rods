@@ -49,6 +49,9 @@ public:
     virtual void           WaterPrepareShutdown() {}
     virtual void           UpdateWater() = 0;
 
+    /// Visible wave surface height at (x, z); lets physics (character, vehicles) follow the rendered waves. Returns false if not supported.
+    virtual bool           GetWaveHeightAt(float /*x*/, float /*z*/, float& /*out_height*/) { return false; }
+
     // Only used by class Water for SurveyMap texture creation
     virtual void           SetForcedCameraTransform(Ogre::Radian /*fovy*/, Ogre::Vector3 /*pos*/, Ogre::Quaternion /*rot*/) {};
     virtual void           ClearForcedCameraTransform() {};
