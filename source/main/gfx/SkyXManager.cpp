@@ -56,6 +56,9 @@ SkyXManager::SkyXManager(Ogre::String configFile)
 
 SkyXManager::~SkyXManager()
 {
+    // Restore the viewport background and the fog of the map
+    this->UpdateUnderwaterView(false);
+
     RoR::App::GetAppContext()->GetRenderWindow()->removeListener(mSkyX);
     mSkyX->remove();
 
@@ -85,7 +88,62 @@ bool SkyXManager::update(float dt)
 {
 	UpdateSkyLight();
 	mSkyX->update(dt);
+
+	const auto water = App::GetGameContext()->GetTerrain()->getWater();
+	const Ogre::Vector3 camPos = App::GetCameraManager()->GetCameraNode()->_getDerivedPosition();
+	this->UpdateUnderwaterView((water != nullptr) && water->IsUnderWater(camPos));
 	return true;
+}
+
+void SkyXManager::UpdateUnderwaterView(bool camUnderwater)
+{
+	Ogre::Camera* cam = App::GetCameraManager() ? App::GetCameraManager()->GetCamera() : nullptr;
+	Ogre::Viewport* vp = cam ? cam->getViewport() : nullptr;
+	Ogre::SceneManager* sm = App::GetGfxScene()->GetSceneManager();
+	if (vp == nullptr || sm == nullptr)
+		return;
+
+	if (camUnderwater)
+	{
+		if (!mUwActive)
+		{
+			mUwSavedBackground = vp->getBackgroundColour();
+			mUwSavedFogMode = sm->getFogMode();
+			mUwSavedFogColour = sm->getFogColour();
+			mUwSavedFogDensity = sm->getFogDensity();
+			mUwSavedFogStart = sm->getFogStart();
+			mUwSavedFogEnd = sm->getFogEnd();
+			mUwActive = true;
+		}
+		const float point = (getMainLightDirection().y + 1.0f) / 2.0f; // same as in UpdateSkyLight()
+		const Ogre::Vector3 c = mWaterGradient.getColor(point);
+		const Ogre::ColourValue water(std::min(c.x, 1.f), std::min(c.y, 1.f), std::min(c.z, 1.f));
+		vp->setBackgroundColour(water);
+		const Ogre::Real end = (mUwSavedFogMode == Ogre::FOG_LINEAR && mUwSavedFogEnd > 0.f) ? std::min<Ogre::Real>(mUwSavedFogEnd, 250.f) : 250.f;
+		// Keep the fog MODE of the map: shader generators (RTSS) bake the fog mode into the generated shaders,
+		// so changing it regenerates the materials (lag on every dive/surface). Colour/density/range are constants.
+		switch (mUwSavedFogMode)
+		{
+		case Ogre::FOG_EXP:  sm->setFog(Ogre::FOG_EXP,  water, 4.f / end, 0.f, end); break; // exp(-4)   ~ 2% at 'end'
+		case Ogre::FOG_EXP2: sm->setFog(Ogre::FOG_EXP2, water, 2.f / end, 0.f, end); break; // exp(-2^2) ~ 2% at 'end'
+		default:             sm->setFog(Ogre::FOG_LINEAR, water, 0.f, 0.f, end); break;
+		}
+	}
+	else if (mUwActive)
+	{
+		vp->setBackgroundColour(mUwSavedBackground);
+		if (mUwSavedFogMode == Ogre::FOG_NONE)
+		{
+			// Map without fog: stay in FOG_LINEAR (set while underwater) with a range that is never reached,
+			// so the generated shaders don't change on every surface/dive switch.
+			sm->setFog(Ogre::FOG_LINEAR, mUwSavedFogColour, 0.f, 1.0e7f, 2.0e7f);
+		}
+		else
+		{
+			sm->setFog(mUwSavedFogMode, mUwSavedFogColour, mUwSavedFogDensity, mUwSavedFogStart, mUwSavedFogEnd);
+		}
+		mUwActive = false;
+	}
 }
 
 

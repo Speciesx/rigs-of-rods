@@ -65,6 +65,14 @@ protected:
 	SkyX::CfgFileManager* mCfgFileManager = nullptr;
 
     int mLastHour = 0;
+
+	/// Under water: viewport background and fog take the water colour (the sky would show through otherwise)
+	void UpdateUnderwaterView(bool camUnderwater);
+	bool mUwActive = false;
+	Ogre::ColourValue mUwSavedBackground;
+	Ogre::FogMode mUwSavedFogMode = Ogre::FOG_NONE;
+	Ogre::ColourValue mUwSavedFogColour;
+	Ogre::Real mUwSavedFogDensity = 0.f, mUwSavedFogStart = 0.f, mUwSavedFogEnd = 0.f;
 };
 
 /// @} // addtogroup Gfx
