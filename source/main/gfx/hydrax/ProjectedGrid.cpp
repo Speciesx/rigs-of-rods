@@ -30,10 +30,43 @@ http://www.cnblogs.com/ArenAK/archive/2007/11/07/951713.html
 
 #include <ProjectedGrid.h>
 
+#include <algorithm>
+#include <functional>
+#include <vector>
+
+#include "Application.h"
+#include "ThreadPool.h"
+
 #define _def_MaxFarClipDistance 99999
 
 namespace Hydrax{namespace Module
 {
+	// RIGSOFRODS: splits [0, count) into up to 4 chunks and runs f(begin, end) on the thread pool; the calling thread does the first chunk.
+	// f must only write to its own range. Falls back to a plain call if there is no pool, multithreading is off or the work is small.
+	template<class F> static void PGParallelFor(int count, int min_per_chunk, F& f)
+	{
+		RoR::ThreadPool* pool = RoR::App::GetThreadPool();
+		int chunks = 1;
+		if (pool != nullptr && RoR::App::gfx_water_multithread->getBool())
+		{
+			chunks = std::min(std::max(RoR::App::app_num_workers->getInt(), 1), 4);
+		}
+		chunks = std::min(chunks, std::max(count / std::max(min_per_chunk, 1), 1));
+		if (chunks <= 1)
+		{
+			f(0, count);
+			return;
+		}
+		std::vector<std::function<void()>> tasks;
+		for (int c = 0; c < chunks; ++c)
+		{
+			const int begin = static_cast<int>(static_cast<long long>(count) * c / chunks);
+			const int end = static_cast<int>(static_cast<long long>(count) * (c + 1) / chunks);
+			tasks.push_back([&f, begin, end]() { f(begin, end); });
+		}
+		pool->Parallelize(tasks);
+	}
+
 	Mesh::VertexType _PG_getVertexTypeFromNormalMode(const MaterialManager::NormalMode& NormalMode)
 	{
 		if (NormalMode == MaterialManager::NM_VERTEX)
@@ -288,34 +321,37 @@ namespace Hydrax{namespace Module
 		}
 		else if (mLastMinMax && !(mOptions.Strength == 0.f && mFlatDone))
 		{
+			// Every vertex only writes itself: the wave heights are computed in parallel
+			const int total = mOptions.Complexity*mOptions.Complexity;
+			const Ogre::Real baseY = -mBasePlane.d;
 			if (getNormalMode() == MaterialManager::NM_VERTEX)
 			{
 				Mesh::POS_NORM_VERTEX* Vertices = static_cast<Mesh::POS_NORM_VERTEX*>(mVertices);
-
-				if (mOptions.ChoppyWaves)
+				const bool choppy = mOptions.ChoppyWaves;
+				auto heights = [&](int begin, int end)
 				{
-					for(int i = 0; i < mOptions.Complexity*mOptions.Complexity; i++)
-		            {
-			            Vertices[i] = mVerticesChoppyBuffer[i];
-						Vertices[i].y = -mBasePlane.d + _getWaveHeight(RenderingCameraPos.x + Vertices[i].x, RenderingCameraPos.z + Vertices[i].z);
-		            }
-				}
-				else
-				{
-					for(int i = 0; i < mOptions.Complexity*mOptions.Complexity; i++)
-		            {
-						Vertices[i].y = -mBasePlane.d + _getWaveHeight(RenderingCameraPos.x + Vertices[i].x, RenderingCameraPos.z + Vertices[i].z);
-		            }
-				}
+					for (int i = begin; i < end; i++)
+					{
+						if (choppy)
+						{
+							Vertices[i] = mVerticesChoppyBuffer[i];
+						}
+						Vertices[i].y = baseY + _getWaveHeight(RenderingCameraPos.x + Vertices[i].x, RenderingCameraPos.z + Vertices[i].z);
+					}
+				};
+				PGParallelFor(total, 4096, heights);
 			}
 			else if (getNormalMode() == MaterialManager::NM_RTT)
 			{
 				Mesh::POS_VERTEX* Vertices = static_cast<Mesh::POS_VERTEX*>(mVertices);
-
-				for(int i = 0; i < mOptions.Complexity*mOptions.Complexity; i++)
-		        {
-				    Vertices[i].y = -mBasePlane.d + _getWaveHeight(RenderingCameraPos.x + Vertices[i].x, RenderingCameraPos.z + Vertices[i].z);
-		        }
+				auto heights = [&](int begin, int end)
+				{
+					for (int i = begin; i < end; i++)
+					{
+						Vertices[i].y = baseY + _getWaveHeight(RenderingCameraPos.x + Vertices[i].x, RenderingCameraPos.z + Vertices[i].z);
+					}
+				};
+				PGParallelFor(total, 4096, heights);
 			}
 
 			// Smooth the heightdata
@@ -380,83 +416,68 @@ namespace Hydrax{namespace Module
 		t_corners2 = _calculeWorldPosition(Ogre::Vector2( 0.0f,+1.0f),m,_viewMat);
 		t_corners3 = _calculeWorldPosition(Ogre::Vector2(+1.0f,+1.0f),m,_viewMat);
 
-		float du  = 1.0f/(mOptions.Complexity-1),
-			  dv  = 1.0f/(mOptions.Complexity-1),
-			  u,v = 0.0f,
-			  // _1_u = (1.0f-u)
-			  _1_u, _1_v = 1.0f,
-			  divide;
+		const float du = 1.0f/(mOptions.Complexity-1),
+			        dv = 1.0f/(mOptions.Complexity-1);
 
-		Ogre::Vector4 result;
+		int iv, iu;
 
-		int i = 0, iv, iu;
-
-		if (getNormalMode() == MaterialManager::NM_VERTEX)
 		{
-			Mesh::POS_NORM_VERTEX* Vertices = static_cast<Mesh::POS_NORM_VERTEX*>(mVertices);
-
-			for(iv=0; iv<mOptions.Complexity; iv++)
+			const int C = mOptions.Complexity;
+			const Ogre::Real baseY = -mBasePlane.d;
+			// Position and height of one vertex of the projected grid
+			auto computeVertex = [&](int row, int col, float& outX, float& outY, float& outZ)
 			{
-				u = 0.0f;
-				_1_u = 1.0f;
-				for(iu=0; iu<mOptions.Complexity; iu++)
+				const float rv = row * dv;
+				const float r1v = 1.0f - rv;
+				const float cu = col * du;
+				const float c1u = 1.0f - cu;
+				float rx = r1v*(c1u*t_corners0.x + cu*t_corners1.x) + rv*(c1u*t_corners2.x + cu*t_corners3.x);
+				float rz = r1v*(c1u*t_corners0.z + cu*t_corners1.z) + rv*(c1u*t_corners2.z + cu*t_corners3.z);
+				const float rw = r1v*(c1u*t_corners0.w + cu*t_corners1.w) + rv*(c1u*t_corners2.w + cu*t_corners3.w);
+				const float inv = 1.0f/rw;
+				rx *= inv;
+				rz *= inv;
+				outX = rx;
+				outZ = rz;
+				outY = baseY + _getWaveHeight(WorldPos.x + rx, WorldPos.z + rz);
+			};
+
+			// Every row only writes its own vertices: the rows are computed in parallel
+			if (getNormalMode() == MaterialManager::NM_VERTEX)
+			{
+				Mesh::POS_NORM_VERTEX* Vertices = static_cast<Mesh::POS_NORM_VERTEX*>(mVertices);
+				auto rows = [&](int begin, int end)
 				{
-					result.x = _1_v*(_1_u*t_corners0.x + u*t_corners1.x) + v*(_1_u*t_corners2.x + u*t_corners3.x);
-					result.z = _1_v*(_1_u*t_corners0.z + u*t_corners1.z) + v*(_1_u*t_corners2.z + u*t_corners3.z);
-					result.w = _1_v*(_1_u*t_corners0.w + u*t_corners1.w) + v*(_1_u*t_corners2.w + u*t_corners3.w);
+					for (int row = begin; row < end; row++)
+						for (int col = 0; col < C; col++)
+						{
+							Mesh::POS_NORM_VERTEX& vtx = Vertices[row*C + col];
+							computeVertex(row, col, vtx.x, vtx.y, vtx.z);
+						}
+				};
+				PGParallelFor(C, 16, rows);
 
-					divide = 1.0f/result.w;
-					result.x *= divide;
-					result.z *= divide;
-
-					Vertices[i].x = result.x;
-					Vertices[i].z = result.z;
-					Vertices[i].y = -mBasePlane.d + _getWaveHeight(WorldPos.x + result.x, WorldPos.z + result.z);
-
-					i++;
-					u += du;
-					_1_u = 1.0f-u;
-				}
-				v += dv;
-				_1_v = 1.0f-v;
-			}
-
-			if (mOptions.ChoppyWaves)
-			{
-				for(int i = 0; i < mOptions.Complexity*mOptions.Complexity; i++)
-		        {
-			        mVerticesChoppyBuffer[i] = Vertices[i];
-		        }
-			}
-		}
-		else if(getNormalMode() == MaterialManager::NM_RTT)
-		{
-			Mesh::POS_VERTEX* Vertices = static_cast<Mesh::POS_VERTEX*>(mVertices);
-
-			for(iv=0; iv<mOptions.Complexity; iv++)
-			{
-				u = 0.0f;
-				_1_u = 1.0f;
-				for(iu=0; iu<mOptions.Complexity; iu++)
+				if (mOptions.ChoppyWaves)
 				{
-					result.x = _1_v*(_1_u*t_corners0.x + u*t_corners1.x) + v*(_1_u*t_corners2.x + u*t_corners3.x);
-					result.z = _1_v*(_1_u*t_corners0.z + u*t_corners1.z) + v*(_1_u*t_corners2.z + u*t_corners3.z);
-					result.w = _1_v*(_1_u*t_corners0.w + u*t_corners1.w) + v*(_1_u*t_corners2.w + u*t_corners3.w);
-
-					divide = 1.0f/result.w;
-					result.x *= divide;
-					result.z *= divide;
-
-					Vertices[i].x = result.x;
-					Vertices[i].z = result.z;
-					Vertices[i].y = -mBasePlane.d + _getWaveHeight(WorldPos.x + result.x, WorldPos.z + result.z);
-
-					i++;
-					u += du;
-					_1_u = 1.0f-u;
+					for(int k = 0; k < C*C; k++)
+					{
+						mVerticesChoppyBuffer[k] = Vertices[k];
+					}
 				}
-				v += dv;
-				_1_v = 1.0f-v;
+			}
+			else if (getNormalMode() == MaterialManager::NM_RTT)
+			{
+				Mesh::POS_VERTEX* Vertices = static_cast<Mesh::POS_VERTEX*>(mVertices);
+				auto rows = [&](int begin, int end)
+				{
+					for (int row = begin; row < end; row++)
+						for (int col = 0; col < C; col++)
+						{
+							Mesh::POS_VERTEX& vtx = Vertices[row*C + col];
+							computeVertex(row, col, vtx.x, vtx.y, vtx.z);
+						}
+				};
+				PGParallelFor(C, 16, rows);
 			}
 		}
 

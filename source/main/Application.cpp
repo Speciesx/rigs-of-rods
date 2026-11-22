@@ -246,6 +246,7 @@ CVar* gfx_vegetation_mode;
 CVar* gfx_water_mode;
 CVar* gfx_anisotropy;
 CVar* gfx_water_waves;
+CVar* gfx_water_multithread;
 CVar* gfx_particles_mode;
 CVar* gfx_enable_videocams;
 CVar* gfx_window_videocams;

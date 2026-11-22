@@ -263,6 +263,11 @@ void GameSettings::DrawGeneralSettings()
 
     DrawGCheckbox(App::app_skip_main_menu, _LC("GameSettings", "Skip main menu"));
     DrawGCheckbox(App::app_async_physics, _LC("GameSettings", "Async physics"));
+    DrawGCheckbox(App::gfx_water_multithread, _LC("GameSettings", "Hydrax multithreading"));
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip("%s", _LC("GameSettings", "Computes the Hydrax water waves on several CPU cores (worker threads)."));
+    }
     DrawGCheckbox(App::app_disable_online_api, _LC("GameSettings", "Disable online api"));
 
     if (ImGui::Button(_LC("GameSettings", "Update cache")))

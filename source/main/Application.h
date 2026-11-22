@@ -798,6 +798,7 @@ extern CVar* gfx_vegetation_mode;
 extern CVar* gfx_water_mode;
 extern CVar* gfx_anisotropy;
 extern CVar* gfx_water_waves;
+extern CVar* gfx_water_multithread;
 extern CVar* gfx_particles_mode;
 extern CVar* gfx_enable_videocams;
 extern CVar* gfx_window_videocams;
