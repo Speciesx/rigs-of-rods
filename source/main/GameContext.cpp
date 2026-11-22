@@ -1344,6 +1344,11 @@ void GameContext::UpdateSkyInputEvents(float dt)
         {
             m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(-4.0f);
         }
+        else if (App::gfx_sky_time_cycle->getBool())
+        {
+            // Same setting as for Caelum: speed in 'x real-time'. SkyX counts hours per second.
+            m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(App::gfx_sky_time_speed->getInt() / 3600.f);
+        }
         else
         {
             m_terrain->getSkyXManager()->GetSkyX()->setTimeMultiplier(0.02f);
