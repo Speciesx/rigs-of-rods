@@ -639,7 +639,26 @@ namespace Hydrax
 		}
 
 		// If the camera is under the current water x/z position
-		if (getHeigth(mCamera->getDerivedPosition()) > mCamera->getDerivedPosition().y-mUnderwaterCameraSwitchDelta)
+		bool CameraUnderwater = getHeigth(mCamera->getDerivedPosition()) > mCamera->getDerivedPosition().y-mUnderwaterCameraSwitchDelta;
+
+		// Switching between the water and the underwater setup rebuilds RTTs, materials and the compositor.
+		// Don't flip back and forth every frame when the camera sits at the wave surface: after a switch,
+		// keep the current setup for at least one second (real time, also works while the simulation is paused).
+		if (CameraUnderwater != mCurrentFrameUnderwater)
+		{
+			const unsigned long now = Ogre::Root::getSingleton().getTimer()->getMilliseconds();
+			if (mUnderwaterSwitchValid && now - mUnderwaterSwitchTime < 1000)
+			{
+				CameraUnderwater = mCurrentFrameUnderwater;
+			}
+			else
+			{
+				mUnderwaterSwitchTime = now;
+				mUnderwaterSwitchValid = true;
+			}
+		}
+
+		if (CameraUnderwater)
 		{
 			mCurrentFrameUnderwater = true;
 

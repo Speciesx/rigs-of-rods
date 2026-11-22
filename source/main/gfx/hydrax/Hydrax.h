@@ -751,6 +751,9 @@ namespace Hydrax
 
 		/// Is current frame underwater?
 		bool mCurrentFrameUnderwater;
+		/// Time of the last switch between the water and the underwater setup (Ogre root timer, ms)
+		unsigned long mUnderwaterSwitchTime = 0;
+		bool mUnderwaterSwitchValid = false;
 
         /// Our Hydrax::Mesh pointer
         Mesh *mMesh;
