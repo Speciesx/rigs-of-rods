@@ -275,6 +275,9 @@ namespace Hydrax{ namespace Module
 		Ogre::Quaternion mLastOrientation;
 		bool mLastMinMax;
 
+		/// RIGSOFRODS: with a wave strength of 0 the surface is flat; once it has been uploaded it does not need recalculating while the camera stands still
+		bool mFlatDone = false;
+
 		/// Our projected grid options
 		Options mOptions;
 

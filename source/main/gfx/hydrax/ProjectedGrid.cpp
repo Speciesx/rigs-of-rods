@@ -274,6 +274,7 @@ namespace Hydrax{namespace Module
 			    mRenderingCamera->setFarClipDistance(_def_MaxFarClipDistance);
 		    }
 
+			mFlatDone = false;
 			mLastMinMax = _getMinMax(&mRange);
 
 		    if (mLastMinMax)
@@ -285,7 +286,7 @@ namespace Hydrax{namespace Module
 
 			mRenderingCamera->setFarClipDistance(RenderingFarClipDistance);
 		}
-		else if (mLastMinMax)
+		else if (mLastMinMax && !(mOptions.Strength == 0.f && mFlatDone))
 		{
 			if (getNormalMode() == MaterialManager::NM_VERTEX)
 			{
@@ -363,6 +364,9 @@ namespace Hydrax{namespace Module
 			_performChoppyWaves();
 
 			mHydrax->getMesh()->updateGeometry(mOptions.Complexity*mOptions.Complexity, mVertices);
+
+			// Without waves the surface doesn't change until the camera moves
+			mFlatDone = (mOptions.Strength == 0.f);
 		}
 
 		mLastPosition = RenderingCameraPos;
