@@ -292,49 +292,52 @@ namespace SkyX
 	Ogre::Vector2 CfgFileManager::_getVector2Value(Ogre::ConfigFile& CfgFile, const Ogre::String Name)
 	{
 		Ogre::String Value = CfgFile.getSetting("<vector2>" + Name);
+		const Ogre::StringVector tokens = Ogre::StringUtil::split(Value, "x");
 
-		if (Value == "")
+		if (Value == "" || tokens.size() < 2)
 		{
 			return Ogre::Vector2(0,0);
 		}
 		else
 		{
-			return Ogre::Vector2(Ogre::StringConverter::parseReal(Ogre::StringUtil::split(Value, "x")[0]),
-				                 Ogre::StringConverter::parseReal(Ogre::StringUtil::split(Value, "x")[1]));
+			return Ogre::Vector2(Ogre::StringConverter::parseReal(tokens[0]),
+				                 Ogre::StringConverter::parseReal(tokens[1]));
 		}
 	}
 
 	Ogre::Vector3 CfgFileManager::_getVector3Value(Ogre::ConfigFile& CfgFile, const Ogre::String Name)
 	{
 		Ogre::String Value = CfgFile.getSetting("<vector3>" + Name);
+		const Ogre::StringVector tokens = Ogre::StringUtil::split(Value, "x");
 
-		if (Value == "")
+		if (Value == "" || tokens.size() < 3)
 		{
 			return Ogre::Vector3(0,0,0);
 		}
 		else
 		{
-			return Ogre::Vector3(Ogre::StringConverter::parseReal(Ogre::StringUtil::split(Value, "x")[0]),
-				                 Ogre::StringConverter::parseReal(Ogre::StringUtil::split(Value, "x")[1]),
-								 Ogre::StringConverter::parseReal(Ogre::StringUtil::split(Value, "x")[2]));
+			return Ogre::Vector3(Ogre::StringConverter::parseReal(tokens[0]),
+				                 Ogre::StringConverter::parseReal(tokens[1]),
+								 Ogre::StringConverter::parseReal(tokens[2]));
 		}
 	}
 
 	Ogre::Vector4 CfgFileManager::_getVector4Value(Ogre::ConfigFile& CfgFile, const Ogre::String Name)
 	{
 		Ogre::String Value = CfgFile.getSetting("<vector4>" + Name);
+		const Ogre::StringVector tokens = Ogre::StringUtil::split(Value, "x");
 
-		if (Value == "")
+		if (Value == "" || tokens.size() < 4)
 		{
 			return Ogre::Vector4(0, 0, 0, 0);
 		}
 		else
 		{
 			return Ogre::Vector4(
-				Ogre::StringConverter::parseReal(Ogre::StringUtil::split(Value, "x")[0]),
-				Ogre::StringConverter::parseReal(Ogre::StringUtil::split(Value, "x")[1]),
-				Ogre::StringConverter::parseReal(Ogre::StringUtil::split(Value, "x")[2]),
-				Ogre::StringConverter::parseReal(Ogre::StringUtil::split(Value, "x")[3])
+				Ogre::StringConverter::parseReal(tokens[0]),
+				Ogre::StringConverter::parseReal(tokens[1]),
+				Ogre::StringConverter::parseReal(tokens[2]),
+				Ogre::StringConverter::parseReal(tokens[3])
 				);
 		}
 	}
