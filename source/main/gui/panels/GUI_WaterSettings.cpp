@@ -64,12 +64,6 @@ void EndGreyed(bool greyed)
 
 void WaterControlsPanel::Draw()
 {
-    ImGui::SetNextWindowPosCenter(ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(ImGui::GetFontSize() * 34.f, ImGui::GetFontSize() * 30.f), ImGuiCond_FirstUseEver);
-    bool keep_open = true;
-    ImGui::Begin(_LC("WaterSettings", "Water settings"), &keep_open, ImGuiWindowFlags_NoCollapse);
-    ImGui::PushItemWidth(ImGui::GetFontSize() * 12.5f);
-
     // --- Which water is active? ---
     const TerrainPtr& terrain = App::GetGameContext()->GetTerrain();
     Wavefield* wavefield = (terrain) ? terrain->getWater() : nullptr;
@@ -77,6 +71,33 @@ void WaterControlsPanel::Draw()
     HX::Hydrax* hx = (hx_water != nullptr) ? hx_water->GetHydrax() : nullptr;
     const bool hydrax_active = (hx != nullptr) && hx->isCreated();
     const bool standard_active = (terrain) && !hydrax_active && (terrain->getGfxWater() != nullptr);
+
+    // Hydrax: big window the player can resize. Other water: only a few controls, the window fits them.
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse;
+    ImGui::SetNextWindowPosCenter(ImGuiCond_FirstUseEver);
+    if (hydrax_active)
+    {
+        if (m_hydrax_size.x <= 0.f)
+        {
+            m_hydrax_size = Ogre::Vector2(ImGui::GetFontSize() * 34.f, ImGui::GetFontSize() * 30.f);
+        }
+        // Back from the fitted size: restore the size used with Hydrax
+        ImGui::SetNextWindowSize(ImVec2(m_hydrax_size.x, m_hydrax_size.y), m_was_fitted ? ImGuiCond_Always : ImGuiCond_FirstUseEver);
+    }
+    else
+    {
+        flags |= ImGuiWindowFlags_AlwaysAutoResize;
+    }
+    m_was_fitted = !hydrax_active;
+
+    bool keep_open = true;
+    ImGui::Begin(_LC("WaterSettings", "Water settings"), &keep_open, flags);
+    if (hydrax_active)
+    {
+        const ImVec2 size = ImGui::GetWindowSize();
+        m_hydrax_size = Ogre::Vector2(size.x, size.y);
+    }
+    ImGui::PushItemWidth(ImGui::GetFontSize() * 12.5f);
 
     std::string active_name = _LC("WaterSettings", "None");
     if (!terrain)

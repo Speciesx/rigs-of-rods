@@ -59,6 +59,9 @@ private:
 
     int m_components = 0;                                         //!< Hydrax components to apply (bit mask)
     bool m_components_valid = false;
+
+    Ogre::Vector2 m_hydrax_size = Ogre::Vector2::ZERO;               //!< window size while Hydrax is active (player can resize)
+    bool m_was_fitted = false;                                    //!< last frame the window fitted its content (no Hydrax)
 };
 
 } // namespace GUI
