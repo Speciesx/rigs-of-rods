@@ -51,6 +51,11 @@ public:
 
 	SkyX::SkyX* GetSkyX() { return mSkyX; }
 
+	/// Water colour picked in the 'Water settings' window. Without it, the colour follows the time of day.
+	void SetWaterColorOverride(const Ogre::Vector3& color) { mWaterColorOverride = color; mHasWaterColorOverride = true; }
+	void ClearWaterColorOverride() { mHasWaterColorOverride = false; }
+	bool HasWaterColorOverride() const { return mHasWaterColorOverride; }
+
 protected:
 	Ogre::Light *mLight0 = nullptr;
 	Ogre::Light *mLight1 = nullptr;
@@ -65,6 +70,9 @@ protected:
 	SkyX::CfgFileManager* mCfgFileManager = nullptr;
 
     int mLastHour = 0;
+
+	bool mHasWaterColorOverride = false;
+	Ogre::Vector3 mWaterColorOverride = Ogre::Vector3::ZERO;
 
 	/// Under water: viewport background and fog take the water colour (the sky would show through otherwise)
 	void UpdateUnderwaterView(bool camUnderwater);

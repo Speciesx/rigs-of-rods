@@ -132,7 +132,7 @@ void SkyXManager::UpdateUnderwaterView(bool camUnderwater)
 			mUwActive = true;
 		}
 		const float point = (getMainLightDirection().y + 1.0f) / 2.0f; // same as in UpdateSkyLight()
-		const Ogre::Vector3 c = mWaterGradient.getColor(point);
+		const Ogre::Vector3 c = mHasWaterColorOverride ? mWaterColorOverride : mWaterGradient.getColor(point);
 		const Ogre::ColourValue water(std::min(c.x, 1.f), std::min(c.y, 1.f), std::min(c.z, 1.f));
 		vp->setBackgroundColour(water);
 		const Ogre::Real end = (mUwSavedFogMode == Ogre::FOG_LINEAR && mUwSavedFogEnd > 0.f) ? std::min<Ogre::Real>(mUwSavedFogEnd, 250.f) : 250.f;
@@ -174,7 +174,9 @@ bool SkyXManager::UpdateSkyLight()
 
     if (App::GetGameContext()->GetTerrain()->getHydraxManager ()) 
     {
-        App::GetGameContext()->GetTerrain()->getHydraxManager ()->GetHydrax ()->setWaterColor (mWaterGradient.getColor (point));
+        // A colour picked in the 'Water settings' window is kept, the gradient would overwrite it every frame
+        App::GetGameContext()->GetTerrain()->getHydraxManager ()->GetHydrax ()->setWaterColor (
+            mHasWaterColorOverride ? mWaterColorOverride : mWaterGradient.getColor (point));
         App::GetGameContext()->GetTerrain()->getHydraxManager ()->GetHydrax ()->setSunPosition (sunPos*0.1);
     }
 		
