@@ -31,7 +31,7 @@
 namespace RoR {
 namespace GUI {
 
-/// Controls that exist for several backends share one widget, controls that the active backend lacks are greyed out.
+/// Controls that exist for several backends share one widget, controls that the active backend lacks are not shown.
 class WaterControlsPanel
 {
 public:

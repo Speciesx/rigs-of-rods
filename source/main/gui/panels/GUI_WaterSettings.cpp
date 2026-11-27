@@ -111,28 +111,26 @@ void WaterControlsPanel::Draw()
 
     // --- Shared controls (Hydrax and standard water) ---
     const bool can_level = (wavefield != nullptr) && (hydrax_active || standard_active);
-    BeginGreyed(!can_level);
+    if (can_level)
     {
-        float level = can_level ? wavefield->GetStaticWaterHeight() : 0.f;
-        if (ImGui::DragFloat(_LC("WaterSettings", "Water level (m):"), &level, 0.1f, -500.f, 5000.f, "%.2f") && can_level)
+        float level = wavefield->GetStaticWaterHeight();
+        if (ImGui::DragFloat(_LC("WaterSettings", "Water level (m):"), &level, 0.1f, -500.f, 5000.f, "%.2f"))
         {
             wavefield->SetStaticWaterHeight(level);
         }
     }
-    EndGreyed(!can_level);
 
     // Wave height: Hydrax = visual wave strength, standard water = wave field height.
     const bool std_waves = standard_active && (wavefield != nullptr) && App::gfx_water_waves->getBool()
         && (App::mp_state->getEnum<MpState>() != MpState::CONNECTED);
     const bool hx_waves = (grid != nullptr);
 
-    BeginGreyed(!standard_active);
+    if (standard_active)
     {
         DrawGCheckbox(App::gfx_water_waves, _LC("WaterSettings", "Waves enabled"));
     }
-    EndGreyed(!standard_active);
 
-    BeginGreyed(!(std_waves || hx_waves));
+    if (std_waves || hx_waves)
     {
         float wave_height = 0.f;
         if (hx_waves)
@@ -158,16 +156,15 @@ void WaterControlsPanel::Draw()
             }
         }
     }
-    EndGreyed(!(std_waves || hx_waves));
+
+    if (!can_level && !standard_active && !hydrax_active)
+    {
+        ImGui::TextDisabled("%s", _LC("WaterSettings", "The active water has no adjustable settings."));
+    }
 
     // --- Hydrax: appearance ---
-    if (ImGui::CollapsingHeader(_LC("WaterSettings", "Appearance"), ImGuiTreeNodeFlags_DefaultOpen))
+    if (hydrax_active && ImGui::CollapsingHeader(_LC("WaterSettings", "Appearance"), ImGuiTreeNodeFlags_DefaultOpen))
     {
-        if (!hydrax_active)
-        {
-            ImGui::TextDisabled("%s", _LC("WaterSettings", "(Hydrax only)"));
-        }
-        BeginGreyed(!hydrax_active);
         {
             float transparency = hydrax_active ? hx->getGlobalTransparency() : 0.f;
             if (ImGui::SliderFloat(_LC("WaterSettings", "Global transparency:"), &transparency, 0.f, 1.f) && hydrax_active)
@@ -213,16 +210,15 @@ void WaterControlsPanel::Draw()
                 ImGui::SetTooltip("%s", _LC("WaterSettings", "Computes the wave heights on several CPU cores. Turn off if it slows down scenes with many vehicles."));
             }
         }
-        EndGreyed(!hydrax_active);
     }
 
     // --- Hydrax: foam ---
     const bool foam_on = hydrax_active && hx->isComponent(HX::HYDRAX_COMPONENT_FOAM);
-    if (ImGui::CollapsingHeader(_LC("WaterSettings", "Foam")))
+    if (hydrax_active && ImGui::CollapsingHeader(_LC("WaterSettings", "Foam")))
     {
         if (!foam_on)
         {
-            ImGui::TextDisabled("%s", hydrax_active ? _LC("WaterSettings", "(component disabled in config)") : _LC("WaterSettings", "(Hydrax only)"));
+            ImGui::TextDisabled("%s", _LC("WaterSettings", "(component disabled in config)"));
         }
         BeginGreyed(!foam_on);
         {
@@ -257,15 +253,10 @@ void WaterControlsPanel::Draw()
     const bool depth_on = hydrax_active && hx->isComponent(HX::HYDRAX_COMPONENT_DEPTH);
     const bool smooth_on = hydrax_active && hx->isComponent(HX::HYDRAX_COMPONENT_SMOOTH);
     const bool caustics_on = hydrax_active && hx->isComponent(HX::HYDRAX_COMPONENT_CAUSTICS);
-    if (ImGui::CollapsingHeader(_LC("WaterSettings", "Depth, shore and caustics")))
+    if (hydrax_active && ImGui::CollapsingHeader(_LC("WaterSettings", "Depth, shore and caustics")))
     {
-        if (!hydrax_active)
-        {
-            ImGui::TextDisabled("%s", _LC("WaterSettings", "(Hydrax only)"));
-        }
 
         // Paged vegetation (grass, bushes, trees) is kept out of the depth map by default, it only distorts the water depth there
-        BeginGreyed(!hydrax_active);
         {
             const Ogre::uint32 veg_bit = static_cast<Ogre::uint32>(DEPTHMAP_VEGETATION);
             const Ogre::uint32 depth_mask = hydrax_active ? hx->getDepthVisibilityMask() : 0u;
@@ -275,7 +266,6 @@ void WaterControlsPanel::Draw()
                 hx->setDepthVisibilityMask(veg_in_depth ? (depth_mask | veg_bit) : (depth_mask & ~veg_bit));
             }
         }
-        EndGreyed(!hydrax_active);
 
         BeginGreyed(!depth_on);
         {
@@ -327,18 +317,13 @@ void WaterControlsPanel::Draw()
     }
 
     // --- Hydrax: components. Sun reflection and god rays are usually switched off in the map's Hydrax config ---
-    if (ImGui::CollapsingHeader(_LC("WaterSettings", "Components")))
+    if (hydrax_active && ImGui::CollapsingHeader(_LC("WaterSettings", "Components")))
     {
-        if (!hydrax_active)
-        {
-            ImGui::TextDisabled("%s", _LC("WaterSettings", "(Hydrax only)"));
-        }
         if (hydrax_active && !m_components_valid)
         {
             m_components = static_cast<int>(hx->getComponents());
             m_components_valid = true;
         }
-        BeginGreyed(!hydrax_active);
         {
             struct { const char* name; HX::HydraxComponent bit; } const comps[] = {
                 { "Sun reflection", HX::HYDRAX_COMPONENT_SUN },
@@ -367,18 +352,13 @@ void WaterControlsPanel::Draw()
                 m_components = static_cast<int>(hx->getComponents()); // dependencies may have switched some off
             }
         }
-        EndGreyed(!hydrax_active);
     }
 
     // --- Hydrax: sun reflection and god rays (components off by default, broken with OpenGL) ---
     const bool sun_on = hydrax_active && hx->isComponent(HX::HYDRAX_COMPONENT_SUN);
     const bool rays_on = hydrax_active && hx->isComponent(HX::HYDRAX_COMPONENT_UNDERWATER_GODRAYS);
-    if (ImGui::CollapsingHeader(_LC("WaterSettings", "Sun reflection and god rays")))
+    if (hydrax_active && ImGui::CollapsingHeader(_LC("WaterSettings", "Sun reflection and god rays")))
     {
-        if (!hydrax_active)
-        {
-            ImGui::TextDisabled("%s", _LC("WaterSettings", "(Hydrax only)"));
-        }
         BeginGreyed(!sun_on);
         {
             float strength = sun_on ? hx->getSunStrength() : 1.75f;
@@ -421,11 +401,11 @@ void WaterControlsPanel::Draw()
     }
 
     // --- Hydrax: wave shape (projected grid + Perlin noise, as created by RoR) ---
-    if (ImGui::CollapsingHeader(_LC("WaterSettings", "Wave shape")))
+    if (hydrax_active && ImGui::CollapsingHeader(_LC("WaterSettings", "Wave shape")))
     {
         if (grid == nullptr)
         {
-            ImGui::TextDisabled("%s", hydrax_active ? _LC("WaterSettings", "(unsupported water module)") : _LC("WaterSettings", "(Hydrax only)"));
+            ImGui::TextDisabled("%s", _LC("WaterSettings", "(unsupported water module)"));
         }
         BeginGreyed(grid == nullptr);
         {
