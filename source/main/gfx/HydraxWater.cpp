@@ -26,7 +26,9 @@
 #include "GameContext.h"
 #include "GfxScene.h"
 #include "SkyManager.h"
+#include "SkyXManager.h"
 #include "Terrain.h"
+#include "Wavefield.h"
 
 #ifdef USE_CAELUM
 #include <Caelum.h>
@@ -34,6 +36,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 
 using namespace Ogre;
@@ -115,6 +118,138 @@ void HydraxWater::InitHydrax()
 
     mHydrax->create();
     mHydrax->setPosition(Ogre::Vector3(0, waterHeight, 0));
+
+    this->SaveMapDefaults();
+}
+
+void HydraxWater::SaveMapDefaults()
+{
+    MapDefaults& d = mMapDefaults;
+    d.waterLevel = waterHeight;
+    d.components = mHydrax->getComponents();
+    d.depthMask = mHydrax->getDepthVisibilityMask();
+    d.globalTransparency = mHydrax->getGlobalTransparency();
+    d.normalDistortion = mHydrax->getNormalDistortion();
+    d.planesError = mHydrax->getPlanesError();
+    d.waterColor = mHydrax->getWaterColor();
+    d.foamScale = mHydrax->getFoamScale();
+    d.foamStart = mHydrax->getFoamStart();
+    d.foamTransparency = mHydrax->getFoamTransparency();
+    d.foamMaxDistance = mHydrax->getFoamMaxDistance();
+    d.depthLimit = mHydrax->getDepthLimit();
+    d.distLimit = mHydrax->getDistLimit();
+    d.smoothPower = mHydrax->getSmoothPower();
+    d.causticsScale = mHydrax->getCausticsScale();
+    d.causticsPower = mHydrax->getCausticsPower();
+    d.causticsEnd = mHydrax->getCausticsEnd();
+    d.sunStrength = mHydrax->getSunStrength();
+    d.sunArea = mHydrax->getSunArea();
+    d.sunColor = mHydrax->getSunColor();
+    d.godRaysExposure = mHydrax->getGodRaysExposure();
+    d.godRaysIntensity = mHydrax->getGodRaysIntensity();
+    d.has_grid = (mModule != nullptr);
+    if (d.has_grid)
+    {
+        d.grid = mModule->getOptions();
+    }
+    d.has_noise = (waternoise != nullptr);
+    if (d.has_noise)
+    {
+        d.noise = waternoise->getOptions();
+    }
+    d.valid = true;
+}
+
+void HydraxWater::ApplyComponents(Hydrax::HydraxComponent components)
+{
+    if (mHydrax == nullptr || !mHydrax->isCreated())
+        return;
+
+    // Same path as at map load: remove everything, set the components while nothing exists, create again.
+    mHydrax->remove();
+    mHydrax->setComponents(components);
+    mHydrax->create();
+    mHydrax->setPosition(Ogre::Vector3(0, waterHeight, 0));
+
+    char buf[160];
+    snprintf(buf, sizeof(buf), "[RoR|Hydrax] Components applied: requested=0x%02X, active=0x%02X (sun=1 foam=2 depth=4 smooth=8 caustics=16 underwater=32 uw-refl=64 godrays=128)",
+        (unsigned)components, (unsigned)mHydrax->getComponents());
+    Ogre::LogManager::getSingleton().logMessage(buf);
+}
+
+void HydraxWater::ResetToMapDefaults()
+{
+    const MapDefaults& d = mMapDefaults;
+    if (!d.valid || mHydrax == nullptr || !mHydrax->isCreated())
+        return;
+
+    // The sky overrides the water color every frame while the 'Water color' picker is in use
+    Terrain* terrain = App::GetGameContext()->GetTerrain().GetRef();
+    SkyXManager* skyx = (terrain) ? terrain->getSkyXManager() : nullptr;
+    if (skyx != nullptr)
+    {
+        skyx->ClearWaterColorOverride();
+    }
+
+    // Water level (FrameStepWater() moves the Hydrax plane when the level changes)
+    if (terrain && terrain->getWater())
+    {
+        terrain->getWater()->SetStaticWaterHeight(d.waterLevel);
+    }
+
+    // Components first (rebuilds shaders), the component-specific values after
+    if (mHydrax->getComponents() != d.components)
+    {
+        this->ApplyComponents(d.components);
+    }
+    mHydrax->setDepthVisibilityMask(d.depthMask);
+    mHydrax->setGlobalTransparency(d.globalTransparency);
+    mHydrax->setNormalDistortion(d.normalDistortion);
+    mHydrax->setPlanesError(d.planesError);
+    mHydrax->setWaterColor(d.waterColor);
+
+    if (mHydrax->isComponent(Hydrax::HYDRAX_COMPONENT_FOAM))
+    {
+        mHydrax->setFoamScale(d.foamScale);
+        mHydrax->setFoamStart(d.foamStart);
+        mHydrax->setFoamTransparency(d.foamTransparency);
+        mHydrax->setFoamMaxDistance(d.foamMaxDistance);
+    }
+    if (mHydrax->isComponent(Hydrax::HYDRAX_COMPONENT_DEPTH))
+    {
+        mHydrax->setDepthLimit(d.depthLimit);
+        mHydrax->setDistLimit(d.distLimit);
+    }
+    if (mHydrax->isComponent(Hydrax::HYDRAX_COMPONENT_SMOOTH))
+    {
+        mHydrax->setSmoothPower(d.smoothPower);
+    }
+    if (mHydrax->isComponent(Hydrax::HYDRAX_COMPONENT_CAUSTICS))
+    {
+        mHydrax->setCausticsScale(d.causticsScale);
+        mHydrax->setCausticsPower(d.causticsPower);
+        mHydrax->setCausticsEnd(d.causticsEnd);
+    }
+    if (mHydrax->isComponent(Hydrax::HYDRAX_COMPONENT_SUN))
+    {
+        mHydrax->setSunStrength(d.sunStrength);
+        mHydrax->setSunArea(d.sunArea);
+        mHydrax->setSunColor(d.sunColor);
+    }
+    if (mHydrax->isComponent(Hydrax::HYDRAX_COMPONENT_UNDERWATER_GODRAYS))
+    {
+        mHydrax->setGodRaysExposure(d.godRaysExposure);
+        mHydrax->setGodRaysIntensity(d.godRaysIntensity);
+    }
+
+    if (d.has_grid && mModule != nullptr)
+    {
+        mModule->setOptions(d.grid);
+    }
+    if (d.has_noise && waternoise != nullptr)
+    {
+        waternoise->setOptions(d.noise);
+    }
 }
 
 void HydraxWater::UpdateWater()

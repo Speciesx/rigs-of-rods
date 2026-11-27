@@ -22,6 +22,7 @@
 
 #include "Hydrax.h"
 #include "IGfxWater.h"
+#include "Perlin.h"
 #include "ProjectedGrid.h"
 
 #include <Ogre.h>
@@ -50,9 +51,40 @@ public:
 
     Hydrax::Hydrax* GetHydrax() { return mHydrax; }
 
+    /// Restores everything the 'Water settings' window can change to the values the map started with.
+    void ResetToMapDefaults();
+
+    /// Changes the Hydrax components. Rebuilds the whole water (the live switch of Hydrax::setComponents() crashes).
+    void ApplyComponents(Hydrax::HydraxComponent components);
+
 protected:
 
     void InitHydrax();
+    void SaveMapDefaults();
+
+    /// Water state right after the map was loaded
+    struct MapDefaults
+    {
+        bool valid = false;
+        float waterLevel = 0.f;
+        Hydrax::HydraxComponent components = Hydrax::HYDRAX_COMPONENTS_NONE;
+        Ogre::uint32 depthMask = 0xFFFFFFFF;
+        float globalTransparency = 0.f;
+        float normalDistortion = 0.075f;
+        float planesError = 3.5f;
+        Ogre::Vector3 waterColor = Ogre::Vector3::ZERO;
+        float foamScale = 0.1f, foamStart = 0.f, foamTransparency = 1.f, foamMaxDistance = 7.5e6f;
+        float depthLimit = 70.f, distLimit = 90.f, smoothPower = 5.f;
+        float causticsScale = 8.5f, causticsPower = 5.5f, causticsEnd = 0.7f;
+        float sunStrength = 1.75f, sunArea = 150.f;
+        Ogre::Vector3 sunColor = Ogre::Vector3(1.f, 0.9f, 0.6f);
+        Ogre::Vector3 godRaysExposure = Ogre::Vector3(0.76f, 2.46f, 2.29f);
+        float godRaysIntensity = 0.015f;
+        Hydrax::Module::ProjectedGrid::Options grid;
+        Hydrax::Noise::Perlin::Options noise;
+        bool has_grid = false;
+        bool has_noise = false;
+    } mMapDefaults;
 
     /// Terrain height with a small cache; used by Hydrax to flatten the waves at the shore.
     float SampleTerrainHeight(float x, float z);
