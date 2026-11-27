@@ -66,6 +66,8 @@ void main(void)
 {
     // Clip space position
 	gl_Position = gl_ModelViewProjectionMatrix * vertex;
+	// Never clip at the far plane (see the HLSL version): the oblique clip plane of the Hydrax RTTs tilts it
+	gl_Position.z = min(gl_Position.z, gl_Position.w * 0.99999);
 
 	vec3 v3Pos = uv0;
 	v3Pos.y += uInnerRadius;
