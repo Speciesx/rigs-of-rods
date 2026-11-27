@@ -712,6 +712,12 @@ void TopMenubar::Draw(float dt)
                 m_open_menu = TopMenu::TOPMENU_NONE;
             }
 
+            if (ImGui::Button(_LC("TopMenubar", "Water settings")))
+            {
+                App::GetGuiManager()->WaterControls.SetVisible(true);
+                m_open_menu = TopMenu::TOPMENU_NONE;
+            }
+
             if (ImGui::Button(_LC("TopMenubar", "Show console")))
             {
                 App::GetGuiManager()->ConsoleWindow.SetVisible(!App::GetGuiManager()->ConsoleWindow.IsVisible());

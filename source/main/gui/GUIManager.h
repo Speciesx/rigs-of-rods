@@ -47,6 +47,7 @@
 #include "GUI_NodeBeamUtils.h"
 #include "GUI_DirectionArrow.h"
 #include "GUI_VehicleInfoTPanel.h"
+#include "GUI_WaterSettings.h"
 #include "GUI_SimPerfStats.h"
 #include "GUI_SurveyMap.h"
 #include "GUI_TextureToolWindow.h"
@@ -126,6 +127,7 @@ public:
     GUI::GameChatBox            ChatBox;
     GUI::MpClientList           MpClientList;
     GUI::FrictionSettings       FrictionSettings;
+    GUI::WaterControlsPanel     WaterControls;
     GUI::TextureToolWindow      TextureToolWindow;
     GUI::GameControls           GameControls;
     GUI::RepositorySelector     RepositorySelector;

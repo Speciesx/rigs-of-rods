@@ -136,6 +136,7 @@ bool GUIManager::AreStaticMenusAllowed() //!< i.e. top menubar / vehicle UI butt
             !this->ConsoleWindow.IsHovered() &&
             !this->GameControls.IsHovered() &&
             !this->FrictionSettings.IsHovered() &&
+            !this->WaterControls.IsHovered() &&
             !this->TextureToolWindow.IsHovered() &&
             !this->NodeBeamUtils.IsHovered() &&
             !this->CollisionsDebug.IsHovered() &&
@@ -217,6 +218,11 @@ void GUIManager::DrawSimGuiBuffered(GfxActor* player_gfx_actor)
     if (this->FrictionSettings.IsVisible())
     {
         this->FrictionSettings.Draw();
+    }
+
+    if (this->WaterControls.IsVisible())
+    {
+        this->WaterControls.Draw();
     }
 
     if (this->SimPerfStats.IsVisible())
